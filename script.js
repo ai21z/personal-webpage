@@ -1,13 +1,143 @@
 /* ━━━ Necrography — Vissarion Zounarakis ━━━
  * Minimal, framework-free JS for:
+ * - Section navigation
+ * - Floating particles background
  * - Simple sigil rotation on click
- * - Basic particle effect
- * - Social links reveal
+ * - Subtle glitch effects
  * - Accessibility support
  */
 
 // ━━━ A11y: Insert current year in footer ━━━
-document.getElementById('yr').textContent = new Date().getFullYear();
+const yearElement = document.getElementById('yr');
+if (yearElement) yearElement.textContent = new Date().getFullYear();
+
+// ━━━ Navigation System ━━━
+const sections = document.querySelectorAll('.stage');
+const navButtons = document.querySelectorAll('.nav-btn');
+
+function showSection(sectionName) {
+  sections.forEach(section => {
+    if (section.dataset.section === sectionName) {
+      section.classList.add('active-section');
+      section.scrollTop = 0; // Reset scroll position
+    } else {
+      section.classList.remove('active-section');
+    }
+  });
+  
+  navButtons.forEach(btn => {
+    if (btn.dataset.section === sectionName) {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
+  });
+}
+
+// Initialize navigation
+navButtons.forEach(btn => {
+  btn.addEventListener('click', () => {
+    showSection(btn.dataset.section);
+  });
+});
+
+// Set initial active section
+showSection('intro');
+
+// ━━━ Floating Particles Background ━━━
+const canvas = document.getElementById('particles-canvas');
+if (canvas) {
+  const ctx = canvas.getContext('2d');
+  let particles = [];
+  let animationFrameId;
+  
+  function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  
+  resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
+  
+  class Particle {
+    constructor() {
+      this.x = Math.random() * canvas.width;
+      this.y = Math.random() * canvas.height;
+      this.size = Math.random() * 2 + 0.5;
+      this.speedX = (Math.random() - 0.5) * 0.3;
+      this.speedY = (Math.random() - 0.5) * 0.3;
+      this.opacity = Math.random() * 0.5 + 0.2;
+      this.color = Math.random() > 0.5 ? '63, 255, 159' : '122, 174, 138'; // decay-green or necrotic
+    }
+    
+    update() {
+      this.x += this.speedX;
+      this.y += this.speedY;
+      
+      // Wrap around edges
+      if (this.x > canvas.width) this.x = 0;
+      if (this.x < 0) this.x = canvas.width;
+      if (this.y > canvas.height) this.y = 0;
+      if (this.y < 0) this.y = canvas.height;
+    }
+    
+    draw() {
+      ctx.fillStyle = `rgba(${this.color}, ${this.opacity})`;
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  
+  // Create particles
+  const particleCount = window.innerWidth < 768 ? 40 : 80;
+  for (let i = 0; i < particleCount; i++) {
+    particles.push(new Particle());
+  }
+  
+  function animateParticles() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    particles.forEach(particle => {
+      particle.update();
+      particle.draw();
+    });
+    
+    // Draw connections between nearby particles
+    particles.forEach((p1, i) => {
+      particles.slice(i + 1).forEach(p2 => {
+        const dx = p1.x - p2.x;
+        const dy = p1.y - p2.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance < 120) {
+          ctx.strokeStyle = `rgba(63, 255, 159, ${0.1 * (1 - distance / 120)})`;
+          ctx.lineWidth = 0.5;
+          ctx.beginPath();
+          ctx.moveTo(p1.x, p1.y);
+          ctx.lineTo(p2.x, p2.y);
+          ctx.stroke();
+        }
+      });
+    });
+    
+    animationFrameId = requestAnimationFrame(animateParticles);
+  }
+  
+  // Start animation if motion is allowed
+  if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    animateParticles();
+  } else {
+    // Draw static particles for reduced motion
+    particles.forEach(particle => particle.draw());
+  }
+}
+
+// ━━━ Glitch Text Effect Setup ━━━
+const glitchElements = document.querySelectorAll('.glitch-text');
+glitchElements.forEach(el => {
+  el.setAttribute('data-text', el.textContent);
+});
 
 // ━━━ PRM Gate: Detect user preference ━━━
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;

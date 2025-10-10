@@ -32,13 +32,37 @@
 <body>
   <a class="skip" href="#main">Skip to content</a>
 
-  <main id="main" class="stage" aria-label="Intro">
+  <!-- Floating particles background -->
+  <canvas id="particles-canvas" aria-hidden="true"></canvas>
+  
+  <!-- Navigation -->
+  <nav class="main-nav" role="navigation" aria-label="Main navigation">
+    <button class="nav-btn" data-section="intro" aria-label="Navigate to intro">
+      <span class="nav-index">00</span>
+      <span class="nav-label">Intro</span>
+    </button>
+    <button class="nav-btn" data-section="about" aria-label="Navigate to about">
+      <span class="nav-index">01</span>
+      <span class="nav-label">About</span>
+    </button>
+    <button class="nav-btn" data-section="projects" aria-label="Navigate to projects">
+      <span class="nav-index">02</span>
+      <span class="nav-label">Projects</span>
+    </button>
+    <button class="nav-btn" data-section="blog" aria-label="Navigate to blog">
+      <span class="nav-index">03</span>
+      <span class="nav-label">Blog</span>
+    </button>
+  </nav>
+
+  <!-- SECTION: INTRO -->
+  <main id="main" class="stage active-section" data-section="intro" aria-label="Intro">
     <!-- Ambient photographic fungus (very dim) -->
     <div class="fungi-ambient" aria-hidden="true"></div>
 
     <section class="grid">
       <!-- Centered name -->
-      <h1 class="name xanh-mono-regular">Vissarion Zounarakis</h1>
+      <h1 class="name xanh-mono-regular glitch-text">Vissarion Zounarakis</h1>
 
       <!-- Text column (left) -->
       <div class="text-column">
@@ -74,6 +98,196 @@
       </footer>
     </section>
   </main>
+
+  <!-- SECTION: ABOUT -->
+  <section class="stage" data-section="about" aria-label="About & Resume">
+    <div class="fungi-ambient" aria-hidden="true"></div>
+    <div class="content-grid">
+      <div class="section-header">
+        <span class="section-index">01</span>
+        <h2 class="section-title xanh-mono-regular">About & Resume</h2>
+      </div>
+      
+      <div class="content-layout">
+        <div class="content-main">
+          <div class="bio-card">
+            <h3 class="card-title">Background</h3>
+            <p>Software engineer with a focus on building robust, maintainable systems. Originally from Greece, now based in Barcelona. I believe in honest, functional design that serves users without unnecessary complexity.</p>
+            <p>My approach combines technical precision with an understanding that software exists within larger human contexts. Clean code, clear documentation, and thoughtful architecture.</p>
+          </div>
+
+          <div class="bio-card">
+            <h3 class="card-title">Expertise</h3>
+            <ul class="skill-list">
+              <li class="skill-item"><span class="skill-marker">▸</span> Full-stack development (Python, JavaScript, Node.js)</li>
+              <li class="skill-item"><span class="skill-marker">▸</span> System architecture & API design</li>
+              <li class="skill-item"><span class="skill-marker">▸</span> Database design (SQL, NoSQL)</li>
+              <li class="skill-item"><span class="skill-marker">▸</span> Cloud infrastructure (AWS, Docker)</li>
+              <li class="skill-item"><span class="skill-marker">▸</span> DevOps & CI/CD pipelines</li>
+            </ul>
+          </div>
+
+          <div class="bio-card">
+            <h3 class="card-title">Experience</h3>
+            <div class="experience-item">
+              <div class="exp-header">
+                <h4 class="exp-title">Senior Software Engineer</h4>
+                <span class="exp-date">2021—Present</span>
+              </div>
+              <p class="exp-company">Tech Company · Barcelona</p>
+              <p class="exp-desc">Leading development of scalable backend systems. Architecting microservices infrastructure and mentoring junior developers.</p>
+            </div>
+
+            <div class="experience-item">
+              <div class="exp-header">
+                <h4 class="exp-title">Software Engineer</h4>
+                <span class="exp-date">2018—2021</span>
+              </div>
+              <p class="exp-company">Startup · Athens</p>
+              <p class="exp-desc">Full-stack development for fintech platform. Built RESTful APIs and responsive web applications.</p>
+            </div>
+          </div>
+        </div>
+
+        <aside class="content-sidebar">
+          <div class="sidebar-card">
+            <h3 class="card-title">Contact</h3>
+            <ul class="contact-list">
+              <li><a href="mailto:hello@example.com" class="contact-link">hello@example.com</a></li>
+              <li>Barcelona, Spain</li>
+              <li>GMT+1</li>
+            </ul>
+          </div>
+
+          <div class="sidebar-card">
+            <h3 class="card-title">Languages</h3>
+            <ul class="simple-list">
+              <li>Greek — Native</li>
+              <li>English — Fluent</li>
+              <li>Spanish — Conversational</li>
+            </ul>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION: PROJECTS -->
+  <section class="stage" data-section="projects" aria-label="Projects">
+    <div class="fungi-ambient" aria-hidden="true"></div>
+    <div class="content-grid">
+      <div class="section-header">
+        <span class="section-index">02</span>
+        <h2 class="section-title xanh-mono-regular">Projects</h2>
+      </div>
+
+      <div class="projects-grid">
+        <article class="project-card">
+          <div class="project-header">
+            <h3 class="project-title">Distributed Cache System</h3>
+            <span class="project-year">2024</span>
+          </div>
+          <p class="project-desc">High-performance distributed caching layer with automatic failover. Built with Redis, Python, and Docker. Reduced API response times by 70%.</p>
+          <div class="project-tags">
+            <span class="tag">Python</span>
+            <span class="tag">Redis</span>
+            <span class="tag">Docker</span>
+          </div>
+          <a href="#" class="project-link">View Project →</a>
+        </article>
+
+        <article class="project-card">
+          <div class="project-header">
+            <h3 class="project-title">API Gateway</h3>
+            <span class="project-year">2023</span>
+          </div>
+          <p class="project-desc">Microservices API gateway handling authentication, rate limiting, and request routing. Supports 10k+ requests per second.</p>
+          <div class="project-tags">
+            <span class="tag">Node.js</span>
+            <span class="tag">Express</span>
+            <span class="tag">JWT</span>
+          </div>
+          <a href="#" class="project-link">View Project →</a>
+        </article>
+
+        <article class="project-card">
+          <div class="project-header">
+            <h3 class="project-title">Data Pipeline</h3>
+            <span class="project-year">2023</span>
+          </div>
+          <p class="project-desc">ETL pipeline for processing large datasets. Automated data validation and transformation with comprehensive monitoring.</p>
+          <div class="project-tags">
+            <span class="tag">Python</span>
+            <span class="tag">PostgreSQL</span>
+            <span class="tag">Airflow</span>
+          </div>
+          <a href="#" class="project-link">View Project →</a>
+        </article>
+
+        <article class="project-card">
+          <div class="project-header">
+            <h3 class="project-title">CLI Toolkit</h3>
+            <span class="project-year">2022</span>
+          </div>
+          <p class="project-desc">Developer productivity toolkit with file generators, code formatters, and project scaffolding. Open source with 500+ GitHub stars.</p>
+          <div class="project-tags">
+            <span class="tag">TypeScript</span>
+            <span class="tag">Node.js</span>
+            <span class="tag">CLI</span>
+          </div>
+          <a href="#" class="project-link">View Project →</a>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION: BLOG -->
+  <section class="stage" data-section="blog" aria-label="Blog">
+    <div class="fungi-ambient" aria-hidden="true"></div>
+    <div class="content-grid">
+      <div class="section-header">
+        <span class="section-index">03</span>
+        <h2 class="section-title xanh-mono-regular">Blog</h2>
+      </div>
+
+      <div class="blog-list">
+        <article class="blog-post">
+          <time class="post-date" datetime="2024-09-15">15.09.2024</time>
+          <h3 class="post-title"><a href="#" class="post-link">Designing Resilient Distributed Systems</a></h3>
+          <p class="post-excerpt">Lessons learned from building fault-tolerant architectures. How to handle cascading failures, implement circuit breakers, and design for degraded operation.</p>
+          <span class="post-read-time">8 min read</span>
+        </article>
+
+        <article class="blog-post">
+          <time class="post-date" datetime="2024-07-22">22.07.2024</time>
+          <h3 class="post-title"><a href="#" class="post-link">The Art of API Design</a></h3>
+          <p class="post-excerpt">Building RESTful APIs that developers actually want to use. Consistency, predictability, and thoughtful error handling.</p>
+          <span class="post-read-time">6 min read</span>
+        </article>
+
+        <article class="blog-post">
+          <time class="post-date" datetime="2024-05-10">10.05.2024</time>
+          <h3 class="post-title"><a href="#" class="post-link">Docker in Production: Hard-Won Insights</a></h3>
+          <p class="post-excerpt">What I wish I knew before deploying containerized applications at scale. Resource limits, health checks, and orchestration strategies.</p>
+          <span class="post-read-time">10 min read</span>
+        </article>
+
+        <article class="blog-post">
+          <time class="post-date" datetime="2024-03-05">05.03.2024</time>
+          <h3 class="post-title"><a href="#" class="post-link">Database Indexing Strategies</a></h3>
+          <p class="post-excerpt">Understanding when and how to index. Query optimization, covering indexes, and avoiding common pitfalls.</p>
+          <span class="post-read-time">7 min read</span>
+        </article>
+
+        <article class="blog-post">
+          <time class="post-date" datetime="2024-01-18">18.01.2024</time>
+          <h3 class="post-title"><a href="#" class="post-link">Monoliths vs Microservices: A Pragmatic View</a></h3>
+          <p class="post-excerpt">Beyond the hype: when microservices actually make sense and when they don't. Organizational readiness matters more than technology.</p>
+          <span class="post-read-time">9 min read</span>
+        </article>
+      </div>
+    </div>
+  </section>
 
   <script src="./script.js"></script>
 </body>
