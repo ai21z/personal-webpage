@@ -1,0 +1,13 @@
+{
+  "name": "necrography-icons",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate-icons": "node generate-icons.js",
+    "generate-og": "node generate-og.js"
+  },
+  "devDependencies": {
+    "sharp": "^0.33.0"
+  }
+}
