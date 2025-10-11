@@ -32,28 +32,14 @@
 <body>
   <a class="skip" href="#main">Skip to content</a>
 
-  <!-- Floating particles background -->
-  <canvas id="particles-canvas" aria-hidden="true"></canvas>
+  <!-- Static Fungal Mycelium Background Image -->
+  <div id="bg-fungi" aria-hidden="true"></div>
   
-  <!-- Navigation -->
-  <nav class="main-nav" role="navigation" aria-label="Main navigation">
-    <button class="nav-btn" data-section="intro" aria-label="Navigate to intro">
-      <span class="nav-index">00</span>
-      <span class="nav-label">Intro</span>
-    </button>
-    <button class="nav-btn" data-section="about" aria-label="Navigate to about">
-      <span class="nav-index">01</span>
-      <span class="nav-label">About</span>
-    </button>
-    <button class="nav-btn" data-section="projects" aria-label="Navigate to projects">
-      <span class="nav-index">02</span>
-      <span class="nav-label">Projects</span>
-    </button>
-    <button class="nav-btn" data-section="blog" aria-label="Navigate to blog">
-      <span class="nav-index">03</span>
-      <span class="nav-label">Blog</span>
-    </button>
-  </nav>
+  <!-- Optional: Keep canvas for ambient spores only -->
+  <canvas id="network-canvas" aria-hidden="true"></canvas>
+  
+  <!-- Network Navigation Nodes (rendered via JS with smart placement) -->
+  <div id="network-nav" role="navigation" aria-label="Main navigation"></div>
 
   <!-- SECTION: INTRO -->
   <main id="main" class="stage active-section" data-section="intro" aria-label="Intro">
