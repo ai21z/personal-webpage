@@ -18,7 +18,7 @@ FUNGAL = (74, 92, 82)        # --fungal (dim nodes)
 EMBER = (194, 74, 46)        # --ember (junction highlights)
 
 # Growth parameters
-ROOT = (int(W * 0.85), int(H * 0.85))  # BOTTOM-RIGHT corner root (or use 0.15 for top-right)
+ROOT = (int(W * 0.85), int(H * 0.15))  # TOP-RIGHT corner root
 NUM_ATTRACTORS = 3500  # More attractors for larger radius
 INFLUENCE_RADIUS = 150
 KILL_RADIUS = 45

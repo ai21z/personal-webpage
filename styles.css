@@ -357,20 +357,21 @@ body{
   position:relative; z-index:2;
   display:grid; 
   grid-template-columns: repeat(12, 1fr);
-  grid-template-rows: auto 1fr auto;
-  gap: var(--gap-large);
+  grid-template-rows: 1fr auto auto auto 1fr auto;
+  gap: 0;
+  row-gap: calc(var(--gap) * 2);
   max-width: 1200px;
-  min-height: 100vh;
+  height: 100vh;
   margin: 0 auto;
-  padding: var(--gap-large);
-  align-items: center;
+  padding: calc(var(--gap) * 2) var(--gap-large);
+  align-items: start;
 }
 
 /* ━━━ Responsive (Maintain Swiss Principles) ━━━ */
 @media (max-width: 900px){
   .grid{ 
     grid-template-columns: 1fr;
-    grid-template-rows: auto auto 1fr auto;
+    grid-template-rows: auto auto auto 1fr auto;
     gap: calc(var(--gap) * 2);
     padding: var(--gap);
   }
@@ -382,29 +383,29 @@ body{
     padding-bottom: calc(var(--gap-small));
   }
   
-  .text-column{
+  .portrait-wrap {
     grid-column: 1;
     grid-row: 2;
+    justify-self: center;
+    margin: calc(var(--gap) * 1.5) 0;
+  }
+  
+  .portrait {
+    width: 100%;
+    max-width: 320px;
+    height: auto;
+  }
+  
+  .text-column{
+    grid-column: 1;
+    grid-row: 3;
+    margin-top: 0;
     justify-self: start;
     gap: calc(var(--gap) * 1.5);
   }
   
-  .text-column::before {
-    left: calc(var(--unit) * -2.5);
-    height: 36px;
-  }
-  
   .tape{
     max-width: 100%;
-  }
-  
-  .sigil-wrap{
-    grid-column: 1;
-    grid-row: 3;
-    width: min(35vw, 180px);
-    height: min(35vw, 180px);
-    justify-self: start;
-    margin-top: 0;
   }
   
   .social::before {
@@ -417,7 +418,7 @@ body{
   }
   
   .foot{
-    grid-row: 4;
+    grid-row: 5;
     flex-direction: column;
     gap: var(--unit);
     align-items: flex-start;
@@ -430,13 +431,13 @@ body{
 
 /* ━━━ Name (Swiss: Precise, Left-Aligned) ━━━ */
 .name{
-  grid-column: 1 / -1;
-  grid-row: 1;
+  grid-column: 1 / 7;
+  grid-row: 2;
   font-size: var(--text-2xl);
   font-weight: 400;
   letter-spacing: -0.02em;
   margin: 0;
-  padding-bottom: var(--gap);
+  padding-bottom: 0;
   text-align: left;
   line-height: var(--leading-tight);
   /* Character: Subtle gradient for depth */
@@ -448,16 +449,59 @@ body{
   background-clip: text;
 }
 
-/* ━━━ Text Column (Swiss Grid: Columns 1-6, Row 2) ━━━ */
-.text-column{
+/* ━━━ Portrait (Left-aligned, vertically centered group) ━━━ */
+.portrait-wrap {
   grid-column: 1 / 7;
-  grid-row: 2;
+  grid-row: 3;
+  justify-self: start;
+  align-self: start;
+  margin: 0;
+  position: relative;
+  z-index: 3;
+  opacity: 0;
+  animation: fadeInPortrait 1.2s cubic-bezier(0.16, 1, 0.3, 1) 0.4s forwards;
+}
+
+@keyframes fadeInPortrait {
+  from { 
+    opacity: 0; 
+    transform: translateY(-10px) scale(0.95);
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0) scale(1);
+  }
+}
+
+.portrait {
+  width: 380px;
+  height: auto;
+  border-radius: 0;
+  object-fit: contain;
+  border: none;
+  box-shadow: none;
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  filter: grayscale(0.2) contrast(1.05);
+  opacity: 0.95;
+}
+
+.portrait:hover {
+  filter: grayscale(0) contrast(1.1);
+  opacity: 1;
+  transform: scale(1.02);
+}
+
+/* ━━━ Text Column (Below portrait, Row 4) ━━━ */
+.text-column{
+  grid-column: 1 / 8;
+  grid-row: 4;
   display: flex;
   flex-direction: column;
-  gap: calc(var(--gap) * 2);
-  align-self: center;
+  gap: calc(var(--gap) * 1.5);
+  align-self: start;
   justify-self: start;
   position: relative;
+  margin: 0;
 }
 
 /* Character: Vertical accent rule (Swiss precision) */
@@ -493,25 +537,21 @@ body{
   opacity:.95;
 }
 
-/* ━━━ Sigil (Rams: Honest, Unobtrusive) ━━━ */
+/* ━━━ Sigil (In footer between TM and coords - 2 euro coin size) ━━━ */
 .sigil-wrap{
-  grid-column: 8 / -1;
-  grid-row: 2;
-  width: min(24vmin, 220px);
-  height: min(24vmin, 220px);
+  width: 85px;
+  height: 85px;
   display: grid;
   place-items: center;
-  align-self: center;
-  justify-self: center;
   cursor: pointer;
   outline: none;
   position: relative;
-  /* Character: Subtle geometric frame */
   padding: calc(var(--unit) * 2);
   border-radius: 2px;
   background: radial-gradient(ellipse at 55% 45%, 
-    rgba(143, 180, 255, 0.02) 0%, 
+    rgba(143, 180, 255, 0.03) 0%, 
     transparent 65%);
+  transition: all .35s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .sigil-wrap:focus-visible{ 
@@ -521,7 +561,9 @@ body{
 
 .sigil-wrap:hover{
   transform: translateY(-4px);
-  transition: all .35s cubic-bezier(0.16, 1, 0.3, 1);
+  background: radial-gradient(ellipse at 55% 45%, 
+    rgba(143, 180, 255, 0.05) 0%, 
+    transparent 65%);
 }
 
 .sigil-wrap img{
@@ -534,7 +576,7 @@ body{
   opacity: 0.96;
 }
 
-/* Character: Rotation preview on hover */
+/* Character: Rotation + Spore glow on hover */
 .sigil-wrap:hover img{
   transform: rotate(8deg) scale(1.02);
   filter: contrast(1.1) brightness(1.05) drop-shadow(0 8px 16px rgba(63, 255, 159, 0.2));
@@ -606,24 +648,24 @@ body{
   opacity: 0.55;
 }
 
-/* ━━━ Footer (Grid Row 3) ━━━ */
+/* ━━━ Footer (Grid Row 6 - Bottom of page) ━━━ */
 .foot{ 
   grid-column: 1 / -1;
-  grid-row: 3;
+  grid-row: 6;
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
+  align-self: end;
   color: rgba(230, 227, 216, 0.38);
   font-size: 11px;
   line-height: var(--leading-normal);
   letter-spacing: 0.02em;
-  padding-top: var(--gap);
+  padding: calc(var(--gap) * 2) 0 0 0;
+  gap: calc(var(--gap) * 2);
   z-index: 3;
 }
 
-/* Character: Barcelona coordinates */
-.foot::after {
-  content: '41.3874° N, 2.1686° E';
+.foot-coords {
   opacity: 0.75;
   font-feature-settings: 'tnum' 1;
   font-size: var(--text-caption);
