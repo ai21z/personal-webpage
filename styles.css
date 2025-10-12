@@ -79,26 +79,95 @@ body{
  * 9999: skip link focus
  */
 
-/* ━━━ Static Fungal Mycelium Background ━━━ */
+/* ━━━ Multi-Layered Mycelium Network with Independent Branch Movement ━━━ */
 #bg-fungi{
   position:fixed;
   inset:0;
-  background: url("./artifacts/fungi_network_bg.jpg") center/cover no-repeat;
-  /* Darker baseline so reveals pop - "horror game" aesthetic */
-  filter: contrast(1.1) brightness(0.58) saturate(0.9);
   z-index:0;
   pointer-events:none;
+  /* Base layer with primary movement */
+  background: url("./artifacts/bg_base.png") center/cover no-repeat;
+  opacity: 0.25;
+  filter: contrast(1.2) brightness(0.7);
+  transition: opacity 0.4s ease;
+  animation: branchSway1 9s ease-in-out infinite;
 }
 
-/* ━━━ Canvas Layer: Spores + Branch Reveal Highlights ━━━ */
-#network-canvas{
+/* Layer 2: Different timing and direction */
+#bg-fungi::before{
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: url("./artifacts/bg_base.png") center/cover no-repeat;
+  opacity: 0.4;
+  filter: contrast(1.1) brightness(0.75);
+  animation: branchSway2 13s ease-in-out infinite;
+  mix-blend-mode: lighten;
+}
+
+/* Layer 3: Another variation */
+#bg-fungi::after{
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: url("./artifacts/bg_base.png") center/cover no-repeat;
+  opacity: 0.3;
+  filter: contrast(1.15) brightness(0.72);
+  animation: branchSway3 11s ease-in-out infinite;
+  mix-blend-mode: lighten;
+}
+
+/* Animation 1: Base layer - subtle foreground motion */
+@keyframes branchSway1 {
+  0%, 100% {
+    transform: translate(0, 0) scale(1.02) rotate(0deg);
+  }
+  33% {
+    transform: translate(5px, -4px) scale(1.02) rotate(0.3deg);
+  }
+  66% {
+    transform: translate(-4px, 5px) scale(1.02) rotate(-0.3deg);
+  }
+}
+
+/* Animation 2: Mid-depth layer - MUCH larger offset for parallax */
+@keyframes branchSway2 {
+  0%, 100% {
+    transform: translate(0, 0) scale(1.04) rotate(0deg);
+  }
+  25% {
+    transform: translate(-25px, -22px) scale(1.04) rotate(-0.7deg);
+  }
+  50% {
+    transform: translate(-30px, 20px) scale(1.04) rotate(0.8deg);
+  }
+  75% {
+    transform: translate(22px, 28px) scale(1.04) rotate(-0.75deg);
+  }
+}
+
+/* Animation 3: Deep background layer - EXTREME offset for depth */
+@keyframes branchSway3 {
+  0%, 100% {
+    transform: translate(0, 0) scale(1.06) rotate(0deg);
+  }
+  40% {
+    transform: translate(40px, 38px) scale(1.06) rotate(1deg);
+  }
+  80% {
+    transform: translate(-38px, -35px) scale(1.06) rotate(-1.1deg);
+  }
+}
+
+/* ━━━ Canvas Layers: Spores (animated) + Reveal (on-demand) ━━━ */
+#spore-canvas, #reveal-canvas{
   position:fixed;
   top:0; left:0;
   width:100%; height:100%;
-  z-index:1;
   pointer-events:none;
-  /* Full opacity - handles spores and branch highlights */
 }
+#spore-canvas{ z-index:1; }
+#reveal-canvas{ z-index:2; }
 
 /* ━━━ Network Navigation System ━━━ */
 #network-nav{
@@ -110,34 +179,64 @@ body{
 
 .network-node-label{
   position:absolute;
-  transform:translate(-50%, -50%);
-  pointer-events:auto;
+  transform:translate(-50%,-50%);
   background:none;
-  border:none;
+  border:0;
   padding:0;
-  margin:0;
-  
-  font-family:"Xanh Mono", monospace;
-  font-size:12px;
-  letter-spacing:0.08em;
-  text-transform:none;
-  color:var(--bone);
-  opacity:0.18;
-  text-shadow:none;
-  transition:opacity .25s ease, filter .25s ease, transform .25s ease;
+  color:rgba(122,174,138,.15); /* Barely visible necrotic green */
+  font: 400 10px "Xanh Mono", monospace; /* Smaller text */
+  text-transform:lowercase; /* Force lowercase */
+  letter-spacing:.05em;
+  pointer-events:auto;
   cursor:pointer;
+  opacity:0;
+  transition:opacity .3s ease, color .3s ease, transform .25s ease;
+  will-change: transform, opacity, color;
 }
 
-.network-node-label.visible{
-  opacity:0.18;
+.network-node-label .node-index{ display:none; }
+.network-node-label .node-label{ 
+  text-transform:lowercase; 
+  font-size:10px;
+  white-space:nowrap;
+  position:relative;
+  z-index:2;
+}
+.network-node-label.visible{ opacity:1; /* Full opacity, but text is dim */ }
+
+.network-node-label::before{
+  content:'';
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:12px;
+  height:12px;
+  border-radius:999px;
+  background:var(--necrotic); /* Necrotic green core */
+  opacity:.3;
+  box-shadow:0 0 0 0 rgba(122,174,138,0);
+  transform:translate(-50%,-50%);
+  transition: transform .3s ease, box-shadow .3s ease, opacity .3s ease, width .3s ease, height .3s ease;
+  z-index:1;
 }
 
 .network-node-label:hover,
-.network-node-label:focus,
+.network-node-label:focus-visible,
 .network-node-label.active{
+  color:rgba(122,174,138,.95); /* Bright necrotic green text */
+}
+
+.network-node-label:hover::before,
+.network-node-label:focus-visible::before,
+.network-node-label.active::before{
+  width:24px; /* Grow bigger */
+  height:24px;
+  transform:translate(-50%,-50%);
   opacity:1;
-  filter:brightness(1.1);
-  text-shadow:0 0 8px rgba(63,255,159,0.35);
+  background:radial-gradient(circle, var(--ember) 0%, var(--necrotic) 40%, transparent 70%);
+  box-shadow: 0 0 24px 12px rgba(122,174,138,.35),
+              0 0 48px 24px rgba(122,174,138,.15),
+              0 0 12px 6px rgba(194,74,46,.25) inset; /* Ember inner glow */
 }
 
 .network-node-label:focus-visible{
@@ -381,29 +480,17 @@ body{
   to{ opacity: 0.45; }
 }
 
-/* ━━━ Tape Line (reveals smoothly) ━━━ */
+/* ━━━ Tape Line (GPU-animated reveal) ━━━ */
 .tape{
-  max-width: 0ch;
-  overflow: hidden;
-  margin: 0;
-  padding: 0;
-  opacity: 0;
-  font-size: var(--text-base);
-  line-height: var(--leading-relaxed);
-  letter-spacing: 0;
-  animation: reveal 3s ease-in-out 1s forwards;
-  transform-origin: left center;
+  display:inline-block;
+  transform-origin:left center;
+  transform:scaleX(0);
+  opacity:0;
+  transition:transform .8s cubic-bezier(.16,1,.3,1) .6s, opacity .8s ease .6s;
 }
-
-@keyframes reveal{
-  from{ 
-    max-width:0ch; 
-    opacity:0;
-  }
-  to{ 
-    max-width: var(--tape-w); 
-    opacity:0.95;
-  }
+.stage.active-section .tape{
+  transform:scaleX(1);
+  opacity:.95;
 }
 
 /* ━━━ Sigil (Rams: Honest, Unobtrusive) ━━━ */

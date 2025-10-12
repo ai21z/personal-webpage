@@ -49,15 +49,16 @@ function computeCover() {
  */
 async function loadMycelium() {
   try {
-    const response = await fetch('artifacts/fungi_network_map.json');
+    const response = await fetch('artifacts/network.json');
     MYC_MAP = await response.json();
     console.log(`✅ Loaded ${MYC_MAP.paths.length} paths, ${MYC_MAP.junctions.length} junctions`);
+    console.log(`✅ Strategic nodes:`, MYC_MAP.strategic);
     
     BG_IMG = new Image();
     await new Promise((resolve, reject) => {
       BG_IMG.onload = resolve;
       BG_IMG.onerror = reject;
-      BG_IMG.src = 'artifacts/fungi_network_bg.jpg';
+      BG_IMG.src = 'artifacts/bg_base.png';
     });
     
     computeCover();
@@ -94,6 +95,59 @@ function showSection(sectionName) {
   document.querySelectorAll('.network-node-label').forEach(label =>
     label.classList.toggle('active', label.dataset.section === sectionName)
   );
+}
+
+/**
+ * Strategic node picker: root + top→bottom sorted majors
+ */
+function pickStrategicNodes() {
+  const js = MYC_MAP.junctions;
+  if (!js || !js.length) return [];
+
+  // Prefer lower-right as root
+  const root = js.reduce((best, j) => {
+    const score = (j.x / MYC_MAP.width) * 0.65 + (j.y / MYC_MAP.height) * 0.35 + j.r * 0.02 - j.depth * 0.02;
+    return (!best || score > best._score) ? { ...j, _score: score } : best;
+  }, null);
+
+  // Far junctions as majors
+  const far = js
+    .filter(j => {
+      const dx = j.x - root.x, dy = j.y - root.y, d = Math.hypot(dx, dy);
+      return d > Math.min(MYC_MAP.width, MYC_MAP.height) * 0.25 && j.depth <= 6;
+    })
+    .map(j => ({ ...j, _d: Math.hypot(j.x - root.x, j.y - root.y) }))
+    .sort((a, b) => b._d - a._d);
+
+  // Pick three majors with vertical separation
+  const majors = [];
+  for (const j of far) {
+    if (majors.length === 3) break;
+    if (majors.every(k => Math.abs(k.y - j.y) > MYC_MAP.height * 0.12)) majors.push(j);
+  }
+  
+  // Fallback if needed
+  while (majors.length < 3) majors.push(far[majors.length] || root);
+
+  // Sort by Y (top→bottom): about, projects, blog
+  majors.sort((a, b) => a.y - b.y);
+
+  return [root, ...majors];
+}
+
+function findNearbyPaths(j, r = 140) {
+  const out = [];
+  for (let i = 0; i < MYC_MAP.paths.length; i++) {
+    const path = MYC_MAP.paths[i];
+    for (const [x, y] of path) {
+      const d = Math.hypot(x - j.x, y - j.y);
+      if (d <= r) {
+        out.push(i);
+        break;
+      }
+    }
+  }
+  return out;
 }
 
 /**
@@ -254,261 +308,332 @@ function findPathsNearJunction(junction, radiusPx = 120) {
   return nearby;
 }
 
-// ━━━ Layout Navigation Nodes Using Exported Junctions ━━━
+// ━━━ Layout Navigation Nodes Using Strategic Positions ━━━
 function layoutNavNodes() {
-  if (!MYC_MAP) {
+  if (!MYC_MAP || !MYC_MAP.strategic) {
     console.warn('⚠️ Mycelium geometry not loaded yet');
     return;
   }
-  
-  const mobile = window.matchMedia('(max-width: 900px)').matches;
-  const tablet = window.matchMedia('(max-width: 1200px)').matches;
-  const labelSize = mobile 
-    ? { w: 64, h: 24 } 
-    : tablet 
-    ? { w: 120, h: 28 } 
-    : { w: 140, h: 28 };
 
-  // viewport-fraction zones (tweak to taste)
-  const ZONES = [
-    { key: 'intro',    cx: 0.73, cy: 0.58, rx: 0.08, ry: 0.08 },
-    { key: 'about',    cx: 0.76, cy: 0.30, rx: 0.10, ry: 0.08 },
-    { key: 'projects', cx: 0.68, cy: 0.46, rx: 0.10, ry: 0.08 },
-    { key: 'blog',     cx: 0.56, cy: 0.64, rx: 0.10, ry: 0.08 }
-  ];
-
-  let spots = pickNavByZones(ZONES, labelSize);
-
-  // fallback to scoring picker if zones couldn't place all
-  if (spots.length < NAV_SECTIONS.length) {
-    const missing = NAV_SECTIONS.length - spots.length;
-    const extra = pickNavFromJunctions(missing, labelSize);
-    spots = spots.concat(extra.slice(0, missing));
-  }
-  
   const nav = document.getElementById('network-nav');
   if (!nav) return;
   nav.innerHTML = '';
   NAV_GROUPS.clear();
 
-  spots.forEach((spot, i) => {
-    const cfg = NAV_SECTIONS[i];
-    if (!cfg) return;
-    
-    const nodeIdx = i;
-    
-    // Find paths near this junction
-    const nearbyPaths = findPathsNearJunction(spot.junction, 120);
-    NAV_GROUPS.set(nodeIdx, { 
-      junction: spot.junction, 
-      nearbyPaths,
-      x: spot.centerX,
-      y: spot.centerY,
-      section: cfg.section
-    });
-    
+  // Use pre-calculated strategic positions from Python generator
+  const cfgs = [
+    { section: 'intro', node: MYC_MAP.strategic.intro },
+    { section: 'about', node: MYC_MAP.strategic.about },
+    { section: 'projects', node: MYC_MAP.strategic.projects },
+    { section: 'blog', node: MYC_MAP.strategic.blog },
+  ];
+
+  cfgs.forEach((cfg, i) => {
+    if (!cfg.node) {
+      console.warn(`⚠️ Strategic node ${cfg.section} not found`);
+      return;
+    }
+
+    const [vx, vy] = toViewport([cfg.node.x, cfg.node.y]);
+    const nearby = findNearbyPaths(cfg.node, 160);
+    const path2d = buildGroupPath(nearby);
+
+    NAV_GROUPS.set(i, { section: cfg.section, x: vx, y: vy, path2d, nearbyPaths: nearby });
+
     const btn = document.createElement('button');
     btn.className = 'network-node-label';
-    btn.style.left = `${spot.centerX}px`;
-    btn.style.top = `${spot.centerY}px`;
+    btn.style.left = `${vx}px`;
+    btn.style.top = `${vy}px`;
     btn.dataset.section = cfg.section;
-    btn.dataset.nodeIdx = nodeIdx;
+    btn.innerHTML = `<span class="node-label">${cfg.section}</span>`;
     btn.setAttribute('aria-label', `Go to ${cfg.section}`);
-    btn.textContent = cfg.section; // lowercase text only
     
     btn.addEventListener('click', () => showSection(cfg.section));
-    btn.addEventListener('keydown', (e) => { 
-      if (e.key === 'Enter' || e.key === ' ') { 
-        e.preventDefault(); 
-        showSection(cfg.section); 
-      } 
-    });
+    btn.addEventListener('mouseenter', () => setActive(i, performance.now()));
+    btn.addEventListener('mouseleave', () => setActive(null, performance.now()));
+    btn.addEventListener('focus', () => setActive(i, performance.now()));
+    btn.addEventListener('blur', () => setActive(null, performance.now()));
     
-    // Hover/focus triggers highlight
-    btn.addEventListener('mouseenter', () => { HIGHLIGHT.activeIdx = nodeIdx; });
-    btn.addEventListener('mouseleave', () => { HIGHLIGHT.activeIdx = null; });
-    btn.addEventListener('focus', () => { HIGHLIGHT.activeIdx = nodeIdx; });
-    btn.addEventListener('blur', () => { HIGHLIGHT.activeIdx = null; });
-
-    if (cfg.section === 'intro') btn.classList.add('active');
-
     nav.appendChild(btn);
     requestAnimationFrame(() => btn.classList.add('visible'));
   });
 
-  console.log(`✅ Placed ${spots.length} navigation nodes on junctions`);
+  // Set intro as active by default
+  document.querySelectorAll('.network-node-label').forEach(b => {
+    if (b.dataset.section === 'intro') b.classList.add('active');
+  });
+
+  console.log(`✅ Placed ${cfgs.length} strategic navigation nodes`);
 }
 
-// ━━━ Canvas: Ambient Spores + Branch Reveal Highlights ━━━
-const canvas = document.getElementById('network-canvas');
-if (canvas && !prefersReducedMotion) {
-  const ctx = canvas.getContext('2d');
-  let spores = [];
+// ━━━ Shared Canvas Utilities ━━━
+function toViewport([x, y]) {
+  return [x * cover.s + cover.dx, y * cover.s + cover.dy];
+}
 
-  function resizeCanvas() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    createSpores();
-    computeCover(); // Recalculate cover transform on canvas resize
+function smooth(points) {
+  if (points.length < 3) return points;
+  const out = [points[0]];
+  for (let i = 1; i < points.length - 1; i++) {
+    const [x0, y0] = points[i - 1], [x1, y1] = points[i], [x2, y2] = points[i + 1];
+    const mx = (x0 + x2) * 0.5, my = (y0 + y2) * 0.5;
+    out.push([(x0 + 6 * x1 + x2) / 8, (y0 + 6 * y1 + y2) / 8]);
+    out.push([mx, my]);
+  }
+  out.push(points[points.length - 1]);
+  return out.filter((_, i) => i % 2 === 0);
+}
+
+function buildGroupPath(pathIdxs) {
+  const p = new Path2D();
+  for (const idx of pathIdxs) {
+    const raw = MYC_MAP.paths[idx].map(toViewport);
+    const pts = smooth(raw);
+    if (!pts.length) continue;
+    p.moveTo(pts[0][0], pts[0][1]);
+    for (let i = 1; i < pts.length; i++) p.lineTo(pts[i][0], pts[i][1]);
+  }
+  return p;
+}
+
+// ━━━ CANVAS LAYERS (split for performance) ━━━
+const sporeCanvas  = document.getElementById('spore-canvas');
+const revealCanvas = document.getElementById('reveal-canvas');
+
+// Global reference to setActive (populated by canvas init)
+let setActive = null;
+
+if (sporeCanvas && revealCanvas && !prefersReducedMotion) {
+  const sporeCtx  = sporeCanvas.getContext('2d');
+  const revealCtx = revealCanvas.getContext('2d');
+  let spores = [];
+  let ACTIVE = null;
+  let lastSpore = 0;
+
+  function sizeCanvases() {
+    const w = window.innerWidth, h = window.innerHeight;
+    sporeCanvas.width = w; sporeCanvas.height = h;
+    revealCanvas.width = w; revealCanvas.height = h;
   }
 
   function createSpores() {
-    spores = [];
-    const count = window.innerWidth < 768 ? 15 : 25;
-    for (let i = 0; i < count; i++) {
-      spores.push({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        size: Math.random() * 1.2 + 0.5,
-        speedX: (Math.random() - 0.5) * 0.15,
-        speedY: (Math.random() - 0.5) * 0.15,
-        opacity: Math.random() * 0.25 + 0.05,
-        pulsePhase: Math.random() * Math.PI * 2
-      });
-    }
+    // More spores for "dangerous universe mystical" atmosphere
+    const count = window.innerWidth < 768 ? 30 : 50;
+    spores = new Array(count).fill(0).map(() => ({
+      x: Math.random() * sporeCanvas.width,
+      y: Math.random() * sporeCanvas.height,
+      vx: (Math.random() - 0.5) * 0.2,
+      vy: (Math.random() - 0.5) * 0.2,
+      r: 1 + Math.random() * 3, // Larger range (1-4px)
+      p: Math.random() * Math.PI * 2, // Phase offset for pulse
+      a: 0.1 + Math.random() * 0.25, // Base alpha
+      scalePhase: Math.random() * Math.PI * 2 // Separate phase for scaling
+    }));
   }
 
-  function updateSpores() {
+  // Spores: ~30fps animation with scaling and glow
+  function drawSpores(t) {
+    if (t - lastSpore < 33) return;
+    lastSpore = t;
+    const c = sporeCtx, w = sporeCanvas.width, h = sporeCanvas.height;
+    c.clearRect(0, 0, w, h);
     for (const s of spores) {
-      s.x = (s.x + s.speedX + canvas.width) % canvas.width;
-      s.y = (s.y + s.speedY + canvas.height) % canvas.height;
+      s.x = (s.x + s.vx + w) % w;
+      s.y = (s.y + s.vy + h) % h;
+      
+      // Opacity pulse
+      const pulse = (Math.sin(t * 0.001 + s.p) + 1) / 2;
+      
+      // Scale pulse (0.8 - 1.2x)
+      const scalePulse = 0.8 + 0.4 * (Math.sin(t * 0.0015 + s.scalePhase) + 1) / 2;
+      const radius = s.r * scalePulse;
+      
+      // Draw glow halo
+      c.shadowBlur = 8;
+      c.shadowColor = `rgba(122,174,138,${s.a * pulse * 0.6})`;
+      
+      // Draw spore with necrotic green
+      c.fillStyle = `rgba(122,174,138,${s.a * pulse})`;
+      c.beginPath();
+      c.arc(s.x, s.y, radius, 0, Math.PI * 2);
+      c.fill();
+      
+      // Bright center for star effect
+      c.shadowBlur = 0;
+      c.fillStyle = `rgba(200,255,220,${s.a * pulse * 0.8})`;
+      c.beginPath();
+      c.arc(s.x, s.y, radius * 0.4, 0, Math.PI * 2);
+      c.fill();
     }
   }
 
-  function drawSpores(time) {
-    for (const s of spores) {
-      const p = Math.sin(time * 0.001 + s.pulsePhase) * 0.5 + 0.5;
-      ctx.fillStyle = `rgba(122, 174, 138, ${s.opacity * p})`;
-      ctx.beginPath();
-      ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
-      ctx.fill();
+  // Reveal: redraw only when active changes - with enhanced spore glow
+  function renderReveal(time) {
+    const c = revealCtx, w = revealCanvas.width, h = revealCanvas.height;
+    c.clearRect(0, 0, w, h);
+    if (ACTIVE === null) return;
+
+    const group = NAV_GROUPS.get(ACTIVE);
+    if (!group || !group.path2d) return;
+
+    c.save();
+    c.lineCap = 'round';
+    c.lineJoin = 'round';
+    
+    // Draw multiple glow layers for spore effect
+    c.globalCompositeOperation = 'source-over';
+    
+    // Outer glow (dim spectral blue)
+    c.strokeStyle = 'rgba(143,180,255,0.15)';
+    c.lineWidth = 12;
+    c.shadowBlur = 24;
+    c.shadowColor = 'rgba(143,180,255,0.3)';
+    c.stroke(group.path2d);
+    
+    // Mid glow (necrotic green)
+    c.strokeStyle = 'rgba(122,174,138,0.3)';
+    c.lineWidth = 6;
+    c.shadowBlur = 16;
+    c.shadowColor = 'rgba(122,174,138,0.5)';
+    c.stroke(group.path2d);
+    
+    // Inner bright line (white core)
+    c.strokeStyle = '#ffffff';
+    c.lineWidth = 2.2;
+    c.shadowBlur = 8;
+    c.shadowColor = '#ffffff';
+    c.stroke(group.path2d);
+
+    // Brighten only where stroke exists
+    c.globalCompositeOperation = 'source-in';
+    c.filter = 'brightness(2.0) saturate(1.3)';
+    c.drawImage(BG_IMG, cover.dx, cover.dy, MYC_MAP.width * cover.s, MYC_MAP.height * cover.s);
+    c.filter = 'none';
+
+    // Soft glow at junction (larger, more intense)
+    c.globalCompositeOperation = 'lighter';
+    const R = 120;
+    const grd = c.createRadialGradient(group.x, group.y, 0, group.x, group.y, R);
+    grd.addColorStop(0, 'rgba(122,174,138,.45)');
+    grd.addColorStop(0.5, 'rgba(63,255,159,.18)');
+    grd.addColorStop(1, 'rgba(63,255,159,0)');
+    c.fillStyle = grd;
+    c.beginPath();
+    c.arc(group.x, group.y, R, 0, Math.PI * 2);
+    c.fill();
+
+    // Pulsing ring with spore glow
+    if (time) {
+      c.globalCompositeOperation = 'screen';
+      const pulse = (Math.sin(time * 0.004) * 0.5 + 0.5);
+      const ringRadius = 16 + 12 * pulse;
+      
+      // Outer ring
+      c.beginPath();
+      c.lineWidth = 2;
+      c.strokeStyle = `rgba(122,174,138,${0.6 * (1 - pulse * 0.3)})`;
+      c.shadowBlur = 16;
+      c.shadowColor = 'rgba(122,174,138,0.8)';
+      c.arc(group.x, group.y, ringRadius, 0, Math.PI * 2);
+      c.stroke();
+      
+      // Inner bright ring
+      c.beginPath();
+      c.lineWidth = 1.5;
+      c.strokeStyle = 'rgba(200,255,220,0.9)';
+      c.shadowBlur = 8;
+      c.arc(group.x, group.y, ringRadius * 0.7, 0, Math.PI * 2);
+      c.stroke();
     }
+
+    c.restore();
   }
 
-  // Mouse detection: check proximity to exported paths
-  document.addEventListener('mousemove', (e) => {
-    HIGHLIGHT.mouse.x = e.clientX;
-    HIGHLIGHT.mouse.y = e.clientY;
+  function setActiveInternal(idx, time) {
+    if (idx === ACTIVE) return;
+    ACTIVE = idx;
     
-    if (!MYC_MAP || HIGHLIGHT.activeIdx !== null) return;
+    // Update label active state
+    document.querySelectorAll('.network-node-label').forEach(b => {
+      const shouldBeActive = NAV_GROUPS.get(ACTIVE)?.section === b.dataset.section;
+      b.classList.toggle('active', shouldBeActive);
+    });
     
-    // Convert viewport coords to image space
-    const imgX = (e.clientX - cover.dx) / cover.s;
-    const imgY = (e.clientY - cover.dy) / cover.s;
+    renderReveal(time);
+  }
+  
+  // Expose to global scope
+  setActive = setActiveInternal;
+
+  // Fast Path2D hit testing
+  window.addEventListener('pointermove', (e) => {
+    if (!MYC_MAP) return;
+    const x = e.clientX, y = e.clientY;
     
-    // Find closest path
-    let bestIdx = null;
-    let bestDist = 22; // Tolerance in viewport px
+    // Check current active first
+    if (ACTIVE !== null) {
+      revealCtx.lineWidth = 22;
+      if (revealCtx.isPointInStroke(NAV_GROUPS.get(ACTIVE).path2d, x, y)) return;
+    }
     
-    for (const [nodeIdx, group] of NAV_GROUPS) {
-      for (const pathIdx of group.nearbyPaths) {
-        const path = MYC_MAP.paths[pathIdx];
-        
-        for (let i = 0; i < path.length - 1; i++) {
-          const [x1, y1] = path[i];
-          const [x2, y2] = path[i + 1];
-          
-          // Transform to viewport space
-          const vx1 = x1 * cover.s + cover.dx;
-          const vy1 = y1 * cover.s + cover.dy;
-          const vx2 = x2 * cover.s + cover.dx;
-          const vy2 = y2 * cover.s + cover.dy;
-          
-          const d = distToSeg(e.clientX, e.clientY, vx1, vy1, vx2, vy2);
-          
-          if (d < bestDist) {
-            bestDist = d;
-            bestIdx = nodeIdx;
-          }
-        }
+    // Find first hit
+    revealCtx.lineWidth = 22;
+    let hit = null;
+    for (const [idx, g] of NAV_GROUPS) {
+      if (revealCtx.isPointInStroke(g.path2d, x, y)) {
+        hit = idx;
+        break;
+      }
+      // Also near junction
+      if (Math.hypot(x - g.x, y - g.y) < 64) {
+        hit = idx;
+        break;
       }
     }
-    
-    HIGHLIGHT.activeIdx = bestIdx;
-  });
+    setActiveInternal(hit, performance.now());
+  }, { passive: true });
 
-  /**
-   * Draw brightened branches using exported geometry with halo ring.
-   */
-  function drawReveal(time) {
-    if (!MYC_MAP || !BG_IMG || HIGHLIGHT.activeIdx === null) return;
+  // RAF loop: only spores animate per frame
+  let animFrameTime = 0;
+  function loop(t) {
+    animFrameTime = t;
+    drawSpores(t);
     
-    const group = NAV_GROUPS.get(HIGHLIGHT.activeIdx);
-    if (!group || !group.nearbyPaths.length) return;
-    
-    ctx.save();
-    
-    // Draw mask along active paths
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.strokeStyle = 'white';
-    ctx.lineWidth = 2.2;
-    ctx.shadowBlur = 18;
-    ctx.shadowColor = 'white';
-    
-    for (const pathIdx of group.nearbyPaths) {
-      const path = MYC_MAP.paths[pathIdx];
-      ctx.beginPath();
-      
-      const [x0, y0] = path[0];
-      ctx.moveTo(x0 * cover.s + cover.dx, y0 * cover.s + cover.dy);
-      
-      for (let i = 1; i < path.length; i++) {
-        const [x, y] = path[i];
-        ctx.lineTo(x * cover.s + cover.dx, y * cover.s + cover.dy);
-      }
-      
-      ctx.stroke();
+    // Update pulsing ring if active
+    if (ACTIVE !== null) {
+      renderReveal(t);
     }
     
-    // Draw brightened image only where mask exists
-    ctx.globalCompositeOperation = 'source-in';
-    ctx.filter = 'brightness(1.85) saturate(1.15)';
-    ctx.drawImage(BG_IMG, cover.dx, cover.dy, MYC_MAP.width * cover.s, MYC_MAP.height * cover.s);
-    ctx.filter = 'none';
-    
-    // Halo ring with pulse
-    ctx.globalCompositeOperation = 'lighter';
-    const t = time * 0.004;
-    const pulse = (Math.sin(t) * 0.5 + 0.5);
-    const ringRadius = 12 + (22 - 12) * pulse;
-    
-    // Soft glow
-    const g = ctx.createRadialGradient(group.x, group.y, 0, group.x, group.y, 84);
-    g.addColorStop(0, 'rgba(63,255,159,0.28)');
-    g.addColorStop(1, 'rgba(63,255,159,0)');
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.arc(group.x, group.y, 84, 0, Math.PI * 2);
-    ctx.fill();
-    
-    // Crisp pulsing ring
-    ctx.globalCompositeOperation = 'screen';
-    ctx.beginPath();
-    ctx.lineWidth = 1.25;
-    ctx.strokeStyle = 'rgba(63,255,159,0.9)';
-    ctx.arc(group.x, group.y, ringRadius, 0, Math.PI * 2);
-    ctx.stroke();
-    
-    ctx.restore();
+    requestAnimationFrame(loop);
   }
 
-  function animate(time) {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    updateSpores();
-    drawSpores(time);
-    drawReveal(time);
-    requestAnimationFrame(animate);
-  }
-
-  resizeCanvas();
+  sizeCanvases();
+  createSpores();
+  
   window.addEventListener('resize', () => {
     clearTimeout(window.__hz);
     window.__hz = setTimeout(() => {
-      resizeCanvas();
-      computeCover(); // Recalculate cover transform
+      sizeCanvases();
+      computeCover();
+      
+      // Rebuild all path2d objects on resize
+      for (const [idx, group] of NAV_GROUPS) {
+        group.path2d = buildGroupPath(group.nearbyPaths);
+      }
+      
+      renderReveal(animFrameTime);
     }, 120);
   });
-  animate(0);
+  
+  requestAnimationFrame(loop);
+} else {
+  // Fallback for reduced motion or missing canvas
+  setActive = (idx) => {
+    document.querySelectorAll('.network-node-label').forEach(b => {
+      const shouldBeActive = NAV_GROUPS.get(idx)?.section === b.dataset.section;
+      b.classList.toggle('active', shouldBeActive);
+    });
+  };
 }
 
 // ━━━ Initialize Navigation on Load ━━━

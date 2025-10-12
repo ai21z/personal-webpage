@@ -35,8 +35,9 @@
   <!-- Static Fungal Mycelium Background Image -->
   <div id="bg-fungi" aria-hidden="true"></div>
   
-  <!-- Optional: Keep canvas for ambient spores only -->
-  <canvas id="network-canvas" aria-hidden="true"></canvas>
+  <!-- Canvases: spores + reveal (split for performance) -->
+  <canvas id="spore-canvas" aria-hidden="true"></canvas>
+  <canvas id="reveal-canvas" aria-hidden="true"></canvas>
   
   <!-- Network Navigation Nodes (rendered via JS with smart placement) -->
   <div id="network-nav" role="navigation" aria-label="Main navigation"></div>
