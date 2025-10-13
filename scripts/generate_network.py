@@ -19,17 +19,17 @@ EMBER = (194, 74, 46)        # --ember (junction highlights)
 
 # Growth parameters
 ROOT = (int(W * 0.85), int(H * 0.15))  # TOP-RIGHT corner root
-NUM_ATTRACTORS = 3500  # More attractors for larger radius
-INFLUENCE_RADIUS = 150
-KILL_RADIUS = 45
-STEP_SIZE = 14
-MERGE_THRESHOLD = 10
+NUM_ATTRACTORS = 6000  # More attractors = denser network
+INFLUENCE_RADIUS = 140  # Slightly smaller to create more branching
+KILL_RADIUS = 40  # Smaller kill radius = denser branches
+STEP_SIZE = 12  # Smaller steps = more nodes and detail
+MERGE_THRESHOLD = 8  # Tighter merging = more branches
 MAX_GROWTH_RADIUS = int(W * 1.5)  # 150% of screen width
 
 # Termination guards (CRITICAL)
-MAX_ITERATIONS = 8000
-MAX_NODES = 12000
-STALL_LIMIT = 400
+MAX_ITERATIONS = 10000
+MAX_NODES = 18000
+STALL_LIMIT = 500
 
 # NO directional bias - radial growth in all directions
 BIAS_ANGLE = 0
@@ -115,12 +115,11 @@ print("Starting space-colonization growth...")
 while attractors and active_tips and iteration < MAX_ITERATIONS and len(nodes) < MAX_NODES:
     iteration += 1
     
-    # Progress report every 100 iterations
-    if iteration % 100 == 0:
-        print(f"  Iter {iteration}: {len(nodes)} nodes, {len(attractors)} attractors, {len(active_tips)} active tips, {len(new_tips)} new this iter")
-    
     # Calculate influence for each active tip
     influences = {tip_idx: [0.0, 0.0] for tip_idx in active_tips}
+    
+    # Initialize new_tips for this iteration
+    new_tips = []
     
     # Track which attractors to keep
     surviving_attractors = []
@@ -235,6 +234,10 @@ while attractors and active_tips and iteration < MAX_ITERATIONS and len(nodes) <
     # Safety limit
     if len(active_tips) > 300:
         active_tips = active_tips[-300:]
+    
+    # Progress report every 100 iterations
+    if iteration % 100 == 0:
+        print(f"  Iter {iteration}: {len(nodes)} nodes, {len(attractors)} attractors, {len(active_tips)} active tips, {len(new_tips)} new this iter")
 
 print(f"Growth complete: {len(nodes)} nodes in {iteration} iterations")
 
@@ -352,16 +355,16 @@ def pick_by_angle(target_degrees, min_distance=250):
     return best_junction
 
 # Strategic nodes: VERTICAL placement on LEFT side (top to bottom)
-# Find junctions on the left side at different vertical positions
+# Find junctions on the RIGHT side between intro and middle, at different vertical positions
 
-def pick_by_vertical_position(target_y_percent, x_min=50, x_max=W*0.35):
-    """Find junction on VISIBLE LEFT side at specific vertical position"""
+def pick_by_vertical_position(target_y_percent, x_min=W*0.55, x_max=W*0.80):
+    """Find junction on RIGHT side (between intro and middle) at specific vertical position"""
     target_y = int(H * target_y_percent)
     best_junction = None
     best_score = float('inf')
     
     for j in junctions:
-        # Must be VISIBLE on left side (within canvas bounds)
+        # Must be on RIGHT SIDE between intro (85% width) and middle area
         if j["x"] < x_min or j["x"] > x_max:
             continue
         if j["y"] < 0 or j["y"] > H:
@@ -370,8 +373,8 @@ def pick_by_vertical_position(target_y_percent, x_min=50, x_max=W*0.35):
         # Calculate vertical distance from target
         y_diff = abs(j["y"] - target_y)
         
-        # Prefer nodes on far left and close to target height
-        score = y_diff + (j["x"] * 0.3)  # Slightly penalize being too far right
+        # Prefer nodes closer to target height, slightly prefer right side
+        score = y_diff + ((W - j["x"]) * 0.2)  # Slightly prefer rightward
         
         if score < best_score:
             best_score = score
@@ -380,19 +383,19 @@ def pick_by_vertical_position(target_y_percent, x_min=50, x_max=W*0.35):
     return best_junction
 
 strategic_nodes = {
-    "intro": {"x": ROOT[0], "y": ROOT[1]},  # Keep at root
-    "about": pick_by_vertical_position(0.25),    # Top (25% down)
-    "projects": pick_by_vertical_position(0.50), # Middle (50% down)
-    "blog": pick_by_vertical_position(0.75)      # Bottom (75% down)
+    "intro": {"x": ROOT[0], "y": ROOT[1]},  # Keep at root (top-right)
+    "about": pick_by_vertical_position(0.30),    # Upper-mid (30% down)
+    "projects": pick_by_vertical_position(0.55), # Middle (55% down)
+    "blog": pick_by_vertical_position(0.80)      # Lower (80% down)
 }
 
-# Fallback to leftmost junctions if vertical picking fails
+# Fallback to rightmost junctions if vertical picking fails
 if strategic_nodes["about"] is None:
-    strategic_nodes["about"] = junctions[0] if junctions else {"x": 150, "y": int(H*0.25)}
+    strategic_nodes["about"] = junctions[-1] if junctions else {"x": int(W*0.70), "y": int(H*0.30)}
 if strategic_nodes["projects"] is None:
-    strategic_nodes["projects"] = junctions[1] if len(junctions) > 1 else {"x": 150, "y": int(H*0.50)}
+    strategic_nodes["projects"] = junctions[-2] if len(junctions) > 1 else {"x": int(W*0.70), "y": int(H*0.55)}
 if strategic_nodes["blog"] is None:
-    strategic_nodes["blog"] = junctions[2] if len(junctions) > 2 else {"x": 150, "y": int(H*0.75)}
+    strategic_nodes["blog"] = junctions[-3] if len(junctions) > 2 else {"x": int(W*0.70), "y": int(H*0.80)}
 
 print("Selected strategic navigation nodes")
 
@@ -400,14 +403,17 @@ print("Selected strategic navigation nodes")
 print("Rendering images...")
 
 def render_network(is_glow=False):
-    """Render the network to an image"""
-    img = Image.new("RGB", (W, H), ABYSS)
+    """Render the network to an image with high quality"""
+    # Use 2x resolution for sharper rendering, then scale down
+    render_w, render_h = W * 2, H * 2
+    img = Image.new("RGB", (render_w, render_h), ABYSS)
     draw = ImageDraw.Draw(img, "RGBA")
     
     # VIGNETTE DISABLED - was making image too dark
     # Just use plain background for now
     
-    # Draw paths with hierarchical tapering
+    # Draw paths with hierarchical tapering at 2x resolution
+    # HAND-DRAWN PENCIL style: gaps in lines + vibrant multi-colors
     for path in paths:
         if len(path) < 2:
             continue
@@ -421,27 +427,73 @@ def render_network(is_glow=False):
             x1, y1, depth1 = path[i]
             x2, y2, depth2 = path[i + 1]
             
+            # HAND-DRAWN GAPS: Skip random segments to create pencil-style interruptions
+            # More gaps in thinner branches (like hand fatigue)
+            # INCREASED: More visible interruptions for authentic pencil feel
+            gap_chance = 0.20 + (branch_depth * 0.05)  # 20-45% chance based on depth
+            if random.random() < gap_chance:
+                continue  # Skip this segment = GAP in drawing
+            
+            # Scale coordinates to 2x resolution
+            x1_scaled, y1_scaled = x1 * 2, y1 * 2
+            x2_scaled, y2_scaled = x2 * 2, y2 * 2
+            
             # Progress along this path (0.0 = start, 1.0 = end)
             progress = i / max(1, path_length - 1)
             
-            # Base width depends on depth (generation) - REDUCED ~30% for subtlety
-            # Depth 0 (root) = 11, depth 1 = 8.5, depth 2 = 6, depth 3+ = 3.5, etc.
-            base_width = max(2, 11 - branch_depth * 2.5)
+            # Base width depends on depth (generation) - scaled for 2x resolution
+            # Pencil-like: thicker main branches
+            base_width = max(3, 15 - branch_depth * 2.8) * 2  # 2x for resolution
             
-            # Gentle taper along length: start at base_width, end at 60% of base_width
-            width = base_width * (1.0 - progress * 0.4)
-            width = max(1.5, width)
+            # Sharper taper along length for pencil effect
+            width = base_width * (1.0 - progress * 0.5)
+            width = max(2, width)
+            
+            # WIDTH-BASED COLOR: More visible multi-color palette
+            width_ratio = width / (base_width * 2)  # 0.0 = thin, 1.0 = thick
             
             if is_glow:
-                width = width + 1.5
-                color = SPECTRAL + (180,)  # Spectral blue glow
+                # Glow layer uses spectral blue
+                width = width + 3
+                color = SPECTRAL + (220,)  # Even brighter spectral glow
             else:
-                color = NECROTIC + (255,)  # Necrotic green veins
+                # VIBRANT MULTI-COLOR PALETTE for hand-drawn look
+                if width_ratio > 0.60:  # INCREASED from 0.65 - more orange
+                    # THICKEST parts: Pure EMBER orange (hot, vibrant)
+                    r = min(255, int(EMBER[0] * 1.5))  # Bright orange-red
+                    g = min(255, int(EMBER[1] * 1.3))
+                    b = min(255, int(EMBER[2] * 1.2))
+                    color = (r, g, b, 255)
+                elif width_ratio > 0.45:  # Adjusted from 0.5 - expanded blue zone
+                    # THICK-MEDIUM: SPECTRAL blue (cool, vibrant)
+                    r = min(255, int(SPECTRAL[0] * 1.4))  # Bright blue
+                    g = min(255, int(SPECTRAL[1] * 1.4))
+                    b = min(255, int(SPECTRAL[2] * 1.5))
+                    color = (r, g, b, 255)
+                elif width_ratio > 0.38:  # DECREASED from 0.35 - less purple
+                    # MEDIUM: Purple blend (SPECTRAL + EMBER mixed)
+                    r = min(255, int((SPECTRAL[0] + EMBER[0]) * 0.8))
+                    g = min(255, int((SPECTRAL[1] + EMBER[1]) * 0.7))
+                    b = min(255, int((SPECTRAL[2] + EMBER[2]) * 0.8))
+                    color = (r, g, b, 255)
+                elif width_ratio > 0.2:
+                    # MEDIUM-THIN: Transition to necrotic green
+                    blend = (width_ratio - 0.2) / 0.15
+                    r = int(SPECTRAL[0] * blend + NECROTIC[0] * (1-blend) * 1.3)
+                    g = int(SPECTRAL[1] * blend + NECROTIC[1] * (1-blend) * 1.3)
+                    b = int(SPECTRAL[2] * blend + NECROTIC[2] * (1-blend) * 1.3)
+                    color = (r, g, b, 255)
+                else:
+                    # THINNEST parts: Pure ominous necrotic green
+                    r = min(255, int(NECROTIC[0] * 1.5))
+                    g = min(255, int(NECROTIC[1] * 1.5))
+                    b = min(255, int(NECROTIC[2] * 1.5))
+                    color = (r, g, b, 255)
             
-            # Draw segment
-            draw.line([(x1, y1), (x2, y2)], fill=color, width=int(width), joint='curve')
+            # Draw segment with hand-drawn pencil style (with gaps)
+            draw.line([(x1_scaled, y1_scaled), (x2_scaled, y2_scaled)], fill=color, width=int(width), joint='curve')
     
-    # Draw GLOWING NODES at junctions - smaller and scale with distance from center
+    # Draw GLOWING NODES at junctions at 2x resolution - smaller and scale with distance from center
     if not is_glow:
         # Calculate center of canvas for distance scaling
         center_x, center_y = W / 2, H / 2
@@ -451,27 +503,43 @@ def render_network(is_glow=False):
             x, y = j["x"], j["y"]
             depth = j.get("depth", 0)
             
+            # Scale coordinates to 2x resolution
+            x_scaled, y_scaled = x * 2, y * 2
+            
             # Calculate distance from center (normalized 0-1)
             dist_from_center = math.sqrt((x - center_x)**2 + (y - center_y)**2)
             dist_factor = dist_from_center / max_distance  # 0 at center, 1 at corners
             
-            # Base size starts smaller (5-7px) and shrinks with distance
+            # Base size starts smaller (5-7px) and shrinks with distance, scaled for 2x resolution
             # Near center: 6-7px, far edges: 2-3px
-            base_size = max(2, int(7 - dist_factor * 4))  # Shrinks by up to 4px
-            base_size += random.randint(-1, 0)  # Slight downward variation
+            base_size = max(4, int(7 - dist_factor * 4)) * 2  # 2x for resolution
+            base_size += random.randint(-2, 0)  # Slight downward variation
             
-            # Even smaller glow layers
+            # Brighter glow layers for pencil drawing style
             for i in range(2, 0, -1):  # Only 2 layers now
-                r = base_size + i * 2  # Tighter glow
-                alpha = 20 + (2 - i) * 15  # Dimmer
-                draw.ellipse([x-r, y-r, x+r, y+r], 
-                           fill=NECROTIC + (alpha,))
+                r = base_size + i * 4  # Tighter glow, scaled for 2x
+                alpha = 35 + (2 - i) * 25  # Brighter glow
+                # Use brightened necrotic green
+                bright_necrotic = (
+                    min(255, int(NECROTIC[0] * 1.4)),
+                    min(255, int(NECROTIC[1] * 1.4)),
+                    min(255, int(NECROTIC[2] * 1.4))
+                )
+                draw.ellipse([x_scaled-r, y_scaled-r, x_scaled+r, y_scaled+r], 
+                           fill=bright_necrotic + (alpha,))
             
-            # Bright core (NO EMBER CENTER - removed red dots)
+            # Bright pencil-like core
             r_core = base_size
-            draw.ellipse([x-r_core, y-r_core, x+r_core, y+r_core], 
-                       fill=NECROTIC + (180,))  # Dimmer core
+            bright_core = (
+                min(255, int(NECROTIC[0] * 1.5)),
+                min(255, int(NECROTIC[1] * 1.5)),
+                min(255, int(NECROTIC[2] * 1.5))
+            )
+            draw.ellipse([x_scaled-r_core, y_scaled-r_core, x_scaled+r_core, y_scaled+r_core], 
+                       fill=bright_core + (240,))  # Bright crisp core
     
+    # Scale down from 2x to 1x with high-quality anti-aliasing for crispness
+    img = img.resize((W, H), Image.LANCZOS)
     return img
 
 base_img = render_network(is_glow=False)
@@ -480,8 +548,9 @@ glow_img = render_network(is_glow=True)
 # Save outputs
 os.makedirs("artifacts", exist_ok=True)
 
-base_img.save("artifacts/bg_base.png", quality=92)
-glow_img.save("artifacts/bg_glow.png", quality=92)
+# Save with maximum quality and optimize for sharpness
+base_img.save("artifacts/bg_base.png", optimize=True, quality=95)
+glow_img.save("artifacts/bg_glow.png", optimize=True, quality=95)
 
 # Save network data
 network_data = {

@@ -79,84 +79,31 @@ body{
  * 9999: skip link focus
  */
 
-/* ━━━ Multi-Layered Mycelium Network with Independent Branch Movement ━━━ */
-#bg-fungi{
-  position:fixed;
-  inset:0;
-  z-index:0;
-  pointer-events:none;
-  /* Base layer with primary movement */
-  background: url("./artifacts/bg_base.png") center/cover no-repeat;
-  opacity: 0.25;
-  filter: contrast(1.2) brightness(0.7);
-  transition: opacity 0.4s ease;
-  animation: branchSway1 9s ease-in-out infinite;
-}
+/* ━━━ Static Background - Single Layer Truth ━━━ */
+/* Static image as coordinate reference for nav dots & reveal sparks */
 
-/* Layer 2: Different timing and direction */
-#bg-fungi::before{
-  content: '';
-  position: absolute;
+#bg {
+  position: fixed;
   inset: 0;
-  background: url("./artifacts/bg_base.png") center/cover no-repeat;
-  opacity: 0.4;
-  filter: contrast(1.1) brightness(0.75);
-  animation: branchSway2 13s ease-in-out infinite;
-  mix-blend-mode: lighten;
+  z-index: 0;
+  pointer-events: none;
 }
 
-/* Layer 3: Another variation */
-#bg-fungi::after{
-  content: '';
-  position: absolute;
+#bg-front-img {
+  position: fixed;
   inset: 0;
-  background: url("./artifacts/bg_base.png") center/cover no-repeat;
-  opacity: 0.3;
-  filter: contrast(1.15) brightness(0.72);
-  animation: branchSway3 11s ease-in-out infinite;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: contrast(1.15) brightness(0.92);
+  opacity: 0.50;
   mix-blend-mode: lighten;
+  transform: none !important;
 }
 
-/* Animation 1: Base layer - subtle foreground motion */
-@keyframes branchSway1 {
-  0%, 100% {
-    transform: translate(0, 0) scale(1.02) rotate(0deg);
-  }
-  33% {
-    transform: translate(5px, -4px) scale(1.02) rotate(0.3deg);
-  }
-  66% {
-    transform: translate(-4px, 5px) scale(1.02) rotate(-0.3deg);
-  }
-}
-
-/* Animation 2: Mid-depth layer - MUCH larger offset for parallax */
-@keyframes branchSway2 {
-  0%, 100% {
-    transform: translate(0, 0) scale(1.04) rotate(0deg);
-  }
-  25% {
-    transform: translate(-25px, -22px) scale(1.04) rotate(-0.7deg);
-  }
-  50% {
-    transform: translate(-30px, 20px) scale(1.04) rotate(0.8deg);
-  }
-  75% {
-    transform: translate(22px, 28px) scale(1.04) rotate(-0.75deg);
-  }
-}
-
-/* Animation 3: Deep background layer - EXTREME offset for depth */
-@keyframes branchSway3 {
-  0%, 100% {
-    transform: translate(0, 0) scale(1.06) rotate(0deg);
-  }
-  40% {
-    transform: translate(40px, 38px) scale(1.06) rotate(1deg);
-  }
-  80% {
-    transform: translate(-38px, -35px) scale(1.06) rotate(-1.1deg);
-  }
+/* Kill old layered backgrounds if present */
+#bg-deep, #bg-mid, #bg-front {
+  display: none !important;
 }
 
 /* ━━━ Canvas Layers: Spores (animated) + Reveal (on-demand) ━━━ */
@@ -166,83 +113,62 @@ body{
   width:100%; height:100%;
   pointer-events:none;
 }
-#spore-canvas{ z-index:1; }
-#reveal-canvas{ z-index:2; }
+#spore-canvas{ z-index:3; } /* Above front layer */
+#reveal-canvas{ z-index:4; } /* Above spores */
 
 /* ━━━ Network Navigation System ━━━ */
 #network-nav{
   position:fixed;
   inset:0;
-  z-index:100;
+  z-index:5; /* Above reveal canvas */
   pointer-events:none;
 }
 
+/* Nav labels pinned to mycelium junctions */
 .network-node-label{
-  position:absolute;
-  transform:translate(-50%,-50%);
-  background:none;
-  border:0;
-  padding:0;
-  color:rgba(122,174,138,.15); /* Barely visible necrotic green */
-  font: 400 10px "Xanh Mono", monospace; /* Smaller text */
-  text-transform:lowercase; /* Force lowercase */
-  letter-spacing:.05em;
-  pointer-events:auto;
-  cursor:pointer;
-  opacity:0;
-  transition:opacity .3s ease, color .3s ease, transform .25s ease;
-  will-change: transform, opacity, color;
+  position: absolute;
+  transform: translate(-50%, -50%);
+  color: rgba(230,227,216,.86);
+  font: 400 12px "Xanh Mono", monospace;
+  letter-spacing: .04em;
+  pointer-events: auto;
+  cursor: pointer;
+  opacity: 1;
+  transition: color .2s ease, text-shadow .2s ease;
 }
 
-.network-node-label .node-index{ display:none; }
-.network-node-label .node-label{ 
-  text-transform:lowercase; 
-  font-size:10px;
-  white-space:nowrap;
-  position:relative;
-  z-index:2;
-}
-.network-node-label.visible{ opacity:1; /* Full opacity, but text is dim */ }
-
-.network-node-label::before{
-  content:'';
-  position:absolute;
-  left:50%;
-  top:50%;
-  width:12px;
-  height:12px;
-  border-radius:999px;
-  background:var(--necrotic); /* Necrotic green core */
-  opacity:.3;
-  box-shadow:0 0 0 0 rgba(122,174,138,0);
-  transform:translate(-50%,-50%);
-  transition: transform .3s ease, box-shadow .3s ease, opacity .3s ease, width .3s ease, height .3s ease;
-  z-index:1;
+.network-node-label .node-label{
+  position: absolute;
+  left: 50%;
+  top: -18px;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  text-shadow: 0 1px 0 rgba(0,0,0,.35);
 }
 
 .network-node-label:hover,
-.network-node-label:focus-visible,
-.network-node-label.active{
-  color:rgba(122,174,138,.95); /* Bright necrotic green text */
+.network-node-label:focus-visible{
+  color: var(--bone);
+  text-shadow:
+    0 0 8px rgba(143, 180, 255, 0.25),
+    0 0 2px rgba(63, 255, 159, 0.35);
 }
 
-.network-node-label:hover::before,
-.network-node-label:focus-visible::before,
-.network-node-label.active::before{
-  width:24px; /* Grow bigger */
-  height:24px;
-  transform:translate(-50%,-50%);
-  opacity:1;
-  background:radial-gradient(circle, var(--ember) 0%, var(--necrotic) 40%, transparent 70%);
-  box-shadow: 0 0 24px 12px rgba(122,174,138,.35),
-              0 0 48px 24px rgba(122,174,138,.15),
-              0 0 12px 6px rgba(194,74,46,.25) inset; /* Ember inner glow */
+.network-node-label.active,
+.network-node-label.motion-highlight {
+  color: var(--decay-green);
 }
 
 .network-node-label:focus-visible{
-  outline:none;
-  text-decoration:underline;
-  text-underline-offset:2px;
+  outline: none;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Small screens: slightly larger label for legibility */
+@media (max-width: 900px){
+  .network-node-label{ font-size: 13px; }
+  .network-node-label .node-label{ top: -22px; }
 }
 
 /* ━━━ Stage Container (Section pages) ━━━ */
