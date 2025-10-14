@@ -190,7 +190,7 @@ const NAV_COORDS = {
   work:     { x: 1464, y: 275 },
   projects: { x: 1345, y: 370 },
   contact:  { x: 1523, y: 412 },
-  blog:     { x: 1627, y: 400 },
+  blog:     { x: 1507, y: 690 },
   resume:   { x: 1432,  y: 638 },
   skills:   { x: 1119,  y: 241 }
 };
