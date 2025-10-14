@@ -14,26 +14,29 @@ if (yearElement) yearElement.textContent = new Date().getFullYear();
 // ━━━ PRM Gate: Detect user preference ━━━
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-// ━━━ Mycelium Geometry System (Exported from Python) ━━━
-let MYC_MAP = null;     // {seed, width, height, paths, junctions}
-let BG_IMG = null;      // Preloaded background image
+// ━━━ Background Geometry (Image Space) ━━━
+const BG_NATURAL_W = 1920;
+const BG_NATURAL_H = 1080;
 
-/**
- * Map (mx,my) in network space → viewport pixels under object-fit: cover
- * Uses simple cover math - no transform tracking needed!
- */
-function toViewportCover(mx, my) {
-  if (!MYC_MAP) return [0, 0];
+let cover = { s: 1, dx: 0, dy: 0 };
+
+function computeCoverTransform() {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
-  const s = Math.max(vw / MYC_MAP.width, vh / MYC_MAP.height);
-  const dx = (vw - MYC_MAP.width * s) * 0.5;
-  const dy = (vh - MYC_MAP.height * s) * 0.5;
-  // Snap to pixel centers for crisp label rendering
-  const x = Math.round(mx * s + dx) + 0.5;
-  const y = Math.round(my * s + dy) + 0.5;
-  return [x, y];
+  const s = Math.max(vw / BG_NATURAL_W, vh / BG_NATURAL_H);
+  const dx = (vw - BG_NATURAL_W * s) * 0.5;
+  const dy = (vh - BG_NATURAL_H * s) * 0.5;
+  cover.s = s;
+  cover.dx = dx;
+  cover.dy = dy;
 }
+
+function toViewportCover(x, y) {
+  return [x * cover.s + cover.dx, y * cover.s + cover.dy];
+}
+
+// ━━━ Mycelium Geometry System (Exported from Python) ━━━
+let MYC_MAP = null; // {seed, width, height, paths, junctions}
 
 /**
  * Load exported geometry JSON and preload background image.
@@ -43,143 +46,153 @@ async function loadMycelium() {
     const response = await fetch('artifacts/network.json');
     MYC_MAP = await response.json();
     console.log(`✅ Loaded ${MYC_MAP.paths.length} paths, ${MYC_MAP.junctions.length} junctions`);
-    console.log(`✅ Strategic nodes:`, MYC_MAP.strategic);
-    
-    BG_IMG = new Image();
-    await new Promise((resolve, reject) => {
-      BG_IMG.onload = resolve;
-      BG_IMG.onerror = reject;
-      BG_IMG.src = 'artifacts/bg_base.png';
-    });
-    
-    console.log('✅ Mycelium geometry loaded successfully');
   } catch (err) {
     console.error('❌ Failed to load mycelium geometry:', err);
   }
 }
 
 /* ━━━ Image-Space Graph + Pathfinding ━━━ */
-let GRAPH = null;          // { nodes: Map(key->id), pos: Array<{x,y}>, adj: Map(id -> number[]) }
-const PATH_CACHE = new Map(); // "fromId->toId" => [{x,y}, ...]
-const QUANT = 1;           // quantize to integer pixels for node identity
-
-function keyOf(x, y) {
-  return `${Math.round(x / QUANT) * QUANT}|${Math.round(y / QUANT) * QUANT}`;
-}
+let GRAPH = null; // { nodes: Array<{x,y}>, neighbors(id)->id[], nearestId(x,y) }
+const PATH_CACHE = new Map(); // "fromId->toId" => [{x,y}, …]
 
 function buildGraphFromPaths(paths) {
-  const pos = [];
-  const nodes = new Map();
-  const adj = new Map();
+  const QUANT = 3;
+  const key = (x, y) => `${Math.round(x / QUANT)},${Math.round(y / QUANT)}`;
 
-  function ensureNode(x, y) {
-    const k = keyOf(x, y);
-    let id = nodes.get(k);
-    if (id === undefined) {
-      id = pos.length;
-      nodes.set(k, id);
-      pos.push({ x, y });
-      adj.set(id, new Set());
+  const nodes = [];
+  const keyToId = new Map();
+  const adj = [];
+
+  const addNode = (x, y) => {
+    const k = key(x, y);
+    if (!keyToId.has(k)) {
+      keyToId.set(k, nodes.length);
+      nodes.push({ x, y });
     }
-    return id;
-  }
+    return keyToId.get(k);
+  };
+
+  const link = (a, b) => {
+    if (a === b) return;
+    (adj[a] ??= new Set()).add(b);
+    (adj[b] ??= new Set()).add(a);
+  };
 
   for (const poly of paths) {
-    if (!poly || poly.length < 2) continue;
-    let prev = ensureNode(poly[0][0], poly[0][1]);
+    if (!poly || poly.length === 0) continue;
+    let prev = addNode(poly[0][0], poly[0][1]);
     for (let i = 1; i < poly.length; i++) {
-      const cur = ensureNode(poly[i][0], poly[i][1]);
-      adj.get(prev).add(cur);
-      adj.get(cur).add(prev);
+      const cur = addNode(poly[i][0], poly[i][1]);
+      link(prev, cur);
       prev = cur;
     }
   }
 
-  const adjArr = new Map();
-  for (const [id, set] of adj.entries()) adjArr.set(id, [...set]);
-  return { nodes, pos, adj: adjArr };
-}
+  const neighborCache = new Map();
+  const neighbors = (id) => {
+    if (!neighborCache.has(id)) neighborCache.set(id, Array.from(adj[id] ?? []));
+    return neighborCache.get(id);
+  };
 
-function nearestNodeId({ x, y }) {
-  if (!GRAPH) return -1;
-  const k = keyOf(x, y);
-  if (GRAPH.nodes.has(k)) return GRAPH.nodes.get(k);
+  const nearestId = (x, y, radius = 80, step = 24) => {
+    let best = -1;
+    let bestD2 = Infinity;
 
-  let best = -1;
-  let bestD2 = Infinity;
-  for (let i = 0; i < GRAPH.pos.length; i++) {
-    const p = GRAPH.pos[i];
-    const dx = p.x - x;
-    const dy = p.y - y;
-    const d2 = dx * dx + dy * dy;
-    if (d2 < bestD2) {
-      best = i;
-      bestD2 = d2;
+    const tryPoint = (px, py) => {
+      const id = keyToId.get(key(px, py));
+      if (id != null) {
+        const dx = nodes[id].x - x;
+        const dy = nodes[id].y - y;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < bestD2) {
+          best = id;
+          bestD2 = d2;
+        }
+      }
+    };
+
+    for (let r = 0; r <= radius; r += step) {
+      for (let dx = -r; dx <= r; dx += step) {
+        tryPoint(x + dx, y - r);
+        tryPoint(x + dx, y + r);
+      }
+      for (let dy = -r + step; dy <= r - step; dy += step) {
+        tryPoint(x - r, y + dy);
+        tryPoint(x + r, y + dy);
+      }
     }
-  }
-  return best;
+    return best;
+  };
+
+  return { nodes, neighbors, nearestId };
 }
 
 function aStarPath(idA, idB) {
-  if (idA === -1 || idB === -1 || !GRAPH) return [];
+  if (!GRAPH || idA < 0 || idB < 0) return null;
   const cacheKey = `${idA}->${idB}`;
   if (PATH_CACHE.has(cacheKey)) return PATH_CACHE.get(cacheKey);
 
-  const pos = GRAPH.pos;
-  const adj = GRAPH.adj;
+  const nodes = GRAPH.nodes;
+  const neighbors = GRAPH.neighbors;
 
   const open = new Set([idA]);
   const came = new Map();
   const g = new Map([[idA, 0]]);
   const f = new Map([[idA, 0]]);
-  const pq = [{ id: idA, f: 0 }];
 
-  const heuristic = (a, b) => Math.hypot(pos[a].x - pos[b].x, pos[a].y - pos[b].y);
+  const h = (id) => {
+    const A = nodes[id];
+    const B = nodes[idB];
+    const dx = A.x - B.x;
+    const dy = A.y - B.y;
+    return dx * dx + dy * dy;
+  };
 
-  while (pq.length) {
-    pq.sort((lhs, rhs) => lhs.f - rhs.f);
-    const { id: current } = pq.shift();
-    if (current === idB) {
-      let cur = current;
-      const out = [pos[cur]];
-      while (came.has(cur)) {
-        cur = came.get(cur);
-        out.push(pos[cur]);
+  while (open.size) {
+    let current = null;
+    let best = Infinity;
+    for (const id of open) {
+      const fi = f.get(id) ?? Infinity;
+      if (fi < best) {
+        best = fi;
+        current = id;
       }
+    }
+
+    if (current === idB) {
+      const out = [];
+      for (let c = current; c != null; c = came.get(c)) out.push(nodes[c]);
       out.reverse();
       PATH_CACHE.set(cacheKey, out);
       return out;
     }
+
     open.delete(current);
 
-    for (const nb of adj.get(current) || []) {
-      const tentative = (g.get(current) ?? Infinity) + heuristic(current, nb);
+    for (const nb of neighbors(current)) {
+      const tentative = (g.get(current) ?? Infinity) + 1;
       if (tentative < (g.get(nb) ?? Infinity)) {
         came.set(nb, current);
         g.set(nb, tentative);
-        const score = tentative + heuristic(nb, idB);
-        f.set(nb, score);
-        if (!open.has(nb)) {
-          open.add(nb);
-          pq.push({ id: nb, f: score });
-        }
+        f.set(nb, tentative + h(nb));
+        open.add(nb);
       }
     }
   }
 
-  return [];
+  return null;
 }
 
 /* ━━━ Fixed Navigation Anchors (image space 1920×1080) ━━━ */
 const NAV_COORDS = {
-  intro:   { x: 1632, y: 162 },
-  about:   { x: 1412, y: 182 },
-  work:    { x: 1496, y: 262 },
-  projects:{ x: 1142, y: 332 },
-  contact: { x: 1276, y: 456 },
-  blog:    { x: 1338, y: 438 },
-  resume:  { x:  932, y: 742 },
-  skills:  { x: 1188, y: 148 }
+  intro:    { x: 1643, y: 163 },
+  about:    { x: 1465, y: 181 },
+  work:     { x: 1464, y: 275 },
+  projects: { x: 1345, y: 370 },
+  contact:  { x: 1523, y: 412 },
+  blog:     { x: 1627, y: 400 },
+  resume:   { x: 1432,  y: 638 },
+  skills:   { x: 1119,  y: 241 }
 };
 
 const NODE_IDS = {}; // id -> graph node index
@@ -237,185 +250,198 @@ function placeNavLabels() {
 }
 
 // ━━━ Spark Animation State ━━━
-const sporeCanvas  = document.getElementById('spore-canvas');
-const revealCanvas = document.getElementById('reveal-canvas');
-const revealCtx = revealCanvas ? revealCanvas.getContext('2d') : null;
+const sparkCanvas = document.getElementById('reveal-canvas');
+const sporeCanvas = document.getElementById('spore-canvas');
+const sparkCtx = sparkCanvas ? sparkCanvas.getContext('2d') : null;
+let sporeCtx = sporeCanvas ? sporeCanvas.getContext('2d') : null;
+let spores = [];
+let lastSporeFrame = 0;
 
-let SPARK_RAF = 0;
-let LAST_SPARK_TS = 0;
+let lastSparkTs = performance.now();
 let ACTIVE_ANIMS = [];
 
-function resizeCanvases() {
-  const w = window.innerWidth;
-  const h = window.innerHeight;
-  if (sporeCanvas) {
-    sporeCanvas.width = w;
-    sporeCanvas.height = h;
-  }
-  if (revealCanvas) {
-    revealCanvas.width = w;
-    revealCanvas.height = h;
-  }
-
-  ACTIVE_ANIMS = ACTIVE_ANIMS.map(anim => {
-    const projected = projectPath(anim.points);
-    const arc = buildCumulative(projected);
-    return {
-      ...anim,
-      projected,
-      cumulative: arc.cumulative,
-      length: arc.total
-    };
-  });
+function sizeCanvas(canvas) {
+  if (!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.floor(window.innerWidth * dpr);
+  canvas.height = Math.floor(window.innerHeight * dpr);
+  canvas.style.width = `${window.innerWidth}px`;
+  canvas.style.height = `${window.innerHeight}px`;
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 
-function projectPath(points) {
-  return points.map(p => {
-    const [x, y] = toViewportCover(p.x, p.y);
-    return { x, y };
-  });
+function projectXY(points) {
+  return points.map((p) => toViewportCover(p.x, p.y));
 }
 
-function buildCumulative(pts) {
-  const cumulative = [0];
+function cumulativeLengths(pts) {
+  const cum = [0];
   for (let i = 1; i < pts.length; i++) {
-    const dx = pts[i].x - pts[i - 1].x;
-    const dy = pts[i].y - pts[i - 1].y;
-    cumulative[i] = cumulative[i - 1] + Math.hypot(dx, dy);
+    const dx = pts[i][0] - pts[i - 1][0];
+    const dy = pts[i][1] - pts[i - 1][1];
+    cum.push(cum[i - 1] + Math.hypot(dx, dy));
   }
-  return { cumulative, total: cumulative[cumulative.length - 1] ?? 0 };
+  return cum;
 }
 
-function sampleAlong(pts, cumulative, ratio) {
-  if (!pts.length) return { x: 0, y: 0 };
-  if (pts.length === 1 || !cumulative?.length) return { ...pts[0] };
+function pointAt(pts, cum, s) {
+  const total = cum[cum.length - 1];
+  if (s <= 0) return pts[0];
+  if (s >= total) return pts[pts.length - 1];
 
-  const total = cumulative[cumulative.length - 1] || 0;
-  if (!total) return { ...pts[0] };
+  let lo = 0;
+  let hi = cum.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (cum[mid] < s) lo = mid + 1; else hi = mid;
+  }
 
-  const clampedRatio = Math.max(0, Math.min(1, ratio));
-  const target = clampedRatio * total;
-
-  let idx = 1;
-  while (idx < cumulative.length && cumulative[idx] < target) idx++;
-
-  const hi = Math.min(idx, pts.length - 1);
-  const lo = Math.max(0, hi - 1);
-  const segLen = cumulative[hi] - cumulative[lo];
-  const segStart = cumulative[lo];
-  const t = segLen ? (target - segStart) / segLen : 0;
-  const a = pts[lo];
-  const b = pts[hi];
-  return {
-    x: a.x + (b.x - a.x) * t,
-    y: a.y + (b.y - a.y) * t
-  };
+  const i = Math.max(1, lo);
+  const segStart = cum[i - 1];
+  const segLen = cum[i] - segStart;
+  const t = segLen ? (s - segStart) / segLen : 0;
+  const ax = pts[i - 1][0];
+  const ay = pts[i - 1][1];
+  const bx = pts[i][0];
+  const by = pts[i][1];
+  return [ax + (bx - ax) * t, ay + (by - ay) * t];
 }
 
-function startSpark(fromId, toId, options = {}) {
+const loggedPathFailures = new Set();
+
+function startSpark(fromKey, toKey, speedPxPerSec = 650, direction = +1) {
   if (prefersReducedMotion || !GRAPH) return;
+  const fromAnchor = NAV_COORDS[fromKey];
+  const toAnchor = NAV_COORDS[toKey];
+  if (!fromAnchor || !toAnchor) return;
 
-  const fromNode = NODE_IDS[fromId];
-  const toNode = NODE_IDS[toId];
-  if (fromNode === undefined || toNode === undefined) return;
-  if (fromNode < 0 || toNode < 0) return;
+  const idA = GRAPH.nearestId(fromAnchor.x, fromAnchor.y, 96, 24);
+  const idB = GRAPH.nearestId(toAnchor.x, toAnchor.y, 96, 24);
+  if (idA < 0 || idB < 0) {
+    const key = `${fromKey}->${toKey}`;
+    if (!loggedPathFailures.has(key)) {
+      console.warn('nearestId failed for spark path', key, { idA, idB });
+      loggedPathFailures.add(key);
+    }
+    return;
+  }
 
-  const path = aStarPath(fromNode, toNode);
-  if (!path.length) return;
+  const solved = aStarPath(idA, idB);
+  if (!solved || solved.length < 2) {
+    const key = `${fromKey}->${toKey}`;
+    if (!loggedPathFailures.has(key)) {
+      console.warn('A* path missing for spark', key);
+      loggedPathFailures.add(key);
+    }
+    return;
+  }
 
-  const animPoints = path.map(p => ({ x: p.x, y: p.y }));
-  const startAnchor = NAV_COORDS[fromId];
-  const endAnchor = NAV_COORDS[toId];
-  if (startAnchor) animPoints[0] = { x: startAnchor.x, y: startAnchor.y };
-  if (endAnchor) animPoints[animPoints.length - 1] = { x: endAnchor.x, y: endAnchor.y };
-  const projected = projectPath(animPoints);
-  const arc = buildCumulative(projected);
-  if (!arc.total) return;
+  const pathImg = solved.map((pt) => ({ x: pt.x, y: pt.y }));
+  pathImg[0] = { x: fromAnchor.x, y: fromAnchor.y };
+  pathImg[pathImg.length - 1] = { x: toAnchor.x, y: toAnchor.y };
+
+  const proj = projectXY(pathImg);
+  const cum = cumulativeLengths(proj);
+  const len = cum[cum.length - 1];
+  if (!len) return;
 
   ACTIVE_ANIMS.push({
-    points: animPoints,
-    projected,
-    cumulative: arc.cumulative,
-    length: arc.total,
-    t: options.reverse ? 1 : 0,
-    dir: options.reverse ? -1 : 1,
-    speed: options.speed ?? 420,
-    size: options.size ?? 3.0,
-    hue: options.hue ?? '122,174,138'
+    imgPts: pathImg,
+    projPts: proj,
+    cum,
+    len,
+    s: direction > 0 ? 0 : len,
+    v: speedPxPerSec,
+    dir: direction > 0 ? 1 : -1
   });
-
-  if (!SPARK_RAF) {
-    LAST_SPARK_TS = performance.now();
-    SPARK_RAF = requestAnimationFrame(loopSparks);
-  }
 }
 
-function stopSparks() {
-  ACTIVE_ANIMS = [];
-  if (SPARK_RAF) {
-    cancelAnimationFrame(SPARK_RAF);
-    SPARK_RAF = 0;
-  }
-  if (revealCtx && revealCanvas) {
-    revealCtx.clearRect(0, 0, revealCanvas.width, revealCanvas.height);
-  }
-}
+function drawSparks(dt) {
+  if (!sparkCtx || !sparkCanvas) return;
+  const cssW = window.innerWidth;
+  const cssH = window.innerHeight;
+  sparkCtx.clearRect(0, 0, cssW, cssH);
 
-function loopSparks(ts) {
-  if (!revealCtx || !revealCanvas) return;
-
-  const delta = Math.max(0, ts - LAST_SPARK_TS) / 1000;
-  LAST_SPARK_TS = ts;
-
-  revealCtx.clearRect(0, 0, revealCanvas.width, revealCanvas.height);
-
-  const stillActive = [];
+  const trailLen = 60;
+  const survivors = [];
 
   for (const anim of ACTIVE_ANIMS) {
-    const projected = anim.projected;
-    if (projected.length < 2 || !anim.length) continue;
+    anim.s += anim.dir * anim.v * dt;
+    if (anim.s < 0 || anim.s > anim.len) continue;
 
-    anim.t += (anim.speed / anim.length) * delta * anim.dir;
+    const head = pointAt(anim.projPts, anim.cum, anim.s);
+    const tail = pointAt(anim.projPts, anim.cum, Math.max(0, anim.s - trailLen));
 
-    if ((anim.dir > 0 && anim.t >= 1) || (anim.dir < 0 && anim.t <= 0)) {
-      continue;
-    }
+    sparkCtx.save();
+    sparkCtx.lineCap = 'round';
+    sparkCtx.lineJoin = 'round';
 
-    const point = sampleAlong(projected, anim.cumulative, anim.t);
+    sparkCtx.strokeStyle = 'rgba(122,174,138,0.25)';
+    sparkCtx.lineWidth = 6;
+    sparkCtx.shadowBlur = 16;
+    sparkCtx.shadowColor = 'rgba(122,174,138,0.6)';
+    sparkCtx.beginPath();
+    sparkCtx.moveTo(tail[0], tail[1]);
+    sparkCtx.lineTo(head[0], head[1]);
+    sparkCtx.stroke();
 
-    revealCtx.save();
-    revealCtx.globalCompositeOperation = 'lighter';
+    sparkCtx.strokeStyle = 'rgba(240,255,245,0.9)';
+    sparkCtx.lineWidth = 2;
+    sparkCtx.shadowBlur = 8;
+    sparkCtx.beginPath();
+    sparkCtx.moveTo(tail[0], tail[1]);
+    sparkCtx.lineTo(head[0], head[1]);
+    sparkCtx.stroke();
 
-    revealCtx.beginPath();
-    revealCtx.arc(point.x, point.y, anim.size * 4, 0, Math.PI * 2);
-    revealCtx.fillStyle = `rgba(${anim.hue}, 0.18)`;
-    revealCtx.fill();
+    sparkCtx.fillStyle = 'rgba(200,255,220,0.95)';
+    sparkCtx.shadowBlur = 12;
+    sparkCtx.beginPath();
+    sparkCtx.arc(head[0], head[1], 2.4, 0, Math.PI * 2);
+    sparkCtx.fill();
 
-    revealCtx.beginPath();
-    revealCtx.arc(point.x, point.y, anim.size * 2.2, 0, Math.PI * 2);
-    revealCtx.fillStyle = `rgba(${anim.hue}, 0.35)`;
-    revealCtx.fill();
-
-    revealCtx.beginPath();
-    revealCtx.arc(point.x, point.y, anim.size, 0, Math.PI * 2);
-    revealCtx.fillStyle = 'rgba(240,255,245,0.9)';
-    revealCtx.shadowBlur = 8;
-    revealCtx.shadowColor = `rgba(${anim.hue},0.85)`;
-    revealCtx.fill();
-
-    revealCtx.restore();
-
-    stillActive.push(anim);
+    sparkCtx.restore();
+    survivors.push(anim);
   }
 
-  ACTIVE_ANIMS = stillActive;
-
-  if (ACTIVE_ANIMS.length) {
-    SPARK_RAF = requestAnimationFrame(loopSparks);
-  } else {
-    SPARK_RAF = 0;
-  }
+  ACTIVE_ANIMS = survivors;
 }
+
+function sparkLoop(ts) {
+  const dt = Math.min(0.05, (ts - lastSparkTs) / 1000);
+  lastSparkTs = ts;
+  drawSparks(dt);
+  requestAnimationFrame(sparkLoop);
+}
+
+function resizeAll() {
+  computeCoverTransform();
+  sizeCanvas(sparkCanvas);
+  sizeCanvas(sporeCanvas);
+  placeNavLabels();
+
+  ACTIVE_ANIMS = ACTIVE_ANIMS.map((anim) => {
+    const projPts = projectXY(anim.imgPts);
+    const cum = cumulativeLengths(projPts);
+    const len = cum[cum.length - 1];
+    if (!len) return null;
+    const ratio = anim.len ? anim.s / anim.len : (anim.dir > 0 ? 0 : 1);
+    const s = Math.max(0, Math.min(len, ratio * len));
+    return { ...anim, projPts, cum, len, s };
+  }).filter(Boolean);
+
+  if (sporeCtx) createSpores();
+}
+
+resizeAll();
+requestAnimationFrame(sparkLoop);
+startSpores();
+
+let resizeTimer = 0;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = window.setTimeout(resizeAll, 80);
+}, { passive: true });
 
 // ━━━ Navigation Hover State ━━━
 let currentNavHover = null;
@@ -423,8 +449,6 @@ let currentNavHover = null;
 function handleNavEnter(id, el) {
   if (currentNavHover === id) return;
   currentNavHover = id;
-
-  stopSparks();
 
   if (prefersReducedMotion) {
     document.querySelectorAll('.network-node-label.motion-highlight').forEach(node => node.classList.remove('motion-highlight'));
@@ -439,11 +463,12 @@ function handleNavEnter(id, el) {
   if (id === 'intro') {
     for (const dest of NAV_ORDER) {
       if (dest === 'intro') continue;
-      if (NODE_IDS[dest] === undefined || NODE_IDS[dest] < 0) continue;
-      startSpark('intro', dest, { speed: 520, size: 3.2 });
+      startSpark('intro', dest, 650, +1);
+      startSpark(dest, 'intro', 650, -1);
     }
-  } else if (NODE_IDS.intro !== undefined && NODE_IDS.intro >= 0 && NODE_IDS[id] !== undefined && NODE_IDS[id] >= 0) {
-    startSpark(id, 'intro', { speed: 460, size: 3.0 });
+  } else {
+    startSpark('intro', id, 650, +1);
+    startSpark(id, 'intro', 650, -1);
   }
 }
 
@@ -458,21 +483,18 @@ function handleNavLeave(id, el) {
       introEl?.classList.remove('motion-highlight');
     }
   }
-
-  stopSparks();
 }
 
 // ━━━ Spores Layer (ambient) ━━━
-let sporeCtx = null;
-let spores = [];
-let lastSporeFrame = 0;
 
 function createSpores() {
   if (!sporeCanvas || !sporeCtx) return;
-  const count = window.innerWidth < 768 ? 30 : 50;
+  const cssW = window.innerWidth;
+  const cssH = window.innerHeight;
+  const count = cssW < 768 ? 30 : 50;
   spores = new Array(count).fill(0).map(() => ({
-    x: Math.random() * sporeCanvas.width,
-    y: Math.random() * sporeCanvas.height,
+    x: Math.random() * cssW,
+    y: Math.random() * cssH,
     vx: (Math.random() - 0.5) * 0.2,
     vy: (Math.random() - 0.5) * 0.2,
     r: 1 + Math.random() * 3,
@@ -489,8 +511,8 @@ function drawSpores(ts) {
   lastSporeFrame = ts;
 
   const c = sporeCtx;
-  const w = sporeCanvas.width;
-  const h = sporeCanvas.height;
+  const w = window.innerWidth;
+  const h = window.innerHeight;
   c.clearRect(0, 0, w, h);
 
   for (const s of spores) {
@@ -518,7 +540,7 @@ function drawSpores(ts) {
 
 function startSpores() {
   if (!sporeCanvas || prefersReducedMotion) return;
-  sporeCtx = sporeCanvas.getContext('2d');
+  sporeCtx = sporeCtx || sporeCanvas.getContext('2d');
   if (!sporeCtx) return;
   createSpores();
 
@@ -530,14 +552,10 @@ function startSpores() {
   requestAnimationFrame(loop);
 }
 
-resizeCanvases();
-startSpores();
-
-window.addEventListener('resize', () => {
-  resizeCanvases();
-  placeNavLabels();
-  createSpores();
-}, { passive: true });
+function nearestNodeId(pt) {
+  if (!GRAPH) return -1;
+  return GRAPH.nearestId(pt.x, pt.y, 96, 24);
+}
 
 // ━━━ Initialization ━━━
 async function initNetworkAndNav() {
@@ -579,6 +597,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   placeNavLabels();
   showSection('intro');
+  resizeAll();
 });
 
 // ━━━ Glitch Text Effect Setup ━━━
