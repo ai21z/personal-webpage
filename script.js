@@ -14,6 +14,11 @@ if (yearElement) yearElement.textContent = new Date().getFullYear();
 // ━━━ PRM Gate: Detect user preference ━━━
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+// ━━━ HUD Toggle ━━━
+let hudEnabled = new URLSearchParams(window.location.search).has('hud');
+let hudCanvas = null;
+let hudCtx = null;
+
 // ━━━ Background Geometry (Image Space) ━━━
 const BG_NATURAL_W = 1920;
 const BG_NATURAL_H = 1080;
@@ -24,15 +29,17 @@ function computeCoverTransform() {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
   const s = Math.max(vw / BG_NATURAL_W, vh / BG_NATURAL_H);
-  const dx = (vw - BG_NATURAL_W * s) * 0.5;
-  const dy = (vh - BG_NATURAL_H * s) * 0.5;
   cover.s = s;
-  cover.dx = dx;
-  cover.dy = dy;
+  cover.dx = (vw - BG_NATURAL_W * s) * 0.5;
+  cover.dy = (vh - BG_NATURAL_H * s) * 0.5;
+}
+
+function coverMap(x, y) {
+  return [x * cover.s + cover.dx, y * cover.s + cover.dy];
 }
 
 function toViewportCover(x, y) {
-  return [x * cover.s + cover.dx, y * cover.s + cover.dy];
+  return coverMap(x, y);
 }
 
 // ━━━ Mycelium Geometry System (Exported from Python) ━━━
@@ -42,13 +49,9 @@ let MYC_MAP = null; // {seed, width, height, paths, junctions}
  * Load exported geometry JSON and preload background image.
  */
 async function loadMycelium() {
-  try {
-    const response = await fetch('artifacts/network.json');
-    MYC_MAP = await response.json();
-    console.log(`✅ Loaded ${MYC_MAP.paths.length} paths, ${MYC_MAP.junctions.length} junctions`);
-  } catch (err) {
-    console.error('❌ Failed to load mycelium geometry:', err);
-  }
+  const response = await fetch('artifacts/network.json');
+  MYC_MAP = await response.json();
+  console.log(`✅ Loaded ${MYC_MAP.paths.length} paths, ${MYC_MAP.junctions.length} junctions`);
 }
 
 /* ━━━ Image-Space Graph + Pathfinding ━━━ */
@@ -183,30 +186,69 @@ function aStarPath(idA, idB) {
   return null;
 }
 
-/* ━━━ Fixed Navigation Anchors (image space 1920×1080) ━━━ */
+/* --- DESIGN ANCHORS (1920×1080 reference) --- */
 const NAV_COORDS = {
-  intro:    { x: 1643, y: 163 },
-  about:    { x: 1465, y: 181 },
-  work:     { x: 1464, y: 275 },
-  projects: { x: 1345, y: 370 },
-  contact:  { x: 1523, y: 412 },
-  blog:     { x: 1507, y: 690 },
-  resume:   { x: 1432,  y: 638 },
-  skills:   { x: 1119,  y: 241 }
+  intro:   { x: 1610, y: 177 },
+  about:   { x: 1466, y: 179 },
+  work:    { x: 1463, y: 275 },
+  projects:{ x: 1170, y: 404 },
+  contact: { x: 1524, y: 411 },
+  blog:    { x: 1624, y: 429 },
+  resume:  { x:  1432, y: 637 },
+  skills:  { x:  1119, y: 240 }
+};
+
+const NAV_ORDER = ['intro','about','work','projects','contact','blog','resume','skills'];
+
+const LABEL_OFFSET_PX = {
+  intro: 34, about: 26, work: 24, projects: 22,
+  contact: 24, blog: 26, resume: 20, skills: 24
 };
 
 const NODE_IDS = {}; // id -> graph node index
+const NAV_OFFSETS = {}; // id -> {nx, ny} in image space
+
+function computeNavOffsets(){
+  if (!MYC_MAP || !MYC_MAP.paths) return;
+  const cx = BG_NATURAL_W/2, cy = BG_NATURAL_H/2;
+
+  for (const [id, {x:px, y:py}] of Object.entries(NAV_COORDS)){
+    let bestD2 = Infinity, nx = 0, ny = 0;
+
+    for (const path of MYC_MAP.paths){
+      if (!path || path.length < 2) continue;
+      for (let i=0;i<path.length-1;i++){
+        const [ax,ay] = path[i], [bx,by] = path[i+1];
+        const abx=bx-ax, aby=by-ay, ab2=abx*abx+aby*aby;
+        if (ab2 < 1e-6) continue;
+
+        const t = Math.max(0, Math.min(1, ((px-ax)*abx + (py-ay)*aby)/ab2));
+        const cxp = ax + t*abx, cyp = ay + t*aby;
+        const dx = px - cxp, dy = py - cyp, d2 = dx*dx + dy*dy;
+        if (d2 < bestD2){
+          bestD2 = d2;
+          const len = Math.sqrt(ab2);
+          nx = -aby/len; ny = abx/len; // left normal
+          // make normal point away from canvas center
+          const vx = px - cx, vy = py - cy;
+          if (nx*vx + ny*vy < 0){ nx = -nx; ny = -ny; }
+        }
+      }
+    }
+
+    const mag = LABEL_OFFSET_PX[id] ?? 22;
+    NAV_OFFSETS[id] = { nx: nx*mag, ny: ny*mag };
+  }
+}
 
 function showSection(sectionName) {
   const sections = document.querySelectorAll('.stage');
   sections.forEach(s => s.classList.toggle('active-section', s.dataset.section === sectionName));
   
-  document.querySelectorAll('.network-node-label').forEach(label =>
+  document.querySelectorAll('.network-node-label, .network-sigil-node').forEach(label =>
     label.classList.toggle('active', label.dataset.section === sectionName)
   );
 }
- 
-const NAV_ORDER = ['intro', 'about', 'work', 'projects', 'contact', 'blog', 'resume', 'skills'];
 
 function createNavLabel(id) {
   const label = document.createElement('a');
@@ -217,25 +259,53 @@ function createNavLabel(id) {
   label.href = `#${anchorId}`;
   label.innerHTML = `<span class="node-label">${id}</span>`;
   label.setAttribute('aria-label', `Navigate to ${id}`);
-  label.addEventListener('click', (event) => {
-    const targetStage = document.querySelector(`.stage[data-section="${id}"]`);
-    if (targetStage) {
-      event.preventDefault();
-      showSection(id);
-      targetStage.focus?.({ preventScroll: false });
-    }
-  });
   return label;
 }
 
-function placeNavLabels() {
+function createSigilNode() {
+  const sigil = document.createElement('button');
+  sigil.dataset.node = 'intro';
+  sigil.dataset.section = 'intro';
+  sigil.className = 'network-sigil-node';
+  sigil.setAttribute('role', 'button');
+  sigil.setAttribute('aria-label', 'Open intro');
+  sigil.innerHTML = '<img src="./artifacts/sigil/AZ-VZ-01.png" alt="" width="64" height="64">';
+  return sigil;
+}
+
+function layoutNavNodes() {
   const nav = document.getElementById('network-nav');
-  if (!nav || !MYC_MAP) return;
+  if (!nav) return;
 
   if (nav.children.length === 0) {
     const frag = document.createDocumentFragment();
     for (const id of NAV_ORDER) {
-      frag.appendChild(createNavLabel(id));
+      if (id === 'intro') {
+        const sigil = createSigilNode();
+        sigil.addEventListener('click', () => {
+          document.getElementById('main')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          ritualCascade();
+        });
+        sigil.addEventListener('keydown', (e) => {
+          if (e.key === ' ' || e.key === 'Enter') {
+            e.preventDefault();
+            document.getElementById('main')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            ritualCascade();
+          }
+        });
+        frag.appendChild(sigil);
+      } else {
+        const label = createNavLabel(id);
+        label.addEventListener('click', (event) => {
+          const targetStage = document.querySelector(`.stage[data-section="${id}"]`);
+          if (targetStage) {
+            event.preventDefault();
+            showSection(id);
+            targetStage.focus?.({ preventScroll: false });
+          }
+        });
+        frag.appendChild(label);
+      }
     }
     nav.appendChild(frag);
   }
@@ -243,16 +313,132 @@ function placeNavLabels() {
   for (const [id, pt] of Object.entries(NAV_COORDS)) {
     const el = nav.querySelector(`[data-node="${id}"]`);
     if (!el) continue;
-    const [x, y] = toViewportCover(pt.x, pt.y);
-    el.style.left = `${x}px`;
-    el.style.top = `${y}px`;
+
+    const [ax, ay] = coverMap(pt.x, pt.y);
+    const off = NAV_OFFSETS[id] || { nx:0, ny:0 };
+    const [ox, oy] = coverMap(pt.x + off.nx, pt.y + off.ny);
+
+    // snap to pixels to avoid blur
+    const left = Math.round(ax) + 0.5;
+    const top  = Math.round(ay) + 0.5;
+    let tx = Math.round(ox - ax);
+    let ty = Math.round(oy - ay);
+
+    el.style.left = `${left}px`;
+    el.style.top  = `${top}px`;
+    // IMPORTANT: keep the -50% centering and add our delta
+    el.style.transform = `translate(-50%, -50%) translate(${tx}px, ${ty}px)`;
+
+    // Avoid collision with portrait (only for blog)
+    if (id === 'blog') {
+      const target = el.getBoundingClientRect();
+      const face = document.querySelector('.portrait-wrap')?.getBoundingClientRect();
+      if (face && !(target.right < face.left || target.left > face.right || target.bottom < face.top || target.top > face.bottom)) {
+        // nudge along normal in viewport space
+        let step = 0, tx2 = tx, ty2 = ty;
+        const [nox1, noy1] = coverMap(pt.x + off.nx + 4, pt.y + off.ny + 4);
+        const [nox0, noy0] = coverMap(pt.x + off.nx, pt.y + off.ny);
+        const ndx = Math.sign((nox1 - nox0) || 0), ndy = Math.sign((noy1 - noy0) || 0);
+        while (step++ < 8) {
+          tx2 += 4*ndx; ty2 += 4*ndy;
+          el.style.transform = `translate(-50%, -50%) translate(${tx2}px, ${ty2}px)`;
+          const r = el.getBoundingClientRect();
+          if (r.right < face.left || r.left > face.right || r.bottom < face.top || r.top > face.bottom) break;
+        }
+      }
+    }
+  }
+
+  if (hudEnabled) renderHUD();
+}
+
+// ━━━ HUD Rendering ━━━
+function initHUD() {
+  if (!hudCanvas) {
+    hudCanvas = document.createElement('canvas');
+    hudCanvas.id = 'hud-canvas';
+    hudCanvas.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:9999;';
+    document.body.appendChild(hudCanvas);
+    hudCtx = hudCanvas.getContext('2d');
+  }
+  hudCanvas.width = window.innerWidth;
+  hudCanvas.height = window.innerHeight;
+}
+
+function renderHUD() {
+  if (!hudEnabled) return;
+  if (!hudCtx) initHUD();
+
+  hudCtx.clearRect(0, 0, hudCanvas.width, hudCanvas.height);
+
+  for (const [id, pt] of Object.entries(NAV_COORDS)) {
+    const [tx, ty] = coverMap(pt.x, pt.y);
+    
+    hudCtx.fillStyle = '#fff';
+    hudCtx.beginPath();
+    hudCtx.arc(tx, ty, 4, 0, Math.PI * 2);
+    hudCtx.fill();
+    
+    hudCtx.fillStyle = '#fff';
+    hudCtx.font = '10px monospace';
+    hudCtx.fillText(`${id} (${Math.round(tx)},${Math.round(ty)})`, tx + 8, ty - 8);
+
+    const off = NAV_OFFSETS[id] || {nx:0, ny:0};
+    const [lx, ly] = coverMap(pt.x + off.nx, pt.y + off.ny);
+    hudCtx.strokeStyle = 'rgba(0,255,255,.35)';
+    hudCtx.beginPath(); 
+    hudCtx.moveTo(tx,ty); 
+    hudCtx.lineTo(lx,ly); 
+    hudCtx.stroke();
+    hudCtx.fillStyle = '#0ff'; 
+    hudCtx.beginPath(); 
+    hudCtx.arc(lx, ly, 3, 0, Math.PI*2); 
+    hudCtx.fill();
+
+    const el = document.querySelector(`[data-node="${id}"]`);
+    if (el) {
+      const rect = el.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      
+      hudCtx.fillStyle = '#0f0';
+      hudCtx.beginPath();
+      hudCtx.arc(cx, cy, 3, 0, Math.PI * 2);
+      hudCtx.fill();
+      
+      hudCtx.fillStyle = '#0f0';
+      hudCtx.fillText(`live (${Math.round(cx)},${Math.round(cy)})`, cx + 8, cy + 16);
+
+      const dx = cx - lx, dy = cy - ly;
+      const drift = Math.hypot(dx, dy);
+      if (drift > 2) console.warn(`HUD drift ${id}: ${drift.toFixed(1)}px`);
+    }
+  }
+}
+
+function toggleHUD() {
+  hudEnabled = !hudEnabled;
+  if (hudEnabled) {
+    initHUD();
+    renderHUD();
+  } else if (hudCanvas) {
+    hudCanvas.remove();
+    hudCanvas = null;
+    hudCtx = null;
   }
 }
 
 // ━━━ Spark Animation State ━━━
-const sparkCanvas = document.getElementById('reveal-canvas');
+let sparkCanvas = document.getElementById('reveal-canvas') || document.getElementById('spark-canvas');
+if (!sparkCanvas) {
+  sparkCanvas = document.createElement('canvas');
+  sparkCanvas.id = 'spark-canvas';
+  sparkCanvas.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:5;';
+  document.body.appendChild(sparkCanvas);
+}
+const sparkCtx = sparkCanvas.getContext('2d');
+
 const sporeCanvas = document.getElementById('spore-canvas');
-const sparkCtx = sparkCanvas ? sparkCanvas.getContext('2d') : null;
 let sporeCtx = sporeCanvas ? sporeCanvas.getContext('2d') : null;
 let spores = [];
 let lastSporeFrame = 0;
@@ -308,17 +494,30 @@ function pointAt(pts, cum, s) {
   return [ax + (bx - ax) * t, ay + (by - ay) * t];
 }
 
+const MAX_SPARKS = 12;
 const loggedPathFailures = new Set();
 
-function startSpark(fromKey, toKey, speedPxPerSec = 650, direction = +1) {
+function startSpark(fromKey, toKey, speedPxPerSec = 650) {
   if (prefersReducedMotion || !GRAPH) return;
+  if (ACTIVE_ANIMS.length >= MAX_SPARKS) ACTIVE_ANIMS.shift();
+
   const fromAnchor = NAV_COORDS[fromKey];
   const toAnchor = NAV_COORDS[toKey];
   if (!fromAnchor || !toAnchor) return;
 
-  const idA = GRAPH.nearestId(fromAnchor.x, fromAnchor.y, 96, 24);
-  const idB = GRAPH.nearestId(toAnchor.x, toAnchor.y, 96, 24);
-  if (idA < 0 || idB < 0) {
+  let idA = NODE_IDS[fromKey];
+  let idB = NODE_IDS[toKey];
+  
+  // Recompute NODE_IDS if invalid
+  if (idA == null || idB == null || idA < 0 || idB < 0) {
+    for (const [id, pt] of Object.entries(NAV_COORDS)) {
+      NODE_IDS[id] = GRAPH.nearestId(pt.x, pt.y, 80, 24);
+    }
+    idA = NODE_IDS[fromKey];
+    idB = NODE_IDS[toKey];
+  }
+
+  if (idA == null || idB == null || idA < 0 || idB < 0) {
     const key = `${fromKey}->${toKey}`;
     if (!loggedPathFailures.has(key)) {
       console.warn('nearestId failed for spark path', key, { idA, idB });
@@ -351,10 +550,116 @@ function startSpark(fromKey, toKey, speedPxPerSec = 650, direction = +1) {
     projPts: proj,
     cum,
     len,
-    s: direction > 0 ? 0 : len,
-    v: speedPxPerSec,
-    dir: direction > 0 ? 1 : -1
+    s: 0,
+    v: speedPxPerSec
   });
+}
+
+let cascadeAnims = [];
+let cascadeActive = false;
+
+function ritualCascade() {
+  if (prefersReducedMotion) {
+    document.querySelectorAll('.network-node-label, .network-sigil-node').forEach(n => {
+      n.classList.add('motion-highlight');
+      setTimeout(() => n.classList.remove('motion-highlight'), 200);
+    });
+    return;
+  }
+  if (cascadeActive) return;
+  cascadeActive = true;
+  cascadeAnims = [];
+
+  if (!GRAPH || !MYC_MAP) {
+    cascadeActive = false;
+    return;
+  }
+
+  const visited = new Set();
+  const queue = [];
+  for (const id of GRAPH.nodes.keys()) {
+    queue.push({ id, depth: 0 });
+  }
+
+  const edges = [];
+  visited.clear();
+  for (let i = 0; i < queue.length; i++) {
+    const { id, depth } = queue[i];
+    if (visited.has(id)) continue;
+    visited.add(id);
+
+    for (const nb of GRAPH.neighbors(id)) {
+      if (!visited.has(nb)) {
+        edges.push({ from: id, to: nb, depth });
+      }
+    }
+  }
+
+  edges.forEach((edge, idx) => {
+    const delay = (edge.depth * 30) + (idx % 5) * 15;
+    setTimeout(() => {
+      const fromPt = GRAPH.nodes[edge.from];
+      const toPt = GRAPH.nodes[edge.to];
+      if (!fromPt || !toPt) return;
+
+      const pathImg = [fromPt, toPt];
+      const proj = projectXY(pathImg);
+      const cum = cumulativeLengths(proj);
+      const len = cum[cum.length - 1];
+      if (!len) return;
+
+      cascadeAnims.push({
+        projPts: proj,
+        cum,
+        len,
+        s: 0,
+        v: 800,
+        alpha: 0.15 + Math.random() * 0.1
+      });
+    }, delay);
+  });
+
+  setTimeout(() => {
+    cascadeActive = false;
+    cascadeAnims = [];
+  }, 1800);
+}
+
+function drawCascade(dt) {
+  if (!cascadeActive || cascadeAnims.length === 0) return;
+
+  const survivors = [];
+  for (const anim of cascadeAnims) {
+    anim.s += anim.v * dt;
+    if (anim.s > anim.len) continue;
+
+    const head = pointAt(anim.projPts, anim.cum, anim.s);
+    const tail = pointAt(anim.projPts, anim.cum, Math.max(0, anim.s - 40));
+
+    sparkCtx.save();
+    sparkCtx.lineCap = 'round';
+
+    sparkCtx.strokeStyle = `rgba(143,180,255,${anim.alpha * 0.5})`;
+    sparkCtx.lineWidth = 12;
+    sparkCtx.shadowBlur = 24;
+    sparkCtx.shadowColor = `rgba(143,180,255,${anim.alpha * 0.3})`;
+    sparkCtx.beginPath();
+    sparkCtx.moveTo(tail[0], tail[1]);
+    sparkCtx.lineTo(head[0], head[1]);
+    sparkCtx.stroke();
+
+    sparkCtx.strokeStyle = `rgba(194,74,46,${anim.alpha * 0.3})`;
+    sparkCtx.lineWidth = 6;
+    sparkCtx.shadowBlur = 16;
+    sparkCtx.beginPath();
+    sparkCtx.moveTo(tail[0], tail[1]);
+    sparkCtx.lineTo(head[0], head[1]);
+    sparkCtx.stroke();
+
+    sparkCtx.restore();
+    survivors.push(anim);
+  }
+  cascadeAnims = survivors;
 }
 
 function drawSparks(dt) {
@@ -363,12 +668,14 @@ function drawSparks(dt) {
   const cssH = window.innerHeight;
   sparkCtx.clearRect(0, 0, cssW, cssH);
 
+  drawCascade(dt);
+
   const trailLen = 60;
   const survivors = [];
 
   for (const anim of ACTIVE_ANIMS) {
-    anim.s += anim.dir * anim.v * dt;
-    if (anim.s < 0 || anim.s > anim.len) continue;
+    anim.s += anim.v * dt;
+    if (anim.s > anim.len) continue;
 
     const head = pointAt(anim.projPts, anim.cum, anim.s);
     const tail = pointAt(anim.projPts, anim.cum, Math.max(0, anim.s - trailLen));
@@ -377,10 +684,19 @@ function drawSparks(dt) {
     sparkCtx.lineCap = 'round';
     sparkCtx.lineJoin = 'round';
 
-    sparkCtx.strokeStyle = 'rgba(122,174,138,0.25)';
-    sparkCtx.lineWidth = 6;
-    sparkCtx.shadowBlur = 16;
-    sparkCtx.shadowColor = 'rgba(122,174,138,0.6)';
+    sparkCtx.strokeStyle = 'rgba(143,180,255,0.2)';
+    sparkCtx.lineWidth = 8;
+    sparkCtx.shadowBlur = 20;
+    sparkCtx.shadowColor = 'rgba(143,180,255,0.4)';
+    sparkCtx.beginPath();
+    sparkCtx.moveTo(tail[0], tail[1]);
+    sparkCtx.lineTo(head[0], head[1]);
+    sparkCtx.stroke();
+
+    sparkCtx.strokeStyle = 'rgba(122,174,138,0.6)';
+    sparkCtx.lineWidth = 4;
+    sparkCtx.shadowBlur = 12;
+    sparkCtx.shadowColor = 'rgba(122,174,138,0.7)';
     sparkCtx.beginPath();
     sparkCtx.moveTo(tail[0], tail[1]);
     sparkCtx.lineTo(head[0], head[1]);
@@ -394,10 +710,11 @@ function drawSparks(dt) {
     sparkCtx.lineTo(head[0], head[1]);
     sparkCtx.stroke();
 
-    sparkCtx.fillStyle = 'rgba(200,255,220,0.95)';
+    sparkCtx.fillStyle = 'rgba(200,255,220,1)';
     sparkCtx.shadowBlur = 12;
+    sparkCtx.shadowColor = 'rgba(200,255,220,0.8)';
     sparkCtx.beginPath();
-    sparkCtx.arc(head[0], head[1], 2.4, 0, Math.PI * 2);
+    sparkCtx.arc(head[0], head[1], 2.8, 0, Math.PI * 2);
     sparkCtx.fill();
 
     sparkCtx.restore();
@@ -418,7 +735,11 @@ function resizeAll() {
   computeCoverTransform();
   sizeCanvas(sparkCanvas);
   sizeCanvas(sporeCanvas);
-  placeNavLabels();
+  if (hudEnabled && hudCanvas) {
+    hudCanvas.width = window.innerWidth;
+    hudCanvas.height = window.innerHeight;
+  }
+  layoutNavNodes();
 
   ACTIVE_ANIMS = ACTIVE_ANIMS.map((anim) => {
     const projPts = projectXY(anim.imgPts);
@@ -451,24 +772,24 @@ function handleNavEnter(id, el) {
   currentNavHover = id;
 
   if (prefersReducedMotion) {
-    document.querySelectorAll('.network-node-label.motion-highlight').forEach(node => node.classList.remove('motion-highlight'));
+    document.querySelectorAll('.network-node-label, .network-sigil-node').forEach(node => node.classList.remove('motion-highlight'));
     el.classList.add('motion-highlight');
     if (id !== 'intro') {
-      const introEl = document.querySelector('.network-node-label[data-node="intro"]');
+      const introEl = document.querySelector('.network-sigil-node[data-node="intro"], .network-node-label[data-node="intro"]');
       introEl?.classList.add('motion-highlight');
     }
     return;
   }
 
   if (id === 'intro') {
+    let delay = 0;
     for (const dest of NAV_ORDER) {
       if (dest === 'intro') continue;
-      startSpark('intro', dest, 650, +1);
-      startSpark(dest, 'intro', 650, -1);
+      setTimeout(() => startSpark('intro', dest, 700), delay);
+      delay += 50 + Math.random() * 50;
     }
   } else {
-    startSpark('intro', id, 650, +1);
-    startSpark(id, 'intro', 650, -1);
+    startSpark(id, 'intro', 700);
   }
 }
 
@@ -479,9 +800,11 @@ function handleNavLeave(id, el) {
   if (prefersReducedMotion) {
     el.classList.remove('motion-highlight');
     if (id !== 'intro') {
-      const introEl = document.querySelector('.network-node-label[data-node="intro"]');
+      const introEl = document.querySelector('.network-sigil-node[data-node="intro"], .network-node-label[data-node="intro"]');
       introEl?.classList.remove('motion-highlight');
     }
+  } else {
+    ACTIVE_ANIMS = [];
   }
 }
 
@@ -562,31 +885,32 @@ async function initNetworkAndNav() {
   if (!MYC_MAP) return;
 
   GRAPH = buildGraphFromPaths(MYC_MAP.paths);
+  computeNavOffsets();                 // AFTER graph built
   PATH_CACHE.clear();
 
   for (const [id, pt] of Object.entries(NAV_COORDS)) {
-    NODE_IDS[id] = nearestNodeId(pt);
+    NODE_IDS[id] = GRAPH.nearestId(pt.x, pt.y, 80, 24);
   }
 
   const introId = NODE_IDS.intro;
-  if (introId !== undefined) {
-    for (const [id, node] of Object.entries(NODE_IDS)) {
-      if (id === 'intro' || node === undefined) continue;
-      aStarPath(introId, node);
-      aStarPath(node, introId);
+  if (introId != null && introId >= 0) {
+    for (const [id, gid] of Object.entries(NODE_IDS)) {
+      if (id === 'intro' || gid == null || gid < 0) continue;
+      aStarPath(introId, gid); // warm both ways
+      aStarPath(gid, introId);
     }
   }
 
-  placeNavLabels();
+  layoutNavNodes();
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
-  await loadMycelium();
+  await loadMycelium().catch(err => console.warn('⚠️ network.json unavailable:', err));
   await initNetworkAndNav();
 
   const nav = document.getElementById('network-nav');
   if (nav) {
-    nav.querySelectorAll('.network-node-label').forEach(el => {
+    nav.querySelectorAll('.network-node-label, .network-sigil-node').forEach(el => {
       const id = el.dataset.node;
       el.addEventListener('pointerenter', () => handleNavEnter(id, el));
       el.addEventListener('pointerleave', () => handleNavLeave(id, el));
@@ -595,9 +919,26 @@ window.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  placeNavLabels();
+  layoutNavNodes();
   showSection('intro');
   resizeAll();
+
+  if (hudEnabled) {
+    initHUD();
+    renderHUD();
+  }
+
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'H') toggleHUD();
+  });
+});
+
+// ━━━ Post-load layout (fonts & image settling) ━━━
+window.addEventListener('load', () => {
+  computeCoverTransform();
+  computeNavOffsets();
+  layoutNavNodes();
+  if (hudEnabled) renderHUD();
 });
 
 // ━━━ Glitch Text Effect Setup ━━━

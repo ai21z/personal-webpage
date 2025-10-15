@@ -177,6 +177,48 @@ a, button, .sigil-wrap, .ico {
   .network-node-label .node-label{ top: -22px; }
 }
 
+/* ━━━ Sigil Node (intro replacement) ━━━ */
+.network-sigil-node {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: var(--cursor-spore), pointer;
+  pointer-events: auto;
+  opacity: 1;
+  transition: transform 0.2s ease, filter 0.2s ease;
+  filter: drop-shadow(0 0 8px rgba(122,174,138,0.3));
+}
+
+.network-sigil-node:hover {
+  transform: translate(-50%, -50%) scale(1.05);
+  filter: drop-shadow(0 0 12px rgba(122,174,138,0.5)) drop-shadow(0 0 24px rgba(143,180,255,0.2));
+}
+
+.network-sigil-node:focus-visible {
+  outline: 2px solid rgba(122,174,138,0.8);
+  outline-offset: 4px;
+  border-radius: 50%;
+}
+
+.network-sigil-node.motion-highlight {
+  filter: drop-shadow(0 0 16px rgba(63,255,159,0.6));
+}
+
+.network-sigil-node img {
+  display: block;
+  width: 64px;
+  height: 64px;
+}
+
+@media (max-width: 900px) {
+  .network-sigil-node img {
+    width: 48px;
+    height: 48px;
+  }
+}
+
 /* ━━━ Stage Container (Section pages) ━━━ */
 .stage{
   position:fixed;
