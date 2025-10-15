@@ -37,8 +37,18 @@
 }
 
 /* ━━━ Typography ━━━ */
-.xanh-mono-regular{font-family:"Xanh Mono",monospace;font-weight:400;font-style:normal;}
-.xanh-mono-regular-italic{font-family:"Xanh Mono",monospace;font-weight:400;font-style:italic;}
+@font-face {
+  font-family: 'Special Elite';
+  src: local('Special Elite'),
+       local('SpecialElite-Regular'),
+       url('./artifacts/fonts/SpecialElite-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* .xanh-mono-regular{font-family:"Xanh Mono",monospace;font-weight:400;font-style:normal;}
+.xanh-mono-regular-italic{font-family:"Xanh Mono",monospace;font-weight:400;font-style:italic;} */
 
 /* ━━━ Base & Reset ━━━ */
 *,*::before,*::after{box-sizing:border-box}
@@ -46,7 +56,7 @@ html{scroll-behavior:smooth}
 html,body{height:100%; margin:0; padding:0; overflow-x:hidden;}
 body{
   background:var(--void); color:var(--bone);
-  font-family:"Xanh Mono", monospace; 
+  font-family:"Special Elite", monospace; 
   font-size: var(--text-base);
   line-height: var(--leading-relaxed);
   letter-spacing: 0.01em;
@@ -135,7 +145,7 @@ a, button, .sigil-wrap, .ico {
   position: absolute;
   transform: translate(-50%, -50%);
   color: rgba(230,227,216,.86);
-  font: 400 12px "Xanh Mono", monospace;
+  font: 400 12px "Special Elite", monospace;
   letter-spacing: .04em;
   pointer-events: auto;
   cursor: var(--cursor-spore), pointer;
@@ -186,7 +196,7 @@ a, button, .sigil-wrap, .ico {
   padding: 0;
   cursor: var(--cursor-spore), pointer;
   pointer-events: auto;
-  opacity: 1;
+  opacity: 0.7;
   transition: transform 0.2s ease, filter 0.2s ease;
   filter: drop-shadow(0 0 8px rgba(122,174,138,0.3));
 }
@@ -405,7 +415,7 @@ a, button, .sigil-wrap, .ico {
 
 /* ━━━ Name (Swiss: Precise, Left-Aligned) ━━━ */
 .name{
-  grid-column: 1 / 7;
+  grid-column: 1 / -1;
   grid-row: 2;
   font-size: var(--text-2xl);
   font-weight: 400;
@@ -414,6 +424,8 @@ a, button, .sigil-wrap, .ico {
   padding-bottom: 0;
   text-align: left;
   line-height: var(--leading-tight);
+  white-space: nowrap;
+  overflow: visible;
   /* Character: Subtle gradient for depth */
   background: linear-gradient(115deg, 
     var(--bone) 0%, 
@@ -432,8 +444,8 @@ a, button, .sigil-wrap, .ico {
   margin: 0;
   position: relative;
   z-index: 3;
-  opacity: 0;
-  animation: fadeInPortrait 1.2s cubic-bezier(0.16, 1, 0.3, 1) 0.4s forwards;
+  opacity: 0.8 !important;
+  animation: fadeInPortrait 8.2s cubic-bezier(0.16, 1, 0.3, 1) 0.4s forwards;
 }
 
 @keyframes fadeInPortrait {

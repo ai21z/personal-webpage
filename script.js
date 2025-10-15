@@ -187,6 +187,7 @@ function aStarPath(idA, idB) {
 }
 
 /* --- DESIGN ANCHORS (1920×1080 reference) --- */
+// [LOCKED-ROUTE] Fixed design anchors in image space (1920×1080) - DO NOT CHANGE
 const NAV_COORDS = {
   intro:   { x: 1610, y: 177 },
   about:   { x: 1466, y: 179 },
@@ -204,6 +205,14 @@ const LABEL_OFFSET_PX = {
   intro: 34, about: 26, work: 24, projects: 22,
   contact: 24, blog: 26, resume: 20, skills: 24
 };
+
+// [LOCKED-ROUTE] Per-label locked polyline routes (never re-snap at runtime)
+let LOCKED_ROUTES = {}; // id -> {imgPts, projPts, cum, len, s, dir, speed} - populated by buildLockedRoutes()
+const LABEL_SPEEDS = { 
+  about: 65, work: 70, projects: 75, contact: 68, 
+  blog: 72, resume: 66, skills: 74
+};
+const DEFAULT_SPEED = 68; // fallback if label not in LABEL_SPEEDS
 
 const NODE_IDS = {}; // id -> graph node index
 const NAV_OFFSETS = {}; // id -> {nx, ny} in image space
@@ -365,6 +374,7 @@ function initHUD() {
   hudCanvas.height = window.innerHeight;
 }
 
+// [LOCKED-ROUTE] HUD shows white anchor, cyan locked route, green live position
 function renderHUD() {
   if (!hudEnabled) return;
   if (!hudCtx) initHUD();
@@ -374,6 +384,7 @@ function renderHUD() {
   for (const [id, pt] of Object.entries(NAV_COORDS)) {
     const [tx, ty] = coverMap(pt.x, pt.y);
     
+    // White: design anchor
     hudCtx.fillStyle = '#fff';
     hudCtx.beginPath();
     hudCtx.arc(tx, ty, 4, 0, Math.PI * 2);
@@ -381,20 +392,23 @@ function renderHUD() {
     
     hudCtx.fillStyle = '#fff';
     hudCtx.font = '10px monospace';
-    hudCtx.fillText(`${id} (${Math.round(tx)},${Math.round(ty)})`, tx + 8, ty - 8);
+    hudCtx.fillText(`${id} anchor`, tx + 8, ty - 8);
 
-    const off = NAV_OFFSETS[id] || {nx:0, ny:0};
-    const [lx, ly] = coverMap(pt.x + off.nx, pt.y + off.ny);
-    hudCtx.strokeStyle = 'rgba(0,255,255,.35)';
-    hudCtx.beginPath(); 
-    hudCtx.moveTo(tx,ty); 
-    hudCtx.lineTo(lx,ly); 
-    hudCtx.stroke();
-    hudCtx.fillStyle = '#0ff'; 
-    hudCtx.beginPath(); 
-    hudCtx.arc(lx, ly, 3, 0, Math.PI*2); 
-    hudCtx.fill();
+    // Cyan: locked route polyline
+    const route = LOCKED_ROUTES[id];
+    if (route && route.projPts.length > 1) {
+      hudCtx.strokeStyle = 'rgba(0,255,255,.4)';
+      hudCtx.lineWidth = 1;
+      hudCtx.beginPath();
+      hudCtx.moveTo(route.projPts[0][0], route.projPts[0][1]);
+      for (let i = 1; i < route.projPts.length; i++) {
+        hudCtx.lineTo(route.projPts[i][0], route.projPts[i][1]);
+      }
+      hudCtx.stroke();
+      hudCtx.lineWidth = 1;
+    }
 
+    // Green: live label position
     const el = document.querySelector(`[data-node="${id}"]`);
     if (el) {
       const rect = el.getBoundingClientRect();
@@ -409,9 +423,28 @@ function renderHUD() {
       hudCtx.fillStyle = '#0f0';
       hudCtx.fillText(`live (${Math.round(cx)},${Math.round(cy)})`, cx + 8, cy + 16);
 
-      const dx = cx - lx, dy = cy - ly;
-      const drift = Math.hypot(dx, dy);
-      if (drift > 2) console.warn(`HUD drift ${id}: ${drift.toFixed(1)}px`);
+      // Check orthogonal distance to locked route
+      if (route && route.projPts.length > 1) {
+        let minDist = Infinity;
+        for (let i = 1; i < route.projPts.length; i++) {
+          const [x0, y0] = route.projPts[i - 1];
+          const [x1, y1] = route.projPts[i];
+          const dx = x1 - x0;
+          const dy = y1 - y0;
+          const len = Math.hypot(dx, dy);
+          if (len < 1e-6) continue;
+          
+          const t = Math.max(0, Math.min(1, ((cx - x0) * dx + (cy - y0) * dy) / (len * len)));
+          const projX = x0 + t * dx;
+          const projY = y0 + t * dy;
+          const dist = Math.hypot(cx - projX, cy - projY);
+          minDist = Math.min(minDist, dist);
+        }
+        
+        if (minDist > 8) {
+          console.warn(`[LOCKED-ROUTE] HUD: ${id} label is ${minDist.toFixed(1)}px off its route (should be <8px)`);
+        }
+      }
     }
   }
 }
@@ -727,6 +760,7 @@ function drawSparks(dt) {
 function sparkLoop(ts) {
   const dt = Math.min(0.05, (ts - lastSparkTs) / 1000);
   lastSparkTs = ts;
+  updateMovingLabels(dt); // Move labels along their branch tails
   drawSparks(dt);
   requestAnimationFrame(sparkLoop);
 }
@@ -750,6 +784,21 @@ function resizeAll() {
     const s = Math.max(0, Math.min(len, ratio * len));
     return { ...anim, projPts, cum, len, s };
   }).filter(Boolean);
+
+  // [LOCKED-ROUTE] Reproject locked routes (keep imgPts unchanged, only update projPts/cum/len)
+  for (const [id, route] of Object.entries(LOCKED_ROUTES)) {
+    const projPts = projectXY(route.imgPts);
+    const cum = cumulativeLengths(projPts);
+    const len = cum[cum.length - 1];
+    
+    // Preserve s ratio
+    const sRatio = route.len > 0 ? route.s / route.len : 0.5;
+    
+    route.projPts = projPts;
+    route.cum = cum;
+    route.len = len;
+    route.s = Math.max(24, Math.min(len - 24, sRatio * len));
+  }
 
   if (sporeCtx) createSpores();
 }
@@ -880,6 +929,448 @@ function nearestNodeId(pt) {
   return GRAPH.nearestId(pt.x, pt.y, 96, 24);
 }
 
+// ━━━ [LOCKED-ROUTE] Stable Single-Branch Label Motion ━━━
+
+// [LOCKED-ROUTE] Resample polyline to uniform spacing in image space
+function resamplePolyline(pts, step = 10) {
+  if (!pts || pts.length < 2) return pts;
+  
+  const resampled = [pts[0]];
+  let accumulated = 0;
+  
+  for (let i = 1; i < pts.length; i++) {
+    const [x0, y0] = pts[i - 1];
+    const [x1, y1] = pts[i];
+    const segLen = Math.hypot(x1 - x0, y1 - y0);
+    
+    let localDist = 0;
+    while (accumulated + localDist + step <= segLen) {
+      localDist += step;
+      const t = localDist / segLen;
+      resampled.push([
+        x0 + (x1 - x0) * t,
+        y0 + (y1 - y0) * t
+      ]);
+    }
+    accumulated = segLen - localDist;
+  }
+  
+  // Always include endpoint
+  const last = pts[pts.length - 1];
+  if (resampled[resampled.length - 1] !== last) {
+    resampled.push(last);
+  }
+  
+  return resampled;
+}
+
+// [LOCKED-ROUTE] Find closest point on polyline and return arc-length
+function projectOntoPolyline(px, py, polyline) {
+  let bestDist = Infinity;
+  let bestS = 0;
+  let cumS = 0;
+  
+  for (let i = 1; i < polyline.length; i++) {
+    const [x0, y0] = polyline[i - 1];
+    const [x1, y1] = polyline[i];
+    const dx = x1 - x0;
+    const dy = y1 - y0;
+    const segLen = Math.hypot(dx, dy);
+    
+    if (segLen < 1e-6) {
+      const d = Math.hypot(px - x0, py - y0);
+      if (d < bestDist) {
+        bestDist = d;
+        bestS = cumS;
+      }
+      continue;
+    }
+    
+    const t = Math.max(0, Math.min(1, ((px - x0) * dx + (py - y0) * dy) / (segLen * segLen)));
+    const closestX = x0 + t * dx;
+    const closestY = y0 + t * dy;
+    const d = Math.hypot(px - closestX, py - closestY);
+    
+    if (d < bestDist) {
+      bestDist = d;
+      bestS = cumS + t * segLen;
+    }
+    
+    cumS += segLen;
+  }
+  
+  return { dist: bestDist, s: bestS };
+}
+
+// [LOCKED-ROUTE] Slice polyline by arc-length window [sStart, sEnd]
+function slicePolylineByS(poly, sStart, sEnd) {
+  if (!poly || poly.length < 2) return poly;
+  
+  const result = [];
+  let cumS = 0;
+  
+  for (let i = 0; i < poly.length; i++) {
+    const [x0, y0] = poly[i];
+    
+    if (i === 0) {
+      // Check if start point is within window
+      if (cumS >= sStart) result.push([x0, y0]);
+      continue;
+    }
+    
+    const [x1, y1] = poly[i - 1];
+    const segLen = Math.hypot(x0 - x1, y0 - y1);
+    const segEnd = cumS + segLen;
+    
+    // Segment overlaps [sStart, sEnd]?
+    if (segEnd >= sStart && cumS <= sEnd) {
+      // Add start interpolation if needed
+      if (result.length === 0 && cumS < sStart) {
+        const t = (sStart - cumS) / segLen;
+        result.push([
+          x1 + (x0 - x1) * t,
+          y1 + (y0 - y1) * t
+        ]);
+      }
+      
+      // Add endpoint if within window
+      if (cumS >= sStart && cumS <= sEnd) {
+        result.push([x0, y0]);
+      }
+      
+      // Add end interpolation if we've passed sEnd
+      if (segEnd > sEnd && cumS < sEnd) {
+        const t = (sEnd - cumS) / segLen;
+        result.push([
+          x1 + (x0 - x1) * t,
+          y1 + (y0 - y1) * t
+        ]);
+        break;
+      }
+    }
+    
+    cumS = segEnd;
+    if (cumS > sEnd) break;
+  }
+  
+  return result.length >= 2 ? result : poly;
+}
+
+// --- LOCKED BRANCH ROUTES (robust branch-walking system) ---
+const MIN_ROUTE_LEN_PX     = 320;  // generous travel
+const MAX_ROUTE_LEN_PX     = 900;  // don't span the whole canvas
+const RESAMPLE_STEP_PX     = 18;   // output spacing in pixels
+const RESAMPLE_MIN_POINTS  = 64;   // guarantee enough samples
+
+const LOCKED = new Map(); // id -> {imgPts, projPts, cum, len, s, dir, speed}
+
+const hyp = (a,b) => Math.hypot(a.x - b.x, a.y - b.y);
+const deg = (id)   => (GRAPH.neighbors(id) || []).length;
+
+/** Walk off tiny spurs: if start is a leaf, climb until a junction (deg!=2). */
+function climbToSpine(id, prev = null, maxHops = 80) {
+  let a = prev, b = id, hops = 0;
+  while (hops++ < maxHops) {
+    const nbs = GRAPH.neighbors(b).filter(n => n !== a);
+    if (nbs.length !== 1) break; // stop at leaf(0) or junction(>=2)
+    a = b; b = nbs[0];
+  }
+  return b;
+}
+
+/** BFS in geodesic length; optionally forbid the first hop from src. */
+function farthestLeafFrom(src, forbidFirstHop = -1) {
+  const q = [src];
+  const dist   = new Map([[src, 0]]);
+  const parent = new Map();
+  const firstHop = new Map();
+
+  while (q.length) {
+    const u = q.shift();
+    for (const v of GRAPH.neighbors(u)) {
+      if (u === src && v === forbidFirstHop) continue;
+      if (!dist.has(v)) {
+        const w = hyp(GRAPH.nodes[u], GRAPH.nodes[v]);
+        dist.set(v, dist.get(u) + w);
+        parent.set(v, u);
+        firstHop.set(v, firstHop.get(u) ?? v);
+        q.push(v);
+      }
+    }
+  }
+
+  let best = src, bestD = -1;
+  for (const [v, d] of dist) if (d > bestD) { best = v; bestD = d; }
+  return { leaf: best, parent, dist, firstHop };
+}
+
+function rebuildPath(parent, end) {
+  const out = [];
+  for (let v = end; v != null; v = parent.get(v)) out.push(GRAPH.nodes[v]);
+  return out.reverse();
+}
+
+/** Slice a polyline to a centered window (by arc-length) around the anchor. */
+function trimAroundAnchor(imgPts, maxLenPx, anchor) {
+  const proj = imgPts.map(p => [p.x, p.y]);
+  const cum  = cumulativeLengths(proj);
+  const total = cum[cum.length - 1];
+
+  // index of poly point closest to anchor
+  const idx = proj.reduce((best, p, i) =>
+    (Math.hypot(p[0]-anchor.x, p[1]-anchor.y) <
+     Math.hypot(proj[best][0]-anchor.x, proj[best][1]-anchor.y)) ? i : best
+  , 0);
+
+  const centerS = cum[idx];
+  const half = maxLenPx / 2;
+  const s0 = Math.max(0, centerS - half);
+  const s1 = Math.min(total, centerS + half);
+
+  // turn window into points
+  const out = [];
+  const steps = Math.max(2, Math.round((s1 - s0) / RESAMPLE_STEP_PX));
+  for (let i = 0; i <= steps; i++) {
+    const s = s0 + (i * (s1 - s0)) / steps;
+    out.push(pointAt(proj, cum, s));
+  }
+  return { imgPts: out.map(([x,y]) => ({ x, y })), len: s1 - s0 };
+}
+
+function resampleToViewport(imgPts) {
+  // Project to viewport, then resample to uniform spacing with a minimum count.
+  const screenPts = projectXY(imgPts);
+  const cum = cumulativeLengths(screenPts);
+  const len = cum[cum.length - 1];
+  const N = Math.max(RESAMPLE_MIN_POINTS, Math.ceil(len / RESAMPLE_STEP_PX));
+  const out = [];
+  for (let i = 0; i < N; i++) {
+    const s = (len * i) / (N - 1);
+    out.push(pointAt(screenPts, cum, s));
+  }
+  return { projPts: out, cum: cumulativeLengths(out), len };
+}
+
+function computeLockedRouteFor(id, anchor) {
+  // Wider radius + finer step avoids "nearestId missed" on coarse meshes:
+  let start = GRAPH.nearestId(anchor.x, anchor.y, /*radius*/ 160, /*step*/ 12);
+  if (start < 0) return null;
+
+  // If on a tiny twig, walk to a spine before evaluating both directions.
+  if (deg(start) <= 1) start = climbToSpine(start);
+
+  // Two directions from the spine: pick two farthest leaves on distinct sides.
+  const A = farthestLeafFrom(start);
+  const avoid = A.firstHop.get(A.leaf) ?? -1;
+  const B = farthestLeafFrom(start, avoid);
+
+  let left  = rebuildPath(A.parent, A.leaf);
+  let right = rebuildPath(B.parent, B.leaf);
+
+  // Ensure both include the spine as their first point.
+  const spine = GRAPH.nodes[start];
+  const eq = (p,q) => p.x === q.x && p.y === q.y;
+  while (left.length  && !eq(left[0], spine))  left.shift();
+  while (right.length && !eq(right[0], spine)) right.shift();
+
+  // Build a long, continuous branch passing through the anchor's spine.
+  const raw = [...left.reverse(), spine, ...right.slice(1)];
+
+  // Limit window around the anchor so movement is generous but not crazy.
+  const trimmed = trimAroundAnchor(raw, MAX_ROUTE_LEN_PX, anchor);
+
+  // Guarantee enough samples to move smoothly.
+  const sampled = resampleToViewport(trimmed.imgPts);
+  if (sampled.projPts.length < 2) return null;
+
+  // Enforce a minimum length so it never looks "stuck".
+  if (sampled.len < MIN_ROUTE_LEN_PX) return { ...sampled, imgPts: trimmed.imgPts, len: sampled.len, tooShort: true };
+  return { ...sampled, imgPts: trimmed.imgPts };
+}
+
+function buildLockedRoutes() {
+  LOCKED.clear();
+  for (const [id, anchor] of Object.entries(NAV_COORDS)) {
+    if (id === 'intro') continue; // sigil stays static
+    
+    const route = computeLockedRouteFor(id, anchor);
+    if (!route) {
+      console.warn(`[LOCKED-ROUTE] ${id}: failed; fallback to static anchor`);
+      LOCKED.set(id, null);
+      continue;
+    }
+    if (route.tooShort) {
+      console.warn(`[LOCKED-ROUTE] ${id}: short (${route.len.toFixed(1)}px) – using anyway to avoid jitter`);
+    } else {
+      console.log(`[LOCKED-ROUTE] ${id}: locked, len=${route.len.toFixed(1)}px`);
+    }
+    
+    // Add animation state
+    const startS = Math.min(40, route.len * 0.15);
+    route.s = startS;
+    route.dir = 1;
+    route.speed = LABEL_SPEEDS[id] ?? DEFAULT_SPEED;
+    
+    LOCKED.set(id, route);
+  }
+  
+  // Copy to LOCKED_ROUTES for compatibility with existing code
+  LOCKED_ROUTES = {};
+  for (const [id, route] of LOCKED) {
+    if (route) LOCKED_ROUTES[id] = route;
+  }
+}
+
+// Alias for backward compatibility
+const lockNavRoutes = buildLockedRoutes;
+
+// [LOCKED-ROUTE] Interpolate position along locked route
+function pointAtRoute(route, s) {
+  if (s <= 0) return [route.projPts[0][0], route.projPts[0][1]];
+  if (s >= route.len) {
+    const last = route.projPts[route.projPts.length - 1];
+    return [last[0], last[1]];
+  }
+  
+  let lo = 0, hi = route.cum.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (route.cum[mid] < s) lo = mid + 1;
+    else hi = mid;
+  }
+  
+  const i = Math.max(1, lo);
+  const segStart = route.cum[i - 1];
+  const segLen = Math.max(1e-6, route.cum[i] - segStart);
+  const t = (s - segStart) / segLen;
+  
+  const [x0, y0] = route.projPts[i - 1];
+  const [x1, y1] = route.projPts[i];
+  
+  return [
+    x0 + (x1 - x0) * t,
+    y0 + (y1 - y0) * t
+  ];
+}
+
+// [LOCKED-ROUTE] Get image-space point at current s
+function imgPointAtRoute(route, s) {
+  if (s <= 0) return [route.imgPts[0].x, route.imgPts[0].y];
+  if (s >= route.len) {
+    const last = route.imgPts[route.imgPts.length - 1];
+    return [last.x, last.y];
+  }
+  
+  let lo = 0, hi = route.cum.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (route.cum[mid] < s) lo = mid + 1;
+    else hi = mid;
+  }
+  
+  const i = Math.max(1, lo);
+  const segStart = route.cum[i - 1];
+  const segLen = Math.max(1e-6, route.cum[i] - segStart);
+  const t = (s - segStart) / segLen;
+  
+  const pt0 = route.imgPts[i - 1];
+  const pt1 = route.imgPts[i];
+  
+  return [
+    pt0.x + (pt1.x - pt0.x) * t,
+    pt0.y + (pt1.y - pt0.y) * t
+  ];
+}
+
+// [LOCKED-ROUTE] Update label positions along locked routes
+function updateMovingLabels(dt) {
+  if (prefersReducedMotion) return; // PRM: freeze motion globally
+  
+  const nav = document.getElementById('network-nav');
+  if (!nav) return;
+  
+  // Iterate over what's actually locked (not a static list)
+  for (const id of Object.keys(LOCKED_ROUTES)) {
+    const route = LOCKED_ROUTES[id];
+    if (!route || route.len < 60) continue; // too short → stay static (no jitter)
+    
+    // Bounce with safe margins
+    const MIN_S = 24;
+    const MAX_S = route.len - 24;
+    
+    route.s += route.speed * dt * route.dir;
+    
+    if (route.s > MAX_S) {
+      route.s = MAX_S;
+      route.dir = -1;
+    }
+    if (route.s < MIN_S) {
+      route.s = MIN_S;
+      route.dir = 1;
+    }
+    
+    // Get viewport position along rail
+    const [px, py] = pointAtRoute(route, route.s);
+    
+    // Position element absolutely along the rail
+    const el = nav.querySelector(`[data-node="${id}"]`);
+    if (!el) continue;
+    
+    el.style.left = `${px}px`;
+    el.style.top = `${py}px`;
+    el.style.transform = `translate(-50%, -50%)`;
+  }
+}
+
+// [LOCKED-ROUTE] Spark to current label position
+function startSparkToPoint(fromKey, imgX, imgY, speed = 750) {
+  if (prefersReducedMotion || !GRAPH) return;
+  
+  const fromId = NODE_IDS[fromKey];
+  if (fromId == null || fromId < 0) return;
+  
+  // Find nearest graph node to target point
+  const toId = GRAPH.nearestId(imgX, imgY, 96, 24);
+  if (toId == null || toId < 0) {
+    console.warn(`[LOCKED-ROUTE] No graph node near (${imgX.toFixed(0)}, ${imgY.toFixed(0)}) for spark`);
+    return;
+  }
+  
+  const solved = aStarPath(fromId, toId);
+  if (!solved || solved.length < 2) return;
+  
+  const imgPts = solved.map(p => ({ x: p.x, y: p.y }));
+  const projPts = projectXY(imgPts);
+  const cum = cumulativeLengths(projPts);
+  const len = cum[cum.length - 1];
+  if (!len) return;
+  
+  ACTIVE_ANIMS.push({
+    imgPts, projPts, cum, len,
+    s: 0, v: speed
+  });
+}
+
+// [LOCKED-ROUTE] Ritual: sparks to all current label positions
+function ritualCatchUp() {
+  if (prefersReducedMotion) return;
+  
+  let delay = 0;
+  // Iterate over what's actually locked
+  for (const id of Object.keys(LOCKED_ROUTES)) {
+    const route = LOCKED_ROUTES[id];
+    if (!route) continue;
+    
+    const [imgX, imgY] = imgPointAtRoute(route, route.s);
+    
+    setTimeout(() => {
+      startSparkToPoint('intro', imgX, imgY, 750);
+    }, delay);
+    
+    delay += 60 + Math.random() * 40;
+  }
+}
+
 // ━━━ Initialization ━━━
 async function initNetworkAndNav() {
   if (!MYC_MAP) return;
@@ -900,6 +1391,9 @@ async function initNetworkAndNav() {
       aStarPath(gid, introId);
     }
   }
+
+  // [LOCKED-ROUTE] Lock each label to a single polyline (never re-snap)
+  lockNavRoutes();
 
   layoutNavNodes();
 }
@@ -1025,6 +1519,9 @@ function onActivate(e) {
 
   // Simple particle effect
   simpleParticles(cx, cy);
+
+  // Ritual: sparks race to current label positions
+  ritualCatchUp();
 
   // A11y: Announce state change to screen readers
   const announcement = document.createElement('div');
