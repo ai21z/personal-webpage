@@ -141,14 +141,14 @@
         </div>
       </div>
 
-      <!-- THREE NECRO-SLABS -->
-      <article class="slab slab-about" aria-label="About text">
+      <!-- THREE NECRO-SLABS (now treated as "papers") -->
+      <article class="slab slab-about paper" data-paper aria-label="About text" tabindex="0">
         <h2>Background</h2>
         <p>Software engineer with a focus on building robust, maintainable systems. Originally from Greece, now based in Barcelona. I believe in honest, functional design that serves users without unnecessary complexity.</p>
         <p>My approach combines technical precision with an understanding that software exists within larger human contexts. Clean code, clear documentation, and thoughtful architecture.</p>
       </article>
 
-      <section class="slab slab-expertise" aria-label="Expertise">
+      <section class="slab slab-expertise paper" data-paper aria-label="Expertise" tabindex="0">
         <h3>Expertise</h3>
         <ul>
           <li>Full-stack development (Python, JavaScript, Node.js)</li>
@@ -164,7 +164,7 @@
         </div>
       </section>
 
-      <aside class="slab slab-vitals" aria-label="Vitals">
+      <aside class="slab slab-vitals paper" data-paper aria-label="Vitals" tabindex="0">
         <h3>Contact & Languages</h3>
         <ul class="kv">
           <li><span>Email</span><a href="mailto:hello@example.com">hello@example.com</a></li>
@@ -173,6 +173,9 @@
         </ul>
         <button class="ghost back-to-nodes" data-action="go-intro" aria-label="Back to intro">← Back</button>
       </aside>
+
+      <!-- Backdrop for focused paper (dimming rest of the altar) -->
+      <div class="paper-overlay" aria-hidden="true"></div>
     </div>
   </section>
 

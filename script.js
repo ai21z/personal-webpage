@@ -1924,3 +1924,64 @@ document.addEventListener('click', (e) => {
   e.preventDefault();
   showSection('intro');
 });
+
+// ━━━ About: Paper focus (zoom to center + backdrop dim) ━━━
+initAboutPaperFocus();
+
+/**
+ * initAboutPaperFocus
+ * 
+ * Click (or Enter/Space) on an About "paper" zooms it to center and darkens the rest.
+ * ESC or clicking the backdrop closes it.
+ */
+function initAboutPaperFocus(){
+  const about = document.getElementById('about');
+  if (!about) return;
+  const altar = about.querySelector('.altar');
+  if (!altar) return;
+  
+  let overlay = about.querySelector('.paper-overlay');
+  if (!overlay){
+    overlay = document.createElement('div');
+    overlay.className = 'paper-overlay';
+    altar.appendChild(overlay);
+  }
+  
+  const papers = about.querySelectorAll('.paper');
+  papers.forEach(p => {
+    // ensure focusable for keyboard users
+    if (!p.hasAttribute('tabindex')) p.setAttribute('tabindex','0');
+    
+    p.addEventListener('click', () => openPaper(p));
+    p.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault(); openPaper(p);
+      }
+    });
+  });
+  
+  overlay.addEventListener('click', closePaper);
+  
+  function onEsc(e){ if (e.key === 'Escape') closePaper(); }
+  
+  function openPaper(el){
+    if (about.classList.contains('has-paper-open')) return;
+    about.classList.add('has-paper-open');
+    el.classList.add('paper-open');
+    el.setAttribute('role','dialog');
+    el.setAttribute('aria-modal','true');
+    el.focus({ preventScroll:true });
+    document.addEventListener('keydown', onEsc);
+  }
+  
+  function closePaper(){
+    const openEl = about.querySelector('.paper-open');
+    if (openEl){
+      openEl.classList.remove('paper-open');
+      openEl.removeAttribute('role');
+      openEl.removeAttribute('aria-modal');
+    }
+    about.classList.remove('has-paper-open');
+    document.removeEventListener('keydown', onEsc);
+  }
+}

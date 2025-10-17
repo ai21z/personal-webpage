@@ -1455,6 +1455,116 @@ button.ghost:hover {
   color: var(--bone);
 }
 
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   ABOUT "PAPER" LOOK — necrography parchment, decomposing edges
+   (Scoped to the altar-screen so other sections can reuse .slab)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.altar-screen .paper{
+  /* Old parchment base */
+  color: #1e1a14;
+  background:
+    /* stains + sun-fade */
+    radial-gradient(120% 90% at 12% -10%, rgba(139,99,49,.18) 0%, transparent 52%),
+    radial-gradient(140% 120% at 110% 110%, rgba(78,55,28,.18) 0%, transparent 58%),
+    /* faint vertical fiber lines */
+    repeating-linear-gradient(90deg, rgba(0,0,0,.06) 0 1px, transparent 1px 5px),
+    /* pulp variation */
+    radial-gradient(100% 100% at 40% 35%, rgba(255,255,255,.18), rgba(0,0,0,.08)),
+    /* parchment tint */
+    #ede5cf;
+  border: 1px solid rgba(57,39,20,.45);
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,.06) inset,
+    0 12px 30px rgba(0,0,0,.45),
+    0 2px 0 rgba(0,0,0,.35) inset;
+  /* Deckled, irregular edges (mask = small tears & rot) */
+  -webkit-mask-image:
+    radial-gradient(28px 18px at 6% 8%,    transparent 0 58%, black 62%),
+    radial-gradient(20px 14px at 94% 7%,   transparent 0 58%, black 62%),
+    radial-gradient(34px 24px at 93% 92%,  transparent 0 58%, black 62%),
+    radial-gradient(22px 16px at 7% 86%,   transparent 0 58%, black 62%),
+    radial-gradient(16px 12px at 18% 50%,  transparent 0 50%, black 54%),
+    radial-gradient(12px 10px at 82% 42%,  transparent 0 48%, black 52%),
+    linear-gradient(black, black);
+  -webkit-mask-composite: source-over, source-over, source-over, source-over, source-over, source-over, destination-in;
+  mask-image:
+    radial-gradient(28px 18px at 6% 8%,    transparent 0 58%, black 62%),
+    radial-gradient(20px 14px at 94% 7%,   transparent 0 58%, black 62%),
+    radial-gradient(34px 24px at 93% 92%,  transparent 0 58%, black 62%),
+    radial-gradient(22px 16px at 7% 86%,   transparent 0 58%, black 62%),
+    radial-gradient(16px 12px at 18% 50%,  transparent 0 50%, black 54%),
+    radial-gradient(12px 10px at 82% 42%,  transparent 0 48%, black 52%),
+    linear-gradient(black, black);
+  mask-composite: intersect; /* best-effort cross-browser */
+  cursor: zoom-in;
+}
+.altar-screen .paper h2,
+.altar-screen .paper h3{
+  color:#1b170f;
+  text-shadow:none;
+  font-family: 'Special Elite', ui-serif, system-ui;
+}
+.altar-screen .paper p,
+.altar-screen .paper li{
+  color:#1f1a13;
+}
+/* Burnt edge + mycelial creep overlay */
+.altar-screen .paper::before{
+  content:""; position:absolute; inset:-1px; pointer-events:none;
+  background:
+    /* burnt rim */
+    radial-gradient(100% 30% at 50% 0%, rgba(0,0,0,.18), transparent 60%),
+    radial-gradient(90% 26% at 50% 100%, rgba(0,0,0,.18), transparent 62%),
+    radial-gradient(40% 100% at 0% 50%, rgba(0,0,0,.12), transparent 60%),
+    radial-gradient(40% 100% at 100% 50%, rgba(0,0,0,.12), transparent 60%);
+  mix-blend-mode:multiply; opacity:.55;
+}
+.altar-screen .paper::after{
+  /* hyphae: faint green filaments "eating" the paper from edges */
+  content:""; position:absolute; inset:0; pointer-events:none;
+  background:
+    radial-gradient(120px 60px at 12% 8%, rgba(45,212,175,.18), transparent 70%),
+    radial-gradient(100px 40px at 88% 10%, rgba(45,212,175,.14), transparent 70%),
+    radial-gradient(120px 60px at 90% 88%, rgba(45,212,175,.14), transparent 70%),
+    radial-gradient(100px 40px at 10% 86%, rgba(45,212,175,.14), transparent 70%);
+  filter: blur(.2px) contrast(110%);
+  opacity:.7;
+}
+/* Hover lift remains subtle on paper */
+.altar-screen .paper:hover{
+  border-color: rgba(57,39,20,.6);
+  box-shadow: 0 0 0 1px rgba(57,39,20,.6) inset, 0 20px 50px rgba(0,0,0,.5);
+}
+
+/* ── Focused reading mode (zoom paper to center + dim rest) ── */
+.paper-overlay{
+  position: fixed; inset: 0; z-index: 40;
+  background: radial-gradient(120% 120% at 50% 50%, rgba(0,0,0,.85), rgba(0,0,0,.92));
+  opacity: 0; pointer-events: none; transition: opacity 200ms ease;
+}
+.altar-screen.has-paper-open .paper-overlay{
+  opacity: 1; pointer-events: auto;
+}
+.altar-screen .paper.paper-open{
+  position: fixed; z-index: 50;
+  left:50%; top:50%; transform: translate(-50%, -50%) scale(1.08) rotate(0deg);
+  width: min(86vw, 860px); max-height: min(80vh, 720px); overflow: auto;
+  cursor: zoom-out;
+  /* keep the parchment look when enlarged */
+  box-shadow: 0 0 0 1px rgba(57,39,20,.65) inset, 0 26px 80px rgba(0,0,0,.65);
+}
+/* While a paper is open, subtly mute the altar visuals behind */
+.altar-screen.has-paper-open .ring,
+.altar-screen.has-paper-open .core,
+.altar-screen.has-paper-open .slab:not(.paper-open){
+  filter: saturate(.7) brightness(.7);
+}
+
+/* Keyboard focus ring on papers */
+.altar-screen .paper:focus-visible{
+  outline: 2px dashed rgba(57,39,20,.8); outline-offset: 2px;
+}
+
 /* Close/Back button (top-right corner) */
 .altar-close {
   position: absolute;
