@@ -1073,11 +1073,52 @@ function handleNavEnter(id, el) {
     let delay = 0;
     for (const dest of NAV_ORDER) {
       if (dest === 'intro') continue;
-      setTimeout(() => startSpark('intro', dest, 700), delay);
+      
+      setTimeout(() => {
+        // FIX: If ritual is active, spark to current position on route
+        if (ritualActive) {
+          const route = LOCKED_ROUTES[dest];
+          if (route && route.len >= 60) {
+            // Get current VIEWPORT position on route (not image space)
+            const [vpX, vpY] = pointAtRoute(route, route.s);
+            
+            // Convert back to image space for startSparkToPoint
+            // Inverse of coverMap: (vp - dx) / s = img
+            const imgX = (vpX - COVER.dx) / COVER.s;
+            const imgY = (vpY - COVER.dy) / COVER.s;
+            
+            startSparkToPoint('intro', imgX, imgY, 700);
+          } else {
+            // Fallback to anchor if route is too short or missing
+            startSpark('intro', dest, 700);
+          }
+        } else {
+          // Static mode: spark to anchor
+          startSpark('intro', dest, 700);
+        }
+      }, delay);
+      
       delay += 50 + Math.random() * 50;
     }
   } else {
-    startSpark(id, 'intro', 700);
+    // FIX: When hovering a label, spark back to intro
+    // If ritual is active, use current position
+    if (ritualActive) {
+      const route = LOCKED_ROUTES[id];
+      if (route && route.len >= 60) {
+        const [vpX, vpY] = pointAtRoute(route, route.s);
+        
+        // Convert viewport back to image space
+        const imgX = (vpX - COVER.dx) / COVER.s;
+        const imgY = (vpY - COVER.dy) / COVER.s;
+        
+        startSparkToPoint(id, NAV_COORDS.intro.x, NAV_COORDS.intro.y, 700);
+      } else {
+        startSpark(id, 'intro', 700);
+      }
+    } else {
+      startSpark(id, 'intro', 700);
+    }
   }
 }
 
