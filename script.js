@@ -20,13 +20,13 @@ let hudCanvas = null;
 let hudCtx = null;
 
 // ━━━ Background Geometry (Image Space) ━━━
-// ━━━ SINGLE source of truth for cover transform (P0 FIX #1) ━━━
+// ━━━ SINGLE source of truth for cover transform ━━━
 const bgImg = document.getElementById('bg-front-img');
 const COVER = { s: 1, dx: 0, dy: 0, baseW: 0, baseH: 0, ready: false };
 
 function computeCoverFromImage() {
   const vw = window.innerWidth, vh = window.innerHeight;
-  // MUST use naturalWidth/naturalHeight from loaded image (P0 requirement)
+  // MUST use naturalWidth/naturalHeight from loaded image
   const W = bgImg ? bgImg.naturalWidth : 0;
   const H = bgImg ? bgImg.naturalHeight : 0;
   
@@ -314,7 +314,7 @@ function layoutNavNodes() {
   const nav = document.getElementById('network-nav');
   if (!nav) return;
   
-  // P0 FIX #1: Don't layout if cover isn't ready yet
+  // Don't layout if cover isn't ready yet
   if (!COVER.ready) {
     console.warn('⚠️ layoutNavNodes: COVER not ready, skipping layout');
     return;
@@ -343,14 +343,14 @@ function layoutNavNodes() {
     wireSigilToggle(); // Wire up the ritual toggle
   }
 
-  // P0 FIX #2 & #8: Static mode = ZERO offsets, proper logging
+  // Static mode = ZERO offsets, proper logging
   for (const [id, pt] of Object.entries(NAV_COORDS)) {
     const el = nav.querySelector(`[data-node="${id}"]`);
     if (!el) continue;
 
     const [ax, ay] = coverMap(pt.x, pt.y);
 
-    // P0 FIX #2: Only apply branch-normal offset when ritualActive === true
+    // Only apply branch-normal offset when ritualActive === true
     let tx = 0, ty = 0;
     if (ritualActive) {
       const off = NAV_OFFSETS[id] || { nx: 0, ny: 0 };
@@ -364,15 +364,15 @@ function layoutNavNodes() {
     el.style.left = `${left}px`;
     el.style.top  = `${top}px`;
     
-    // P0 FIX #7: Labels ONLY use translate(-50%,-50%) translate(dx,dy)
+    // Labels ONLY use translate(-50%,-50%) translate(dx,dy)
     el.style.transform = `translate(-50%, -50%) translate(${tx}px, ${ty}px)`;
     
-    // P0 FIX #8: Log each label in static mode
+    // Log each label in static mode
     if (!ritualActive) {
       console.log(`📍 Static[${id}]: left=${left.toFixed(1)}px, top=${top.toFixed(1)}px, delta=(${tx},${ty})`);
     }
 
-    // P0 FIX #2: NO collision nudging in static mode
+    // NO collision nudging in static mode
     if (ritualActive && id === 'blog') {
       const target = el.getBoundingClientRect();
       const face = document.querySelector('.portrait-wrap')?.getBoundingClientRect();
@@ -889,7 +889,7 @@ function resizeAll() {
   if (sporeCtx) createSpores();
 }
 
-// P0 FIX #1: Wait for background image before ANY layout or initialization
+// Wait for background image before ANY layout or initialization
 function initAfterImageLoad() {
   if (!bgImg) {
     console.error('❌ bgImg element not found!');
@@ -898,7 +898,7 @@ function initAfterImageLoad() {
   
   console.log(`🖼️ Background image loaded: ${bgImg.naturalWidth}×${bgImg.naturalHeight}px`);
   
-  // P0 FIX #1: Compute cover using naturalWidth/naturalHeight
+  // Compute cover using naturalWidth/naturalHeight
   if (!computeCoverFromImage()) {
     console.error('❌ Failed to compute cover from image');
     return;
@@ -906,7 +906,7 @@ function initAfterImageLoad() {
   
   computeNavOffsets(); // Compute offsets with proper base dimensions
   
-  // P0 FIX #1 & #8: First layout now happens AFTER image loads
+  // First layout now happens AFTER image loads
   layoutNavNodes();
   
   console.log(`✅ Initial layout complete — ritual is ${ritualActive ? 'ACTIVE' : 'OFF'}`);
@@ -921,7 +921,7 @@ function initAfterImageLoad() {
   startSpores();
 }
 
-// P0 FIX #1: GATE all initialization on image load
+// GATE all initialization on image load
 if (bgImg) {
   if (!bgImg.complete) {
     console.log(`⏳ Waiting for background image to load...`);
@@ -978,7 +978,7 @@ function toggleRitualFromSigil(el){
     console.log(`🔮 Ritual DEACTIVATED (ritualActive=${ritualActive}) — labels returning to anchors, rotation=0°`);
   }
   
-  // P0 FIX #4: Update layout to apply/remove offsets immediately
+  // Update layout to apply/remove offsets immediately
   layoutNavNodes();
 }
 
@@ -986,7 +986,7 @@ function wireSigilToggle(){
   const sigil = document.querySelector('.network-sigil-node');
   const sigilImg = sigil ? sigil.querySelector('img#sigil') : null;
   
-  // P0 FIX #3: Debug check for proper DOM structure
+  // Debug check for proper DOM structure
   console.log('Sigil elements found:', { 
     sigilWrap: !!sigil, 
     sigilImg: !!sigilImg,
@@ -1046,7 +1046,7 @@ function startRitualMotion(){
 }
 
 function stopRitualMotion(){
-  // FIX: Reset all routes back to home position (anchor)
+  // Reset all routes back to home position (anchor)
   // This ensures next activation starts from anchors, not from where they stopped
   for (const route of Object.values(LOCKED_ROUTES)){
     if (!route) continue;
@@ -1075,7 +1075,7 @@ function handleNavEnter(id, el) {
       if (dest === 'intro') continue;
       
       setTimeout(() => {
-        // FIX: If ritual is active, spark to current position on route
+        // If ritual is active, spark to current position on route
         if (ritualActive) {
           const route = LOCKED_ROUTES[dest];
           if (route && route.len >= 60) {
@@ -1101,7 +1101,7 @@ function handleNavEnter(id, el) {
       delay += 50 + Math.random() * 50;
     }
   } else {
-    // FIX: When hovering a label, spark back to intro
+    // When hovering a label, spark back to intro
     // If ritual is active, use current position
     if (ritualActive) {
       const route = LOCKED_ROUTES[id];
@@ -1432,10 +1432,10 @@ function resampleToViewport(imgPts) {
 }
 
 function computeLockedRouteFor(id, anchor) {
-  // P0 FIX #5: Wider radius + finer step, with retry on failure
+  // Wider radius + finer step, with retry on failure
   let start = GRAPH.nearestId(anchor.x, anchor.y, /*radius*/ 160, /*step*/ 12);
   
-  // P0 FIX #5: Retry with wider radius if first attempt failed
+  // Retry with wider radius if first attempt failed
   if (start < 0) {
     console.warn(`⚠️ [LOCKED-ROUTE] ${id}: nearestId failed at r=160, retrying with r=240`);
     start = GRAPH.nearestId(anchor.x, anchor.y, /*radius*/ 240, /*step*/ 12);
@@ -1476,7 +1476,7 @@ function computeLockedRouteFor(id, anchor) {
     return null;
   }
 
-  // P0 FIX #5: Enforce minimum length (target 140-240px)
+  // Enforce minimum length (target 140-240px)
   if (sampled.len < MIN_ROUTE_LEN_PX) {
     console.warn(`⚠️ [LOCKED-ROUTE] ${id}: route too short (${sampled.len.toFixed(1)}px < ${MIN_ROUTE_LEN_PX}px)`);
     return { ...sampled, imgPts: trimmed.imgPts, len: sampled.len, tooShort: true };
@@ -1518,14 +1518,14 @@ function buildLockedRoutes() {
     
     const pointsCount = route.projPts?.length || 0;
     
-    // P0 FIX #5 & #8: Log route quality with clear criteria
+    // Log route quality with clear criteria
     if (route.tooShort || route.len < 140 || pointsCount < 3) {
       console.warn(`⚠️ [LOCKED-ROUTE] ${id}: len=${route.len.toFixed(1)}px, points=${pointsCount} (BELOW TARGET: want 140-240px, ≥3 points)`);
     } else {
       console.log(`✅ [LOCKED-ROUTE] ${id}: len=${route.len.toFixed(1)}px, points=${pointsCount}`);
     }
     
-    // FIX: Find the arc-length position on route closest to the anchor
+    // Find the arc-length position on route closest to the anchor
     // This is where labels START (sHome) and where they are in static mode
     const [anchorX, anchorY] = coverMap(anchor.x, anchor.y);
     const sHome = findClosestSOnRoute(route, anchorX, anchorY);
@@ -1647,7 +1647,7 @@ function updateMovingLabels(dt) {
     if (route.s >= route.sMax){ route.s = route.sMax; route.dir = -1; }
     if (route.s <= route.sMin){ route.s = route.sMin; route.dir =  1; }
     
-    // P0 FIX #6: Recompute position using SAME locked route (uses coverMap internally)
+    // Recompute position using SAME locked route (uses coverMap internally)
     const [px, py] = pointAtRoute(route, route.s);
     
     // Position element with delta from anchor
@@ -1785,7 +1785,7 @@ glitchElements.forEach(el => {
   el.setAttribute('data-text', el.textContent);
 });
 
-// ━━━ P0 FIX #3: Removed duplicate sigil handler (using wireSigilToggle() instead) ━━━
+// ━━━ Removed duplicate sigil handler (using wireSigilToggle() instead) ━━━
 
 /**
  * Simple Particle Effect (kept for use by toggleRitualFromSigil)
