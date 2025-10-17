@@ -1206,3 +1206,355 @@ a, button, .sigil-wrap, .ico {
  * Reference: WCAG 2.1 SC 1.4.3
  * Tool: WebAIM Contrast Checker
  */
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   RITUAL-BIOGRAPH ALTAR SYSTEM (Necrography × Mycelium)
+   Full-screen, no-scroll circular altar for About/Projects/Blog
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+/* Full-screen altar canvas (no scroll) */
+.altar-screen {
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 120% 120% at 85% 10%, rgba(45,212,175,0.04) 0%, transparent 50%),
+    radial-gradient(ellipse 120% 120% at 10% 90%, rgba(255,122,51,0.03) 0%, transparent 50%),
+    var(--void);
+  overflow: hidden;
+  isolation: isolate;
+  display: grid;
+  place-items: center;
+}
+
+.altar-screen.active-section {
+  animation: altarIn 600ms cubic-bezier(0.2, 0.9, 0.15, 1) both;
+}
+
+/* The circular altar */
+.altar {
+  position: relative;
+  width: min(92vh, 88vw);
+  aspect-ratio: 1/1;
+  filter: drop-shadow(0 30px 80px rgba(0,0,0,0.6));
+}
+
+/* Rotating scan-sweep */
+.altar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, rgba(45,212,175,0.12), transparent 30% 100%);
+  mix-blend-mode: screen;
+  opacity: 0.5;
+  animation: spin 18s linear infinite;
+  pointer-events: none;
+}
+
+/* Ring SVG */
+.ring {
+  position: absolute;
+  inset: 0;
+}
+
+.halo {
+  fill: none;
+  stroke: rgba(45,212,175,0.07);
+  stroke-width: 0.5;
+  filter: blur(0.3px);
+}
+
+.ring-stroke {
+  fill: none;
+  stroke: rgba(45,212,175,0.22);
+  stroke-width: 0.8;
+}
+
+.ring-text {
+  font: 2.4px/1 system-ui, ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Arial;
+  letter-spacing: 0.6px;
+  fill: rgba(232,232,234,0.48);
+}
+
+.filament {
+  fill: none;
+  stroke: rgba(45,212,175,0.18);
+  stroke-width: 0.6;
+  stroke-linecap: round;
+}
+
+.filament.thin {
+  stroke-width: 0.4;
+  opacity: 0.65;
+}
+
+.spore {
+  fill: rgba(45,212,175,0.95);
+  filter: drop-shadow(0 0 2px rgba(45,212,175,0.95));
+}
+
+.spore.ember {
+  fill: rgba(255,122,51,0.9);
+  filter: drop-shadow(0 0 2px rgba(255,122,51,0.9));
+}
+
+/* Core sigil (no portrait - pure geometric) */
+.core {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
+}
+
+.core-plate {
+  width: 28vh;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background:
+    radial-gradient(60% 60% at 50% 45%, rgba(45,212,175,0.14), transparent 70%),
+    radial-gradient(80% 80% at 50% 55%, rgba(255,122,51,0.08), transparent 70%),
+    repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,.04) 2px, rgba(0,0,0,.04) 4px),
+    #0e1013;
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: 
+    0 0 0 1px rgba(255,255,255,0.06) inset, 
+    0 0 80px rgba(45,212,175,0.08) inset;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+/* Hide portrait images */
+.core-plate img {
+  display: none;
+}
+
+.sigil-fallback {
+  width: 65%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background:
+    conic-gradient(from 0deg, rgba(255,122,51,0.35), rgba(45,212,175,0.45), transparent 65%),
+    radial-gradient(40% 40% at 50% 50%, rgba(45,212,175,0.25), transparent 60%);
+  clip-path: polygon(50% 0%, 60% 20%, 80% 35%, 65% 50%, 80% 65%, 60% 80%, 50% 100%, 40% 80%, 20% 65%, 35% 50%, 20% 35%, 40% 20%);
+  filter: blur(0.6px) contrast(120%);
+}
+
+/* Necro-slabs (jagged shards) */
+.slab {
+  position: absolute;
+  width: 36%;
+  max-height: 32%;
+  padding: 14px 16px 16px;
+  color: rgba(232,232,234,0.9);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.0)),
+    repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,.04) 2px, rgba(0,0,0,.04) 4px),
+    #0f1014;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  box-shadow: 0 0 0 1px rgba(45,212,175,0.06) inset;
+  clip-path: polygon(6% 0%, 98% 0%, 100% 20%, 94% 100%, 2% 100%, 0% 12%);
+  overflow: hidden;
+  transform: translateZ(0) scale(1) rotate(var(--rot, 0deg));
+  transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease;
+}
+
+.slab:hover {
+  transform: translateZ(0) scale(1.02) rotate(var(--rot, 0deg));
+  border-color: rgba(45,212,175,0.35);
+  box-shadow: 
+    0 0 0 1px rgba(45,212,175,0.25) inset, 
+    0 20px 50px rgba(0,0,0,0.6);
+}
+
+.slab h2,
+.slab h3 {
+  margin: 0 0 6px;
+  color: var(--bone);
+  text-shadow: 0 0 16px rgba(45,212,175,0.18);
+  font-size: clamp(14px, 1.4vw, 18px);
+}
+
+.slab p,
+.slab li {
+  font-size: clamp(11px, 1.05vw, 13px);
+  line-height: 1.35;
+}
+
+.slab ul {
+  margin: 0;
+  padding-left: 1.1em;
+}
+
+.kv {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.kv li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: clamp(10px, 1vw, 12px);
+}
+
+.kv li span:first-child {
+  color: rgba(232,232,234,0.55);
+}
+
+.kv a {
+  color: var(--bone);
+  text-decoration: none;
+  border-bottom: 1px dashed rgba(45,212,175,0.35);
+}
+
+.kv a:hover {
+  color: var(--decay-green);
+  border-bottom-color: var(--decay-green);
+}
+
+/* Place the slabs around the ring */
+.slab-about {
+  left: 2%;
+  top: 8%;
+  --rot: -3deg;
+}
+
+.slab-expertise {
+  right: 2%;
+  top: 10%;
+  --rot: 3deg;
+}
+
+.slab-vitals {
+  left: 50%;
+  bottom: 4%;
+  transform: translateX(-50%) rotate(-1deg);
+  width: 44%;
+  max-height: 26%;
+}
+
+button.ghost {
+  margin-top: 10px;
+  background: transparent;
+  color: rgba(232,232,234,0.82);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 12px;
+  padding: 8px 12px;
+  cursor: var(--cursor-spore), pointer;
+  font-family: inherit;
+  font-size: clamp(10px, 1vw, 12px);
+  transition: all 0.3s ease;
+}
+
+button.ghost:hover {
+  border-color: rgba(45,212,175,0.45);
+  color: var(--bone);
+}
+
+/* Close/Back button (top-right corner) */
+.altar-close {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  width: 44px;
+  height: 44px;
+  background: rgba(15,16,20,0.7);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  cursor: var(--cursor-spore), pointer;
+  color: rgba(232,232,234,0.7);
+  font-size: 20px;
+  line-height: 1;
+  transition: all 0.3s ease;
+  z-index: 10;
+  backdrop-filter: blur(8px);
+}
+
+.altar-close:hover {
+  background: rgba(15,16,20,0.9);
+  border-color: rgba(45,212,175,0.45);
+  color: var(--decay-green);
+  transform: rotate(90deg);
+}
+
+.altar-close:focus-visible {
+  outline: 2px solid var(--decay-green);
+  outline-offset: 4px;
+}
+
+/* Entrance animation */
+@keyframes altarIn {
+  0% {
+    transform: scale(0.985);
+    opacity: 0;
+    clip-path: circle(6% at 50% 50%);
+  }
+  60% {
+    clip-path: circle(66% at 50% 50%);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+    clip-path: circle(140% at 50% 50%);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Responsive scaling (altar scales down instead of reflowing) */
+@media (max-width: 1100px) {
+  .altar {
+    transform: scale(0.92);
+    transform-origin: center;
+  }
+}
+
+@media (max-width: 860px) {
+  .altar {
+    transform: scale(0.82);
+  }
+  .slab {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 680px) {
+  .altar {
+    transform: scale(0.74);
+  }
+}
+
+@media (max-width: 520px) {
+  .altar {
+    transform: scale(0.66);
+  }
+}
+
+/* Prefers reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .altar-screen {
+    animation: none;
+    opacity: 1;
+    transform: none;
+    clip-path: none;
+  }
+  
+  .altar::after {
+    animation: none;
+  }
+  
+  .spore animateMotion,
+  .spore mpath {
+    display: none;
+  }
+}

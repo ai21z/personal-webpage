@@ -278,12 +278,40 @@ function computeNavOffsets(){
 }
 
 function showSection(sectionName) {
+  // Update active section
   const sections = document.querySelectorAll('.stage');
   sections.forEach(s => s.classList.toggle('active-section', s.dataset.section === sectionName));
   
+  // Update nav aria-current
   document.querySelectorAll('.network-node-label, .network-sigil-node').forEach(label =>
-    label.classList.toggle('active', label.dataset.section === sectionName)
+    {
+      const isActive = label.dataset.section === sectionName;
+      label.classList.toggle('active', isActive);
+      if (isActive) {
+        label.setAttribute('aria-current', 'page');
+      } else {
+        label.removeAttribute('aria-current');
+      }
+    }
   );
+  
+  // Update hash (replaceState to avoid scroll jump)
+  const hashId = sectionName === 'intro' ? '' : sectionName;
+  const newUrl = hashId ? `${window.location.pathname}#${hashId}` : window.location.pathname;
+  history.replaceState(null, '', newUrl);
+  
+  // Lock body scroll for panel screens (altar-screen or panel-screen)
+  const activeSection = document.querySelector(`.stage[data-section="${sectionName}"]`);
+  const isPanel = activeSection?.classList.contains('panel-screen') || activeSection?.classList.contains('altar-screen');
+  document.documentElement.style.overflow = isPanel ? 'hidden' : '';
+  document.body.style.overflow = isPanel ? 'hidden' : '';
+  
+  // Focus the active section for accessibility
+  if (activeSection && activeSection.getAttribute('tabindex') === '-1') {
+    setTimeout(() => {
+      activeSection.focus({ preventScroll: true });
+    }, 100);
+  }
 }
 
 function createNavLabel(id) {
@@ -1755,8 +1783,12 @@ window.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // Wait for image load, then do initial layout (handled by initAfterImageLoad)
-  showSection('intro');
+  // Honor hash on load, or default to intro
+  const hash = window.location.hash.slice(1);
+  const validSections = ['intro', 'about', 'work', 'projects', 'contact', 'blog', 'resume', 'skills'];
+  const initialSection = validSections.includes(hash) ? hash : 'intro';
+  console.log(`🎯 Page Load: hash="${hash}", showing section="${initialSection}"`);
+  showSection(initialSection);
 
   if (hudEnabled) {
     initHUD();
@@ -1873,3 +1905,22 @@ window.verifyAlignment = function() {
   }
   console.log('\nRun this command after load and after toggling ritual to verify alignment.\n');
 };
+
+// ━━━ Hash change listener (back/forward navigation) ━━━
+window.addEventListener('hashchange', () => {
+  const hash = window.location.hash.slice(1);
+  const validSections = ['intro', 'about', 'work', 'projects', 'contact', 'blog', 'resume', 'skills'];
+  if (validSections.includes(hash)) {
+    showSection(hash);
+  } else if (!hash) {
+    showSection('intro');
+  }
+});
+
+// ━━━ Back button handler (for altar screens) ━━━
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-action="go-intro"]');
+  if (!btn) return;
+  e.preventDefault();
+  showSection('intro');
+});

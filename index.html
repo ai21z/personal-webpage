@@ -86,75 +86,93 @@
   </main>
 
   <!-- SECTION: ABOUT -->
-  <section class="stage" data-section="about" aria-label="About & Resume">
-    <div class="fungi-ambient" aria-hidden="true"></div>
-    <div class="content-grid">
-      <div class="section-header">
-        <span class="section-index">01</span>
-        <h2 class="section-title">About & Resume</h2>
-      </div>
-      
-      <div class="content-layout">
-        <div class="content-main">
-          <div class="bio-card">
-            <h3 class="card-title">Background</h3>
-            <p>Software engineer with a focus on building robust, maintainable systems. Originally from Greece, now based in Barcelona. I believe in honest, functional design that serves users without unnecessary complexity.</p>
-            <p>My approach combines technical precision with an understanding that software exists within larger human contexts. Clean code, clear documentation, and thoughtful architecture.</p>
-          </div>
+  <section id="about" class="stage altar-screen" data-section="about" aria-label="About" tabindex="-1">
+    <button class="altar-close" data-action="go-intro" aria-label="Close and return to intro">×</button>
+    <div class="altar">
+      <!-- LIVING RING -->
+      <svg class="ring" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <defs>
+          <!-- Orbital path for spores & curved title -->
+          <path id="orbit" d="M50,5 A45,45 0 1,1 49.99,5" />
+          <!-- Mycelial filaments -->
+          <path id="hypha1" d="M8,62 C18,50 34,44 50,50 66,56 80,68 92,82" />
+          <path id="hypha2" d="M6,30 C20,28 32,38 50,50 68,62 82,70 94,68" />
+        </defs>
 
-          <div class="bio-card">
-            <h3 class="card-title">Expertise</h3>
-            <ul class="skill-list">
-              <li class="skill-item"><span class="skill-marker">▸</span> Full-stack development (Python, JavaScript, Node.js)</li>
-              <li class="skill-item"><span class="skill-marker">▸</span> System architecture & API design</li>
-              <li class="skill-item"><span class="skill-marker">▸</span> Database design (SQL, NoSQL)</li>
-              <li class="skill-item"><span class="skill-marker">▸</span> Cloud infrastructure (AWS, Docker)</li>
-              <li class="skill-item"><span class="skill-marker">▸</span> DevOps & CI/CD pipelines</li>
-            </ul>
-          </div>
+        <!-- Outer faint halo -->
+        <circle cx="50" cy="50" r="48" class="halo"/>
+        <!-- Ring stroke -->
+        <circle cx="50" cy="50" r="45" class="ring-stroke"/>
 
-          <div class="bio-card">
-            <h3 class="card-title">Experience</h3>
-            <div class="experience-item">
-              <div class="exp-header">
-                <h4 class="exp-title">Senior Software Engineer</h4>
-                <span class="exp-date">2021—Present</span>
-              </div>
-              <p class="exp-company">Tech Company · Barcelona</p>
-              <p class="exp-desc">Leading development of scalable backend systems. Architecting microservices infrastructure and mentoring junior developers.</p>
-            </div>
+        <!-- Title along the orbit -->
+        <text class="ring-text">
+          <textPath href="#orbit" startOffset="2%">
+            • ABOUT — VISSARION ZOUNARAKIS — PLAIN RELIABLE SOFTWARE — VERIFY RESULTS — TRUST TOOLS •
+          </textPath>
+        </text>
 
-            <div class="experience-item">
-              <div class="exp-header">
-                <h4 class="exp-title">Software Engineer</h4>
-                <span class="exp-date">2018—2021</span>
-              </div>
-              <p class="exp-company">Startup · Athens</p>
-              <p class="exp-desc">Full-stack development for fintech platform. Built RESTful APIs and responsive web applications.</p>
-            </div>
-          </div>
+        <!-- Hyphae filaments -->
+        <use class="filament" href="#hypha1"/>
+        <use class="filament thin" href="#hypha2"/>
+
+        <!-- Spores orbiting -->
+        <circle class="spore" r="0.9">
+          <animateMotion dur="9s" repeatCount="indefinite" rotate="auto">
+            <mpath href="#orbit"/>
+          </animateMotion>
+        </circle>
+        <circle class="spore" r="0.9">
+          <animateMotion dur="12s" repeatCount="indefinite" rotate="auto">
+            <mpath href="#orbit"/>
+          </animateMotion>
+        </circle>
+        <circle class="spore ember" r="1.1">
+          <animateMotion dur="15s" repeatCount="indefinite" rotate="auto">
+            <mpath href="#orbit"/>
+          </animateMotion>
+        </circle>
+      </svg>
+
+      <!-- Portrait / sigil core -->
+      <div class="core">
+        <div class="core-plate">
+          <img src="./myOminousGreenPortrait.png" alt="Vissarion portrait" onerror="this.style.display='none'"/>
+          <div class="sigil-fallback" aria-hidden="true"></div>
         </div>
-
-        <aside class="content-sidebar">
-          <div class="sidebar-card">
-            <h3 class="card-title">Contact</h3>
-            <ul class="contact-list">
-              <li><a href="mailto:hello@example.com" class="contact-link">hello@example.com</a></li>
-              <li>Barcelona, Spain</li>
-              <li>GMT+1</li>
-            </ul>
-          </div>
-
-          <div class="sidebar-card">
-            <h3 class="card-title">Languages</h3>
-            <ul class="simple-list">
-              <li>Greek — Native</li>
-              <li>English — Fluent</li>
-              <li>Spanish — Conversational</li>
-            </ul>
-          </div>
-        </aside>
       </div>
+
+      <!-- THREE NECRO-SLABS -->
+      <article class="slab slab-about" aria-label="About text">
+        <h2>Background</h2>
+        <p>Software engineer with a focus on building robust, maintainable systems. Originally from Greece, now based in Barcelona. I believe in honest, functional design that serves users without unnecessary complexity.</p>
+        <p>My approach combines technical precision with an understanding that software exists within larger human contexts. Clean code, clear documentation, and thoughtful architecture.</p>
+      </article>
+
+      <section class="slab slab-expertise" aria-label="Expertise">
+        <h3>Expertise</h3>
+        <ul>
+          <li>Full-stack development (Python, JavaScript, Node.js)</li>
+          <li>System architecture & API design</li>
+          <li>Database design (SQL, NoSQL)</li>
+          <li>Cloud infrastructure (AWS, Docker)</li>
+          <li>DevOps & CI/CD pipelines</li>
+        </ul>
+        <h3 style="margin-top:12px;">Experience</h3>
+        <div style="font-size:12px; line-height:1.4;">
+          <p style="margin:4px 0;"><strong>Senior Software Engineer</strong> · Tech Company, Barcelona · 2021—Present</p>
+          <p style="margin:4px 0;"><strong>Software Engineer</strong> · Startup, Athens · 2018—2021</p>
+        </div>
+      </section>
+
+      <aside class="slab slab-vitals" aria-label="Vitals">
+        <h3>Contact & Languages</h3>
+        <ul class="kv">
+          <li><span>Email</span><a href="mailto:hello@example.com">hello@example.com</a></li>
+          <li><span>Location</span><span>Barcelona, Spain</span></li>
+          <li><span>Languages</span><span>Greek (native), English (fluent), Spanish (conversational)</span></li>
+        </ul>
+        <button class="ghost back-to-nodes" data-action="go-intro" aria-label="Back to intro">← Back</button>
+      </aside>
     </div>
   </section>
 
