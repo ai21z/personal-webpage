@@ -306,6 +306,14 @@ function showSection(sectionName) {
   document.documentElement.style.overflow = isPanel ? 'hidden' : '';
   document.body.style.overflow = isPanel ? 'hidden' : '';
   
+  // Toggle nav suppression + ritual background
+  document.body.classList.toggle('nav-suppressed', !!isPanel);
+  if (isPanel) {
+    startRitualBackground();
+  } else {
+    stopRitualBackground();
+  }
+  
   // Focus the active section for accessibility
   if (activeSection && activeSection.getAttribute('tabindex') === '-1') {
     setTimeout(() => {
@@ -1798,6 +1806,9 @@ window.addEventListener('DOMContentLoaded', async () => {
   window.addEventListener('keydown', (e) => {
     if (e.key === 'H') toggleHUD();
   });
+
+  // Initialize ritual background system
+  initRitualBackground();
 });
 
 // ━━━ Post-load layout (fonts & image settling) ━━━
@@ -1927,6 +1938,7 @@ document.addEventListener('click', (e) => {
 
 // ━━━ About: Paper focus (zoom to center + backdrop dim) ━━━
 initAboutPaperFocus();
+initPaperHoverRing();
 
 /**
  * initAboutPaperFocus
@@ -1937,14 +1949,13 @@ initAboutPaperFocus();
 function initAboutPaperFocus(){
   const about = document.getElementById('about');
   if (!about) return;
-  const altar = about.querySelector('.altar');
-  if (!altar) return;
-  
-  let overlay = about.querySelector('.paper-overlay');
-  if (!overlay){
-    overlay = document.createElement('div');
-    overlay.className = 'paper-overlay';
-    altar.appendChild(overlay);
+  // Remove any old, scoped overlays (they caused the rectangle issue)
+  about.querySelectorAll('.paper-overlay')?.forEach(n=>n.remove());
+
+  const backdrop = document.getElementById('paper-backdrop');
+  if (!backdrop) {
+    console.warn('⚠️ paper-backdrop not found');
+    return;
   }
   
   const papers = about.querySelectorAll('.paper');
@@ -1952,36 +1963,378 @@ function initAboutPaperFocus(){
     // ensure focusable for keyboard users
     if (!p.hasAttribute('tabindex')) p.setAttribute('tabindex','0');
     
-    p.addEventListener('click', () => openPaper(p));
+    p.addEventListener('click', () => {
+      // Toggle: if this paper is already open, close it; otherwise open it
+      if (p.classList.contains('paper-open')) {
+        closePaper();
+      } else {
+        openPaper(p);
+      }
+    });
     p.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault(); openPaper(p);
+        e.preventDefault();
+        if (p.classList.contains('paper-open')) {
+          closePaper();
+        } else {
+          openPaper(p);
+        }
       }
     });
   });
   
-  overlay.addEventListener('click', closePaper);
+  backdrop.addEventListener('click', closePaper);
   
   function onEsc(e){ if (e.key === 'Escape') closePaper(); }
   
   function openPaper(el){
-    if (about.classList.contains('has-paper-open')) return;
-    about.classList.add('has-paper-open');
+    if (document.body.classList.contains('has-paper-open-global')) return;
+    // Freeze current pixels before portaling
+    const r = el.getBoundingClientRect();
+    el.__portal = { parent: el.parentNode, placeholder: document.createComment('paper-pl') };
+    el.__portal.parent.insertBefore(el.__portal.placeholder, el.nextSibling);
+    // Move to <body> so fixed positioning uses viewport (avoids rectangle/backdrop bugs)
+    document.body.appendChild(el);
     el.classList.add('paper-open');
+    el.style.position = 'fixed';
+    el.style.left = `${r.left}px`;
+    el.style.top  = `${r.top}px`;
+    el.style.width  = `${r.width}px`;
+    el.style.height = `${r.height}px`;
+    
+    // Start with transform at 0 (paper at original position)
+    el.style.setProperty('--open-tx', '0px');
+    el.style.setProperty('--open-ty', '0px');
+    el.style.setProperty('--open-scale', '1');
+    
+    // Compute center translation and scale to fit
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const cx = r.left + r.width/2, cy = r.top + r.height/2;
+    const tx = (vw/2) - cx;
+    const ty = (vh/2) - cy;
+    const fitW = (vw * 0.86) / r.width;
+    const fitH = (vh * 0.80) / r.height;
+    const scale = Math.min(fitW, fitH, 2.4);
+    
+    // Animate to magnified state in next frame
+    requestAnimationFrame(() => {
+      el.style.setProperty('--open-tx', `${tx}px`);
+      el.style.setProperty('--open-ty', `${ty}px`);
+      el.style.setProperty('--open-scale', `${scale}`);
+    });
+    
+    // Accessibility + backdrop
     el.setAttribute('role','dialog');
     el.setAttribute('aria-modal','true');
-    el.focus({ preventScroll:true });
+    document.body.classList.add('has-paper-open-global');
+    requestAnimationFrame(() => el.focus({ preventScroll:true }));
     document.addEventListener('keydown', onEsc);
+    // Hide hover ring while opened
+    document.body.classList.remove('hovering-paper');
   }
   
   function closePaper(){
-    const openEl = about.querySelector('.paper-open');
+    const openEl = document.querySelector('.paper-open');
     if (openEl){
-      openEl.classList.remove('paper-open');
-      openEl.removeAttribute('role');
-      openEl.removeAttribute('aria-modal');
+      // animate back to wall
+      openEl.style.setProperty('--open-tx','0px');
+      openEl.style.setProperty('--open-ty','0px');
+      openEl.style.setProperty('--open-scale','1');
+      const cleanup = () => {
+        openEl.classList.remove('paper-open');
+        openEl.removeAttribute('role');
+        openEl.removeAttribute('aria-modal');
+        openEl.style.position = '';
+        openEl.style.left = '';
+        openEl.style.top = '';
+        openEl.style.width = '';
+        openEl.style.height = '';
+        openEl.style.removeProperty('--open-tx');
+        openEl.style.removeProperty('--open-ty');
+        openEl.style.removeProperty('--open-scale');
+        // restore into original DOM position
+        if (openEl.__portal){
+          openEl.__portal.parent.insertBefore(openEl, openEl.__portal.placeholder);
+          openEl.__portal.placeholder.remove();
+          openEl.__portal = null;
+        }
+        openEl.removeEventListener('transitionend', cleanup);
+      };
+      openEl.addEventListener('transitionend', cleanup);
     }
-    about.classList.remove('has-paper-open');
+    document.body.classList.remove('has-paper-open-global');
     document.removeEventListener('keydown', onEsc);
+  }
+}
+
+// ───────────────────────── Breathing Ring Around Cursor (paper hover) ─────────────────────────
+/**
+ * Thin breathing ring around your existing glowing cursor while papers are hoverable
+ */
+function initPaperHoverRing(){
+  const ring = document.getElementById('cursor-ring');
+  if (!ring) return;
+  
+  // Track cursor position smoothly using RAF for 60fps updates
+  let currentX = 0, currentY = 0;
+  let targetX = 0, targetY = 0;
+  let rafId = null;
+  
+  const updatePosition = () => {
+    // Smooth interpolation for buttery movement
+    currentX += (targetX - currentX) * 1.0; // 1.0 = instant (no lag)
+    currentY += (targetY - currentY) * 1.0;
+    
+    ring.style.left = currentX + 'px';
+    ring.style.top = currentY + 'px';
+    
+    rafId = requestAnimationFrame(updatePosition);
+  };
+  
+  // Start the animation loop
+  updatePosition();
+  
+  // Update target position on mouse move
+  document.addEventListener('mousemove', (e) => {
+    targetX = e.clientX;
+    targetY = e.clientY;
+  }, { passive: true });
+  
+  // Show ring when hovering clickable papers (not when one is already open)
+  const about = document.getElementById('about');
+  if (!about) return;
+  
+  about.addEventListener('mouseenter', (e) => {
+    if (e.target.closest('.paper') && !document.body.classList.contains('has-paper-open-global')) {
+      document.body.classList.add('hovering-paper');
+    }
+  }, true);
+  
+  about.addEventListener('mouseleave', (e) => {
+    if (e.target.closest('.paper')) {
+      document.body.classList.remove('hovering-paper');
+    }
+  }, true);
+}
+
+// ───────────────────────── Ritual Background (panel mode) ─────────────────────────
+let SIGNALS = {
+  canvas: null,
+  ctx: null,
+  raf: 0,
+  interval: 0,
+  pulses: [],  // moving fronts along edges or radial rays
+  spores: [],  // drifting dots
+  lastTs: 0
+};
+
+function initRitualBackground(){
+  const c = document.getElementById('signals-canvas') || createSignalsCanvas();
+  SIGNALS.canvas = c;
+  SIGNALS.ctx = c.getContext('2d');
+  const resize = () => {
+    const dpr = Math.max(1, window.devicePixelRatio || 1);
+    c.width = Math.floor(c.clientWidth * dpr);
+    c.height = Math.floor(c.clientHeight * dpr);
+    SIGNALS.ctx.setTransform(dpr,0,0,dpr,0,0);
+  };
+  window.addEventListener('resize', resize, { passive: true });
+  resize();
+}
+function createSignalsCanvas(){
+  const c = document.createElement('canvas');
+  c.id = 'signals-canvas';
+  c.className = 'signals-canvas';
+  c.setAttribute('aria-hidden','true');
+  document.body.appendChild(c);
+  return c;
+}
+
+function getSigilEl(){
+  return document.querySelector('.network-sigil-node, .sigil, #sigil, [data-sigil]') || null;
+}
+function getSigilCenter(){
+  const el = getSigilEl();
+  if (!el) return { x: window.innerWidth/2, y: window.innerHeight/2 };
+  const r = el.getBoundingClientRect();
+  return { x: r.left + r.width/2, y: r.top + r.height/2 };
+}
+
+function startRitualBackground(){
+  // Spin sigil continuously
+  const sigil = getSigilEl();
+  if (sigil) sigil.classList.add('sigil-spin');
+
+  // Start animation loop (idempotent)
+  if (!SIGNALS.raf) {
+    SIGNALS.lastTs = performance.now();
+    const loop = (ts) => {
+      SIGNALS.raf = requestAnimationFrame(loop);
+      const dt = (ts - SIGNALS.lastTs) / 1000;
+      SIGNALS.lastTs = ts;
+      renderSignals(dt);
+    };
+    SIGNALS.raf = requestAnimationFrame(loop);
+  }
+  // Fire a first burst soon, then repeat every 2–3s
+  triggerLightningBurst();
+  if (!SIGNALS.interval) {
+    SIGNALS.interval = setInterval(() => {
+      triggerLightningBurst();
+    }, 2000 + Math.random()*1000);
+  }
+}
+function stopRitualBackground(){
+  const sigil = getSigilEl();
+  if (sigil) sigil.classList.remove('sigil-spin', 'sigil-kick');
+  if (SIGNALS.interval) { clearInterval(SIGNALS.interval); SIGNALS.interval = 0; }
+  if (SIGNALS.raf) { cancelAnimationFrame(SIGNALS.raf); SIGNALS.raf = 0; }
+  SIGNALS.pulses.length = 0;
+  SIGNALS.spores.length = 0;
+  if (SIGNALS.ctx) SIGNALS.ctx.clearRect(0,0,SIGNALS.canvas.width, SIGNALS.canvas.height);
+}
+
+// Try to use real graph edges if available; otherwise radial rays fallback
+function collectEdges(){
+  const candidates = [
+    window.MYCELIUM?.links, window.MYCELIUM?.edges,
+    window.graph?.links, window.__network?.links, window.NETWORK?.links
+  ].find(Boolean);
+  const nodes = (window.MYCELIUM?.nodes || window.graph?.nodes || window.__network?.nodes || window.NETWORK?.nodes) || [];
+  if (!candidates || !nodes.length) return null;
+  const byId = new Map(nodes.map(n => [n.id ?? n.name ?? n.i, n]));
+  // Map to screen coords if your renderer maintains node.screenX/Y; else use x/y
+  return candidates
+    .map(e => {
+      const a = byId.get(e.source?.id ?? e.source ?? e.a ?? e.from);
+      const b = byId.get(e.target?.id ?? e.target ?? e.b ?? e.to);
+      if (!a || !b) return null;
+      const ax = a.screenX ?? a.x ?? a.cx ?? a.fx ?? 0;
+      const ay = a.screenY ?? a.y ?? a.cy ?? a.fy ?? 0;
+      const bx = b.screenX ?? b.x ?? b.cx ?? b.fx ?? 0;
+      const by = b.screenY ?? b.y ?? b.cy ?? b.fy ?? 0;
+      return { ax, ay, bx, by };
+    })
+    .filter(Boolean);
+}
+
+function triggerLightningBurst(){
+  // micro kick on the sigil
+  const sigil = getSigilEl();
+  if (sigil) {
+    sigil.classList.remove('sigil-kick'); // restart animation
+    void sigil.offsetWidth;
+    sigil.classList.add('sigil-kick');
+  }
+  const center = getSigilCenter();
+  const edges = collectEdges();
+  if (edges) {
+    // Create a traveling front along every edge outward from center
+    // We sort edges by their min distance to center so the cascade looks radial.
+    const ranked = edges.map(e => {
+      const mx = (e.ax + e.bx)*0.5, my = (e.ay + e.by)*0.5;
+      const d = Math.hypot(mx - center.x, my - center.y);
+      return { ...e, d };
+    }).sort((a,b)=>a.d-b.d);
+    const t0 = performance.now()/1000;
+    ranked.forEach((e, i) => {
+      SIGNALS.pulses.push({
+        type: 'edge',
+        ax: e.ax, ay: e.ay, bx: e.bx, by: e.by,
+        // stagger start by distance for wave effect
+        start: t0 + i*0.006,
+        speed: 2200,   // px/s of front progression
+        life: 0.35     // how long the glow lingers
+      });
+    });
+  } else {
+    // Fallback: 180 radial rays (additive)
+    const t0 = performance.now()/1000;
+    for (let i=0;i<180;i++){
+      const a = (i/180)*Math.PI*2;
+      const r = Math.max(window.innerWidth, window.innerHeight) * 0.66;
+      SIGNALS.pulses.push({
+        type: 'ray',
+        x: center.x, y: center.y,
+        tx: center.x + Math.cos(a)*r,
+        ty: center.y + Math.sin(a)*r,
+        start: t0 + i*0.0025,
+        speed: 2600,
+        life: 0.28
+      });
+    }
+  }
+  // Spawn spores peeling off the sigil
+  for (let i=0;i<24;i++){
+    const ang = Math.random()*Math.PI*2;
+    const v = 30 + Math.random()*90; // px/s
+    SIGNALS.spores.push({
+      x: center.x, y: center.y,
+      vx: Math.cos(ang)*v, vy: Math.sin(ang)*v,
+      t: 0, life: 1.4 + Math.random()*0.6
+    });
+  }
+}
+
+function renderSignals(dt){
+  const ctx = SIGNALS.ctx; if (!ctx) return;
+  const w = SIGNALS.canvas.clientWidth, h = SIGNALS.canvas.clientHeight;
+  // Fade trail (additive-soft persistence)
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = 'rgba(0,0,0,0.20)';
+  ctx.fillRect(0,0,w,h);
+
+  // Draw pulses
+  ctx.globalCompositeOperation = 'lighter';
+  const now = performance.now()/1000;
+  const pulses = SIGNALS.pulses;
+  for (let i=pulses.length-1; i>=0; i--){
+    const p = pulses[i];
+    const age = now - p.start;
+    if (age < 0) continue;
+    if (age > p.life + 0.6) { pulses.splice(i,1); continue; }
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    if (p.type === 'edge'){
+      // front progress [0..1]
+      const segLen = Math.hypot(p.bx - p.ax, p.by - p.ay);
+      const prog = Math.min(1, (age * p.speed) / segLen);
+      const bx = p.ax + (p.bx - p.ax)*prog;
+      const by = p.ay + (p.by - p.ay)*prog;
+      const glow = Math.max(0, 1 - (age / (p.life+0.0001)));
+      ctx.strokeStyle = `rgba(45,212,175,${0.75*glow})`;
+      ctx.lineWidth = 2.0;
+      ctx.beginPath(); ctx.moveTo(p.ax, p.ay); ctx.lineTo(bx, by); ctx.stroke();
+      // white-hot core
+      ctx.strokeStyle = `rgba(255,255,255,${0.25*glow})`; ctx.lineWidth = 0.8;
+      ctx.beginPath(); ctx.moveTo(p.ax, p.ay); ctx.lineTo(bx, by); ctx.stroke();
+    } else { // ray
+      const segLen = Math.hypot(p.tx - p.x, p.ty - p.y);
+      const prog = Math.min(1, (age * p.speed) / segLen);
+      const bx = p.x + (p.tx - p.x)*prog;
+      const by = p.y + (p.ty - p.y)*prog;
+      const glow = Math.max(0, 1 - (age / (p.life+0.0001)));
+      ctx.strokeStyle = `rgba(45,212,175,${0.7*glow})`;
+      ctx.lineWidth = 2.2;
+      ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(bx, by); ctx.stroke();
+      ctx.strokeStyle = `rgba(255,255,255,${0.22*glow})`; ctx.lineWidth = 0.9;
+      ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(bx, by); ctx.stroke();
+    }
+  }
+
+  // Draw spores
+  const spores = SIGNALS.spores;
+  for (let i=spores.length-1; i>=0; i--){
+    const s = spores[i];
+    s.t += dt; if (s.t > s.life) { spores.splice(i,1); continue; }
+    s.x += s.vx*dt; s.y += s.vy*dt;
+    const fade = 1 - (s.t / s.life);
+    ctx.fillStyle = `rgba(45,212,175,${0.9*fade})`;
+    ctx.beginPath(); ctx.arc(s.x, s.y, 1.2 + (1.6*fade), 0, Math.PI*2); ctx.fill();
+    // rare ember flickers
+    if (Math.random() < 0.03){
+      ctx.fillStyle = `rgba(255,122,51,${0.6*fade})`;
+      ctx.beginPath(); ctx.arc(s.x, s.y, 1.0, 0, Math.PI*2); ctx.fill();
+    }
   }
 }

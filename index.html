@@ -173,9 +173,6 @@
         </ul>
         <button class="ghost back-to-nodes" data-action="go-intro" aria-label="Back to intro">← Back</button>
       </aside>
-
-      <!-- Backdrop for focused paper (dimming rest of the altar) -->
-      <div class="paper-overlay" aria-hidden="true"></div>
     </div>
   </section>
 
@@ -295,6 +292,14 @@
       </div>
     </div>
   </section>
+
+  <!-- Lightweight overlay for lightning pulses + spores -->
+  <canvas id="signals-canvas" class="signals-canvas" aria-hidden="true"></canvas>
+
+  <!-- Global backdrop for note focus (full-viewport, not a rectangle) -->
+  <div id="paper-backdrop" class="paper-backdrop" aria-hidden="true"></div>
+  <!-- Thin breathing ring that appears only when hovering a clickable paper -->
+  <div id="cursor-ring" class="cursor-ring" aria-hidden="true"></div>
 
   <script src="./script.js"></script>
 </body>

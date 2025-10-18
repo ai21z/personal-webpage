@@ -115,6 +115,7 @@ a, button, .sigil-wrap, .ico {
   opacity: 0.50;
   mix-blend-mode: lighten;
   transform: none !important;
+  z-index: 1; /* Ensure it's visible behind everything */
 }
 
 /* Kill old layered backgrounds if present */
@@ -1219,7 +1220,7 @@ a, button, .sigil-wrap, .ico {
   background:
     radial-gradient(ellipse 120% 120% at 85% 10%, rgba(45,212,175,0.04) 0%, transparent 50%),
     radial-gradient(ellipse 120% 120% at 10% 90%, rgba(255,122,51,0.03) 0%, transparent 50%),
-    var(--void);
+    rgba(8,9,10,0.75); /* Semi-transparent instead of solid --void */
   overflow: hidden;
   isolation: isolate;
   display: grid;
@@ -1355,12 +1356,15 @@ a, button, .sigil-wrap, .ico {
   box-shadow: 0 0 0 1px rgba(45,212,175,0.06) inset;
   clip-path: polygon(6% 0%, 98% 0%, 100% 20%, 94% 100%, 2% 100%, 0% 12%);
   overflow: hidden;
-  transform: translateZ(0) scale(1) rotate(var(--rot, 0deg));
+  /* Compose transforms so we never lose the base translate */
+  --rot: 0deg;
+  --base-transform: translate3d(0,0,0) rotate(var(--rot));
+  transform: var(--base-transform);
   transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease;
 }
 
 .slab:hover {
-  transform: translateZ(0) scale(1.02) rotate(var(--rot, 0deg));
+  transform: var(--base-transform) scale(1.02);
   border-color: rgba(45,212,175,0.35);
   box-shadow: 
     0 0 0 1px rgba(45,212,175,0.25) inset, 
@@ -1429,12 +1433,14 @@ a, button, .sigil-wrap, .ico {
   --rot: 3deg;
 }
 
+/* Bottom paper: same width/shape as others, but centered; set base translate via CSS var */
 .slab-vitals {
   left: 50%;
   bottom: 4%;
-  transform: translateX(-50%) rotate(-1deg);
-  width: 44%;
-  max-height: 26%;
+  width: 36%;
+  max-height: 32%;
+  --rot: -3deg;
+  --base-transform: translateX(-50%) rotate(var(--rot));
 }
 
 button.ghost {
@@ -1459,7 +1465,8 @@ button.ghost:hover {
    ABOUT "PAPER" LOOK — necrography parchment, decomposing edges
    (Scoped to the altar-screen so other sections can reuse .slab)
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
-.altar-screen .paper{
+.altar-screen .paper,
+.paper.paper-open{
   /* Old parchment base */
   color: #1e1a14;
   background:
@@ -1477,39 +1484,46 @@ button.ghost:hover {
     0 0 0 1px rgba(255,255,255,.06) inset,
     0 12px 30px rgba(0,0,0,.45),
     0 2px 0 rgba(0,0,0,.35) inset;
-  /* Deckled, irregular edges (mask = small tears & rot) */
+  /* Use % sizes so tears/rot scale with the element (fixes different shape when enlarged) */
   -webkit-mask-image:
-    radial-gradient(28px 18px at 6% 8%,    transparent 0 58%, black 62%),
-    radial-gradient(20px 14px at 94% 7%,   transparent 0 58%, black 62%),
-    radial-gradient(34px 24px at 93% 92%,  transparent 0 58%, black 62%),
-    radial-gradient(22px 16px at 7% 86%,   transparent 0 58%, black 62%),
-    radial-gradient(16px 12px at 18% 50%,  transparent 0 50%, black 54%),
-    radial-gradient(12px 10px at 82% 42%,  transparent 0 48%, black 52%),
+    radial-gradient(8% 5% at 6% 8%, transparent 0 58%, black 62%),
+    radial-gradient(6% 4.5% at 94% 7%, transparent 0 58%, black 62%),
+    radial-gradient(9% 6% at 93% 92%, transparent 0 58%, black 62%),
+    radial-gradient(7% 5% at 7% 86%, transparent 0 58%, black 62%),
+    radial-gradient(4.6% 3% at 18% 50%, transparent 0 50%, black 54%),
+    radial-gradient(4% 3% at 82% 42%, transparent 0 48%, black 52%),
     linear-gradient(black, black);
   -webkit-mask-composite: source-over, source-over, source-over, source-over, source-over, source-over, destination-in;
   mask-image:
-    radial-gradient(28px 18px at 6% 8%,    transparent 0 58%, black 62%),
-    radial-gradient(20px 14px at 94% 7%,   transparent 0 58%, black 62%),
-    radial-gradient(34px 24px at 93% 92%,  transparent 0 58%, black 62%),
-    radial-gradient(22px 16px at 7% 86%,   transparent 0 58%, black 62%),
-    radial-gradient(16px 12px at 18% 50%,  transparent 0 50%, black 54%),
-    radial-gradient(12px 10px at 82% 42%,  transparent 0 48%, black 52%),
+    radial-gradient(8% 5% at 6% 8%, transparent 0 58%, black 62%),
+    radial-gradient(6% 4.5% at 94% 7%, transparent 0 58%, black 62%),
+    radial-gradient(9% 6% at 93% 92%, transparent 0 58%, black 62%),
+    radial-gradient(7% 5% at 7% 86%, transparent 0 58%, black 62%),
+    radial-gradient(4.6% 3% at 18% 50%, transparent 0 50%, black 54%),
+    radial-gradient(4% 3% at 82% 42%, transparent 0 48%, black 52%),
     linear-gradient(black, black);
   mask-composite: intersect; /* best-effort cross-browser */
-  cursor: zoom-in;
+  cursor: inherit; /* keep your glowing dot; no magnifying glass */
+  /* smooth transform animation for pick-up effect */
+  transition: transform 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 .altar-screen .paper h2,
-.altar-screen .paper h3{
+.altar-screen .paper h3,
+.paper.paper-open h2,
+.paper.paper-open h3{
   color:#1b170f;
   text-shadow:none;
   font-family: 'Special Elite', ui-serif, system-ui;
 }
 .altar-screen .paper p,
-.altar-screen .paper li{
+.altar-screen .paper li,
+.paper.paper-open p,
+.paper.paper-open li{
   color:#1f1a13;
 }
 /* Burnt edge + mycelial creep overlay */
-.altar-screen .paper::before{
+.altar-screen .paper::before,
+.paper.paper-open::before{
   content:""; position:absolute; inset:-1px; pointer-events:none;
   background:
     /* burnt rim */
@@ -1519,7 +1533,8 @@ button.ghost:hover {
     radial-gradient(40% 100% at 100% 50%, rgba(0,0,0,.12), transparent 60%);
   mix-blend-mode:multiply; opacity:.55;
 }
-.altar-screen .paper::after{
+.altar-screen .paper::after,
+.paper.paper-open::after{
   /* hyphae: faint green filaments "eating" the paper from edges */
   content:""; position:absolute; inset:0; pointer-events:none;
   background:
@@ -1537,22 +1552,67 @@ button.ghost:hover {
 }
 
 /* ── Focused reading mode (zoom paper to center + dim rest) ── */
-.paper-overlay{
-  position: fixed; inset: 0; z-index: 40;
-  background: radial-gradient(120% 120% at 50% 50%, rgba(0,0,0,.85), rgba(0,0,0,.92));
-  opacity: 0; pointer-events: none; transition: opacity 200ms ease;
+/* Global backdrop (full viewport, unaffected by transformed ancestors) */
+.paper-backdrop{
+  position: fixed; inset: 0; z-index: 8;
+  background: rgba(6,8,10,0.88);
+  opacity: 0; pointer-events: none; transition: opacity 300ms ease;
 }
-.altar-screen.has-paper-open .paper-overlay{
+.has-paper-open-global .paper-backdrop{
   opacity: 1; pointer-events: auto;
 }
-.altar-screen .paper.paper-open{
+
+/* Open state: we freeze the element's pixel box and use transform only.
+   This keeps text/layout 1:1 and centers perfectly. */
+.paper.paper-open{
   position: fixed; z-index: 50;
-  left:50%; top:50%; transform: translate(-50%, -50%) scale(1.08) rotate(0deg);
-  width: min(86vw, 860px); max-height: min(80vh, 720px); overflow: auto;
-  cursor: zoom-out;
-  /* keep the parchment look when enlarged */
+  /* left/top/width/height are injected by JS to match on-wall pixels */
+  transform: translate(var(--open-tx,0), var(--open-ty,0))
+             scale(var(--open-scale,1))
+             rotate(var(--rot,0deg));
+  transform-origin: center center;
+  will-change: transform;
+  cursor: inherit;
   box-shadow: 0 0 0 1px rgba(57,39,20,.65) inset, 0 26px 80px rgba(0,0,0,.65);
 }
+/* Prevent hover from nudging the enlarged paper */
+.paper.paper-open:hover{
+  transform: translate(var(--open-tx,0), var(--open-ty,0))
+             scale(var(--open-scale,1))
+             rotate(var(--rot,0deg)) !important;
+}
+
+/* Tiny breathing ring around your glowing dot when a paper is hoverable */
+.cursor-ring{
+  position: fixed;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid rgba(45,212,175,0.9);
+  box-shadow: 0 0 6px rgba(45,212,175,0.55);
+  pointer-events: none;
+  z-index: 100;
+  opacity: 0;
+  /* Center on cursor position set by JS */
+  transform: translate(-50%, -50%);
+  will-change: transform, opacity;
+  transition: opacity 150ms ease;
+}
+.hovering-paper .cursor-ring{
+  opacity: 1;
+  animation: ring-breathe 1.6s ease-in-out infinite;
+}
+@keyframes ring-breathe{
+  0%, 100%{
+    transform: translate(-50%, -50%) scale(1);
+    opacity: .95;
+  }
+  50%{
+    transform: translate(-50%, -50%) scale(1.35);
+    opacity: .7;
+  }
+}
+
 /* While a paper is open, subtly mute the altar visuals behind */
 .altar-screen.has-paper-open .ring,
 .altar-screen.has-paper-open .core,
@@ -1564,6 +1624,56 @@ button.ghost:hover {
 .altar-screen .paper:focus-visible{
   outline: 2px dashed rgba(57,39,20,.8); outline-offset: 2px;
 }
+
+/* ───────────────── PANEL MODE: suppress background nav ───────────────── */
+/* When any nav page is open, add .nav-suppressed on <body> (see JS below) */
+/* Hide nav labels but keep mycelium background visible */
+.nav-suppressed .network-node-label,
+.nav-suppressed [data-nav] {
+  display: none !important;
+}
+/* Kill clicks into the background network completely */
+.nav-suppressed #network-nav {
+  pointer-events: none !important;
+}
+
+/* Keep background image visible in panel mode */
+.nav-suppressed #bg-front-img {
+  opacity: 0.35 !important; /* Slightly dimmed but visible */
+  filter: contrast(1.15) brightness(0.7);
+}
+
+/* Signals overlay sits above the network, below panels */
+.signals-canvas{
+  position: fixed; inset: 0; z-index: 6;
+  pointer-events: none;
+}
+/* Most panels use z > 6; if not, give panel a higher z-index than 6 */
+.altar-screen{ z-index: 9; }
+
+/* ───────────────── Sigil continuous spin in panel mode ───────────────── */
+/* DISABLED - User prefers static sigil */
+/*
+.sigil-spin {
+  animation: sigil-spin 16s linear infinite;
+  transform-origin: center center;
+}
+@keyframes sigil-spin { to { transform: rotate(360deg); } }
+*/
+
+/* micro-kick when we emit a lightning burst (brief acceleration) */
+/* DISABLED - Conflicts with JS positioning transform, causes position jumping */
+/*
+.sigil-kick {
+  animation: sigil-kick .6s cubic-bezier(.2,.9,.15,1);
+}
+@keyframes sigil-kick {
+  0%   { transform: rotate(0deg)    scale(1.00); }
+  18%  { transform: rotate(16deg)   scale(1.02); }
+  36%  { transform: rotate(22deg)   scale(1.01); }
+  100% { transform: rotate(0deg)    scale(1.00); }
+}
+*/
 
 /* Close/Back button (top-right corner) */
 .altar-close {
