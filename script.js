@@ -7,6 +7,9 @@
  * - Full accessibility support
  */
 
+// ━━━ Module Imports ━━━
+import { sizeCanvas, cumulativeLengths, pointAt, approach } from './js/utils.js';
+
 // ━━━ A11y: Insert current year in footer ━━━
 const yearElement = document.getElementById('yr');
 if (yearElement) yearElement.textContent = new Date().getFullYear();
@@ -550,59 +553,9 @@ let lastSporeFrame = 0;
 let lastSparkTs = performance.now();
 let ACTIVE_ANIMS = [];
 
-function sizeCanvas(canvas) {
-  if (!canvas) return;
-  const dpr = window.devicePixelRatio || 1;
-  canvas.width = Math.floor(window.innerWidth * dpr);
-  canvas.height = Math.floor(window.innerHeight * dpr);
-  canvas.style.width = `${window.innerWidth}px`;
-  canvas.style.height = `${window.innerHeight}px`;
-  const ctx = canvas.getContext('2d');
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-}
-
+// projectXY is kept here because it depends on toViewport (which needs COVER)
 function projectXY(points) {
   return points.map((p) => toViewport(p.x, p.y));
-}
-
-function cumulativeLengths(pts) {
-  const cum = [0];
-  for (let i = 1; i < pts.length; i++) {
-    const dx = pts[i][0] - pts[i - 1][0];
-    const dy = pts[i][1] - pts[i - 1][1];
-    cum.push(cum[i - 1] + Math.hypot(dx, dy));
-  }
-  return cum;
-}
-
-function pointAt(pts, cum, s) {
-  const total = cum[cum.length - 1];
-  if (s <= 0) return pts[0];
-  if (s >= total) return pts[pts.length - 1];
-
-  let lo = 0;
-  let hi = cum.length - 1;
-  while (lo < hi) {
-    const mid = (lo + hi) >> 1;
-    if (cum[mid] < s) lo = mid + 1; else hi = mid;
-  }
-
-  const i = Math.max(1, lo);
-  const segStart = cum[i - 1];
-  const segLen = cum[i] - segStart;
-  const t = segLen ? (s - segStart) / segLen : 0;
-  const ax = pts[i - 1][0];
-  const ay = pts[i - 1][1];
-  const bx = pts[i][0];
-  const by = pts[i][1];
-  return [ax + (bx - ax) * t, ay + (by - ay) * t];
-}
-
-// Helper for smooth value approach
-function approach(current, target, ratePerSec, dt){
-  const d = target - current;
-  const step = Math.sign(d) * Math.min(Math.abs(d), ratePerSec * dt);
-  return current + step;
 }
 
 const MAX_SPARKS = 12;
