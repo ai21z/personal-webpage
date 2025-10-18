@@ -1,0 +1,16 @@
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   MAIN STYLESHEET ORCHESTRATOR
+   Imports all modular stylesheets in correct cascade order
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+/* 1. Base: Variables, typography, reset */
+@import 'base.css';
+
+/* 2. Canvas & Visual Effects */
+@import 'canvas.css';
+
+/* 3. Navigation System */
+@import 'navigation.css';
+
+/* 4. Legacy styles (to be refactored incrementally) */
+@import '../styles-legacy.css';

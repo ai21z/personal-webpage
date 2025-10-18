@@ -1,0 +1,140 @@
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   NAVIGATION SYSTEM
+   - Mycelial network navigation (#network-nav)
+   - Network node labels
+   - Sigil node (intro button)
+   - Suppressed states
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+/* ━━━ Network Navigation System ━━━ */
+#network-nav{
+  position:fixed;
+  inset:0;
+  z-index:10;
+  pointer-events:none;
+}
+
+/* Enforce custom cursor on all interactive nav elements */
+#network-nav,
+#network-nav *:where(a,button,[role="button"],.network-node-label,.network-sigil-node){
+  cursor: var(--cursor-spore), pointer;
+}
+
+/* Hide OS cursor over canvases to let glow cursor dominate */
+#spore-canvas, #reveal-canvas { cursor: none; }
+
+/* ━━━ Nav Labels (pinned to mycelium junctions) ━━━ */
+.network-node-label{
+  position: absolute;
+  transform: translate(-50%, -50%);
+  color: rgba(230,227,216,.86);
+  font: 400 12px "Special Elite", monospace;
+  letter-spacing: .04em;
+  pointer-events: auto;
+  cursor: var(--cursor-spore), pointer;
+  opacity: 1;
+  transition: color .2s ease, text-shadow .2s ease;
+  padding: 6px 8px;
+}
+
+/* Enlarged hitbox for easier clicking while moving */
+.network-node-label::before{
+  content:"";
+  position:absolute;
+  left:50%; top:50%;
+  transform:translate(-50%,-50%);
+  width:64px; height:40px;
+  pointer-events:auto;
+}
+
+.network-node-label .node-label{
+  position: absolute;
+  left: 50%;
+  top: -18px;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  text-shadow: 0 1px 0 rgba(0,0,0,.35);
+}
+
+.network-node-label:hover,
+.network-node-label:focus-visible{
+  color: var(--bone);
+  text-shadow:
+    0 0 8px rgba(143, 180, 255, 0.25),
+    0 0 2px rgba(63, 255, 159, 0.35);
+}
+
+.network-node-label.active,
+.network-node-label.motion-highlight {
+  color: var(--decay-green);
+}
+
+.network-node-label:focus-visible{
+  outline: none;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* ━━━ Sigil Node (intro replacement) ━━━ */
+.network-sigil-node {
+  position: absolute;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: var(--cursor-spore), pointer;
+  pointer-events: auto;
+  opacity: 0.7;
+  transition: filter 0.2s ease;
+  filter: drop-shadow(0 0 8px rgba(122,174,138,0.3));
+  transform-origin: 50% 50%;
+}
+
+.network-sigil-node:hover {
+  filter: drop-shadow(0 0 12px rgba(122,174,138,0.5)) drop-shadow(0 0 24px rgba(143,180,255,0.2));
+}
+
+.network-sigil-node:hover img {
+  transform: scale(1.05);
+}
+
+.network-sigil-node:focus-visible {
+  outline: 2px solid rgba(122,174,138,0.8);
+  outline-offset: 4px;
+  border-radius: 50%;
+}
+
+.network-sigil-node.motion-highlight {
+  filter: drop-shadow(0 0 16px rgba(63,255,159,0.6));
+}
+
+.network-sigil-node img {
+  display: block;
+  width: 64px;
+  height: 64px;
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  transform-origin: 50% 50%;
+}
+
+/* ━━━ Suppressed State (when sections are open) ━━━ */
+.nav-suppressed .network-node-label,
+.nav-suppressed [data-nav] {
+  display: none !important;
+}
+
+.nav-suppressed #network-nav {
+  pointer-events: none !important;
+}
+
+/* ━━━ Responsive ━━━ */
+@media (max-width: 900px){
+  .network-node-label{
+    font-size: 11px;
+    opacity:.22;
+  }
+  .network-node-label .node-label{ top: -22px; }
+  
+  .network-sigil-node img {
+    width: 48px;
+    height: 48px;
+  }
+}

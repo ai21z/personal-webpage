@@ -1,0 +1,116 @@
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   CANVAS & VISUAL EFFECTS
+   - Background layers (#bg)
+   - Canvas overlays (spores, reveal, signals)
+   - Cursor ring (breathing effect)
+   - Paper backdrop
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+/* ━━━ Static Background - Single Layer Truth ━━━ */
+#bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+#bg-front-img {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: contrast(1.15) brightness(0.82);
+  opacity: 0.50;
+  mix-blend-mode: lighten;
+  transform: none !important;
+  z-index: 1;
+}
+
+/* Kill old layered backgrounds if present */
+#bg-deep, #bg-mid, #bg-front {
+  display: none !important;
+}
+
+/* ━━━ Canvas Layers: Spores (animated) + Reveal (on-demand) ━━━ */
+#spore-canvas, #reveal-canvas{
+  position:fixed;
+  top:0; left:0;
+  width:100%; height:100%;
+  pointer-events:none;
+}
+#spore-canvas{ z-index:3; }
+#reveal-canvas{ z-index:4; }
+
+/* ━━━ Signals Canvas (lightning pulses + spores) ━━━ */
+.signals-canvas{
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 5;
+  opacity: .85;
+  mix-blend-mode: screen;
+}
+
+/* ━━━ Global Backdrop for Paper Focus ━━━ */
+.paper-backdrop{
+  position: fixed;
+  inset: 0;
+  z-index: 8;
+  background: rgba(6,8,10,0.88);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 300ms ease;
+}
+
+.has-paper-open-global .paper-backdrop{
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ━━━ Breathing Cursor Ring ━━━ */
+.cursor-ring{
+  position: fixed;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid rgba(45,212,175,0.9);
+  box-shadow: 0 0 6px rgba(45,212,175,0.55);
+  pointer-events: none;
+  z-index: 100;
+  opacity: 0;
+  transform: translate(-50%, -50%);
+  will-change: transform, opacity;
+  transition: opacity 150ms ease;
+}
+
+.hovering-paper .cursor-ring{
+  opacity: 1;
+  animation: ring-breathe 1.6s ease-in-out infinite;
+}
+
+@keyframes ring-breathe{
+  0%, 100%{
+    transform: translate(-50%, -50%) scale(1);
+    opacity: .95;
+  }
+  50%{
+    transform: translate(-50%, -50%) scale(1.35);
+    opacity: .7;
+  }
+}
+
+/* ━━━ Ambient Photographic Fungus (base layer) ━━━ */
+.fungi-ambient {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(ellipse 120% 100% at 5% 30%, rgba(45,212,175,0.03), transparent 50%),
+    radial-gradient(ellipse 100% 120% at 95% 70%, rgba(255,122,51,0.025), transparent 50%);
+  opacity: 0.5;
+  pointer-events: none;
+}
