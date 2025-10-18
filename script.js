@@ -7,98 +7,236 @@
  * - Full accessibility support
  */
 
-// ━━━ Module Imports ━━━
-import { buildGraphFromPaths, aStarPath, nearestNodeId } from './js/navigation/graph.js';
-import { 
-  GRAPH, 
-  PATH_CACHE, 
-  ritualActive, 
-  followerSparks, 
-  COVER,
-  MYC_MAP,
-  setMycMap,
-  setGraph,
-  NODE_IDS,
-  NAV_OFFSETS,
-  LOCKED_ROUTES,
-  setLockedRoutes,
-  prefersReducedMotion,
-  hudEnabled,
-  hudCanvas,
-  hudCtx,
-  setHudCanvas
-} from './js/core/state.js';
-import { 
-  RITUAL_RETURN_MS, 
-  NAV_SPEED_WHEN_ACTIVE,
-  NAV_COORDS,
-  NAV_ORDER,
-  LABEL_OFFSET_PX,
-  LABEL_SPEEDS,
-  DEFAULT_SPEED
-} from './js/core/config.js';
-import { 
-  startSpark, 
-  startSparkToPoint, 
-  drawSparks, 
-  ritualCascade, 
-  ritualCatchUp,
-  sparkCanvas,
-  sparkCtx,
-  resizeSparkCanvas,
-  getSparkDelta
-} from './js/graphics/sparks.js';
-import { 
-  createSpores, 
-  startSpores, 
-  resizeSporeCanvas,
-  sporeCanvas,
-  sporeCtx
-} from './js/graphics/spores.js';
-import { 
-  sizeCanvas, 
-  projectXY, 
-  cumulativeLengths, 
-  pointAt, 
-  approach, 
-  resamplePolyline, 
-  projectOntoPolyline,
-  computeCoverFromImage,
-  coverMap,
-  toViewport
-} from './js/utils/geometry.js';
-
 // ━━━ A11y: Insert current year in footer ━━━
 const yearElement = document.getElementById('yr');
 if (yearElement) yearElement.textContent = new Date().getFullYear();
 
-// ━━━ State imported from modules ━━━
-// prefersReducedMotion, hudEnabled, hudCanvas, hudCtx → from state.js
-// COVER, MYC_MAP, GRAPH, PATH_CACHE → from state.js
-// NAV_COORDS, LABEL_SPEEDS, etc. → from config.js
-// coverMap, toViewport, computeCoverFromImage → from geometry.js
+// ━━━ PRM Gate: Detect user preference ━━━
+const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-// ━━━ Background image reference ━━━
+// ━━━ HUD Toggle ━━━
+let hudEnabled = new URLSearchParams(window.location.search).has('hud');
+let hudCanvas = null;
+let hudCtx = null;
+
+// ━━━ Background Geometry (Image Space) ━━━
+// ━━━ SINGLE source of truth for cover transform ━━━
 const bgImg = document.getElementById('bg-front-img');
+const COVER = { s: 1, dx: 0, dy: 0, baseW: 0, baseH: 0, ready: false };
+
+function computeCoverFromImage() {
+  const vw = window.innerWidth, vh = window.innerHeight;
+  // MUST use naturalWidth/naturalHeight from loaded image
+  const W = bgImg ? bgImg.naturalWidth : 0;
+  const H = bgImg ? bgImg.naturalHeight : 0;
+  
+  if (!W || !H) {
+    console.warn('⚠️ Cover: Image not ready yet, dimensions unavailable');
+    return false;
+  }
+  
+  const s = Math.max(vw / W, vh / H);
+  COVER.s = s;
+  COVER.dx = (vw - W * s) * 0.5;
+  COVER.dy = (vh - H * s) * 0.5;
+  COVER.baseW = W; 
+  COVER.baseH = H;
+  COVER.ready = true;
+  
+  console.log(`📐 Cover`, { baseW: W, baseH: H, s: s.toFixed(4), dx: COVER.dx.toFixed(2), dy: COVER.dy.toFixed(2), viewport: `${vw}×${vh}` });
+  return true;
+}
+
+// SINGLE coverMap function used everywhere (labels, sparks, follower lightning, HUD)
+function coverMap(x, y) { 
+  return [ x * COVER.s + COVER.dx, y * COVER.s + COVER.dy ]; 
+}
+
+// Alias for backward compatibility
+function toViewport(x, y) { 
+  return coverMap(x, y);
+}
+
+// ━━━ Mycelium Geometry System (Exported from Python) ━━━
+let MYC_MAP = null; // {seed, width, height, paths, junctions}
 
 /**
  * Load exported geometry JSON and preload background image.
  */
 async function loadMycelium() {
   const response = await fetch('artifacts/network.json');
-  const data = await response.json();
-  setMycMap(data);
+  MYC_MAP = await response.json();
   console.log(`✅ Loaded ${MYC_MAP.paths.length} paths, ${MYC_MAP.junctions.length} junctions`);
 }
 
 /* ━━━ Image-Space Graph + Pathfinding ━━━ */
-// Imported from js/navigation/graph.js and js/core/state.js
+let GRAPH = null; // { nodes: Array<{x,y}>, neighbors(id)->id[], nearestId(x,y) }
+const PATH_CACHE = new Map(); // "fromId->toId" => [{x,y}, …]
 
 /* ━━━ Ritual State + Follower Lightning ━━━ */
-// Imported from js/core/state.js and js/core/config.js
+let ritualActive = false;
+let followerSparks = []; // [{ id, alpha }]
+const RITUAL_RETURN_MS = 420;          // duration to glide home
+const NAV_SPEED_WHEN_ACTIVE = 48;      // reduced by ~17% for better clickability
+
+function buildGraphFromPaths(paths) {
+  const QUANT = 3;
+  const key = (x, y) => `${Math.round(x / QUANT)},${Math.round(y / QUANT)}`;
+
+  const nodes = [];
+  const keyToId = new Map();
+  const adj = [];
+
+  const addNode = (x, y) => {
+    const k = key(x, y);
+    if (!keyToId.has(k)) {
+      keyToId.set(k, nodes.length);
+      nodes.push({ x, y });
+    }
+    return keyToId.get(k);
+  };
+
+  const link = (a, b) => {
+    if (a === b) return;
+    (adj[a] ??= new Set()).add(b);
+    (adj[b] ??= new Set()).add(a);
+  };
+
+  for (const poly of paths) {
+    if (!poly || poly.length === 0) continue;
+    let prev = addNode(poly[0][0], poly[0][1]);
+    for (let i = 1; i < poly.length; i++) {
+      const cur = addNode(poly[i][0], poly[i][1]);
+      link(prev, cur);
+      prev = cur;
+    }
+  }
+
+  const neighborCache = new Map();
+  const neighbors = (id) => {
+    if (!neighborCache.has(id)) neighborCache.set(id, Array.from(adj[id] ?? []));
+    return neighborCache.get(id);
+  };
+
+  const nearestId = (x, y, radius = 80, step = 24) => {
+    let best = -1;
+    let bestD2 = Infinity;
+
+    const tryPoint = (px, py) => {
+      const id = keyToId.get(key(px, py));
+      if (id != null) {
+        const dx = nodes[id].x - x;
+        const dy = nodes[id].y - y;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < bestD2) {
+          best = id;
+          bestD2 = d2;
+        }
+      }
+    };
+
+    for (let r = 0; r <= radius; r += step) {
+      for (let dx = -r; dx <= r; dx += step) {
+        tryPoint(x + dx, y - r);
+        tryPoint(x + dx, y + r);
+      }
+      for (let dy = -r + step; dy <= r - step; dy += step) {
+        tryPoint(x - r, y + dy);
+        tryPoint(x + r, y + dy);
+      }
+    }
+    return best;
+  };
+
+  return { nodes, neighbors, nearestId };
+}
+
+function aStarPath(idA, idB) {
+  if (!GRAPH || idA < 0 || idB < 0) return null;
+  const cacheKey = `${idA}->${idB}`;
+  if (PATH_CACHE.has(cacheKey)) return PATH_CACHE.get(cacheKey);
+
+  const nodes = GRAPH.nodes;
+  const neighbors = GRAPH.neighbors;
+
+  const open = new Set([idA]);
+  const came = new Map();
+  const g = new Map([[idA, 0]]);
+  const f = new Map([[idA, 0]]);
+
+  const h = (id) => {
+    const A = nodes[id];
+    const B = nodes[idB];
+    const dx = A.x - B.x;
+    const dy = A.y - B.y;
+    return dx * dx + dy * dy;
+  };
+
+  while (open.size) {
+    let current = null;
+    let best = Infinity;
+    for (const id of open) {
+      const fi = f.get(id) ?? Infinity;
+      if (fi < best) {
+        best = fi;
+        current = id;
+      }
+    }
+
+    if (current === idB) {
+      const out = [];
+      for (let c = current; c != null; c = came.get(c)) out.push(nodes[c]);
+      out.reverse();
+      PATH_CACHE.set(cacheKey, out);
+      return out;
+    }
+
+    open.delete(current);
+
+    for (const nb of neighbors(current)) {
+      const tentative = (g.get(current) ?? Infinity) + 1;
+      if (tentative < (g.get(nb) ?? Infinity)) {
+        came.set(nb, current);
+        g.set(nb, tentative);
+        f.set(nb, tentative + h(nb));
+        open.add(nb);
+      }
+    }
+  }
+
+  return null;
+}
 
 /* --- DESIGN ANCHORS (1920×1080 reference) --- */
-// Imported from js/core/config.js
+// [LOCKED-ROUTE] Fixed design anchors in image space (1920×1080) - DO NOT CHANGE
+const NAV_COORDS = {
+  intro:   { x: 1640, y: 160 },
+  about:   { x: 1466, y: 179 },
+  work:    { x: 1463, y: 275 },
+  projects:{ x: 1170, y: 404 },
+  contact: { x: 1524, y: 411 },
+  blog:    { x: 1624, y: 429 },
+  resume:  { x:  1432, y: 637 },
+  skills:  { x:  1119, y: 240 }
+};
+
+const NAV_ORDER = ['intro','about','work','projects','contact','blog','resume','skills'];
+
+const LABEL_OFFSET_PX = {
+  intro: 34, about: 26, work: 24, projects: 22,
+  contact: 24, blog: 26, resume: 20, skills: 24
+};
+
+// [LOCKED-ROUTE] Per-label locked polyline routes (never re-snap at runtime)
+let LOCKED_ROUTES = {}; // id -> {imgPts, projPts, cum, len, s, dir, speed} - populated by buildLockedRoutes()
+const LABEL_SPEEDS = { 
+  about: 65, work: 70, projects: 75, contact: 68, 
+  blog: 72, resume: 66, skills: 74
+};
+const DEFAULT_SPEED = 68; // fallback if label not in LABEL_SPEEDS
+
+const NODE_IDS = {}; // id -> graph node index
+const NAV_OFFSETS = {}; // id -> {nx, ny} in image space
 
 function computeNavOffsets(){
   if (!MYC_MAP || !MYC_MAP.paths) return;
@@ -395,19 +533,350 @@ function toggleHUD() {
 }
 
 // ━━━ Spark Animation State ━━━
-// Now imported from js/graphics/sparks.js
+let sparkCanvas = document.getElementById('reveal-canvas') || document.getElementById('spark-canvas');
+if (!sparkCanvas) {
+  sparkCanvas = document.createElement('canvas');
+  sparkCanvas.id = 'spark-canvas';
+  sparkCanvas.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:5;';
+  document.body.appendChild(sparkCanvas);
+}
+const sparkCtx = sparkCanvas.getContext('2d');
 
-// ━━━ Spore Animation State ━━━
-// Now imported from js/graphics/spores.js
+const sporeCanvas = document.getElementById('spore-canvas');
+let sporeCtx = sporeCanvas ? sporeCanvas.getContext('2d') : null;
+let spores = [];
+let lastSporeFrame = 0;
 
-// ━━━ Utility functions ━━━
-// Imported from js/utils/geometry.js: sizeCanvas, projectXY, cumulativeLengths, pointAt, approach
+let lastSparkTs = performance.now();
+let ACTIVE_ANIMS = [];
 
-// ━━━ Spark Functions ━━━
-// Now imported from js/graphics/sparks.js
+function sizeCanvas(canvas) {
+  if (!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.floor(window.innerWidth * dpr);
+  canvas.height = Math.floor(window.innerHeight * dpr);
+  canvas.style.width = `${window.innerWidth}px`;
+  canvas.style.height = `${window.innerHeight}px`;
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+function projectXY(points) {
+  return points.map((p) => toViewport(p.x, p.y));
+}
+
+function cumulativeLengths(pts) {
+  const cum = [0];
+  for (let i = 1; i < pts.length; i++) {
+    const dx = pts[i][0] - pts[i - 1][0];
+    const dy = pts[i][1] - pts[i - 1][1];
+    cum.push(cum[i - 1] + Math.hypot(dx, dy));
+  }
+  return cum;
+}
+
+function pointAt(pts, cum, s) {
+  const total = cum[cum.length - 1];
+  if (s <= 0) return pts[0];
+  if (s >= total) return pts[pts.length - 1];
+
+  let lo = 0;
+  let hi = cum.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (cum[mid] < s) lo = mid + 1; else hi = mid;
+  }
+
+  const i = Math.max(1, lo);
+  const segStart = cum[i - 1];
+  const segLen = cum[i] - segStart;
+  const t = segLen ? (s - segStart) / segLen : 0;
+  const ax = pts[i - 1][0];
+  const ay = pts[i - 1][1];
+  const bx = pts[i][0];
+  const by = pts[i][1];
+  return [ax + (bx - ax) * t, ay + (by - ay) * t];
+}
+
+// Helper for smooth value approach
+function approach(current, target, ratePerSec, dt){
+  const d = target - current;
+  const step = Math.sign(d) * Math.min(Math.abs(d), ratePerSec * dt);
+  return current + step;
+}
+
+const MAX_SPARKS = 12;
+const loggedPathFailures = new Set();
+
+function startSpark(fromKey, toKey, speedPxPerSec = 650) {
+  if (prefersReducedMotion || !GRAPH) return;
+  if (ACTIVE_ANIMS.length >= MAX_SPARKS) ACTIVE_ANIMS.shift();
+
+  const fromAnchor = NAV_COORDS[fromKey];
+  const toAnchor = NAV_COORDS[toKey];
+  if (!fromAnchor || !toAnchor) return;
+
+  let idA = NODE_IDS[fromKey];
+  let idB = NODE_IDS[toKey];
+  
+  // Recompute NODE_IDS if invalid
+  if (idA == null || idB == null || idA < 0 || idB < 0) {
+    for (const [id, pt] of Object.entries(NAV_COORDS)) {
+      NODE_IDS[id] = GRAPH.nearestId(pt.x, pt.y, 80, 24);
+    }
+    idA = NODE_IDS[fromKey];
+    idB = NODE_IDS[toKey];
+  }
+
+  if (idA == null || idB == null || idA < 0 || idB < 0) {
+    const key = `${fromKey}->${toKey}`;
+    if (!loggedPathFailures.has(key)) {
+      console.warn('nearestId failed for spark path', key, { idA, idB });
+      loggedPathFailures.add(key);
+    }
+    return;
+  }
+
+  const solved = aStarPath(idA, idB);
+  if (!solved || solved.length < 2) {
+    const key = `${fromKey}->${toKey}`;
+    if (!loggedPathFailures.has(key)) {
+      console.warn('A* path missing for spark', key);
+      loggedPathFailures.add(key);
+    }
+    return;
+  }
+
+  const pathImg = solved.map((pt) => ({ x: pt.x, y: pt.y }));
+  pathImg[0] = { x: fromAnchor.x, y: fromAnchor.y };
+  pathImg[pathImg.length - 1] = { x: toAnchor.x, y: toAnchor.y };
+
+  const proj = projectXY(pathImg);
+  const cum = cumulativeLengths(proj);
+  const len = cum[cum.length - 1];
+  if (!len) return;
+
+  ACTIVE_ANIMS.push({
+    imgPts: pathImg,
+    projPts: proj,
+    cum,
+    len,
+    s: 0,
+    v: speedPxPerSec
+  });
+}
+
+let cascadeAnims = [];
+let cascadeActive = false;
+
+function ritualCascade() {
+  if (prefersReducedMotion) {
+    document.querySelectorAll('.network-node-label, .network-sigil-node').forEach(n => {
+      n.classList.add('motion-highlight');
+      setTimeout(() => n.classList.remove('motion-highlight'), 200);
+    });
+    return;
+  }
+  if (cascadeActive) return;
+  cascadeActive = true;
+  cascadeAnims = [];
+
+  if (!GRAPH || !MYC_MAP) {
+    cascadeActive = false;
+    return;
+  }
+
+  const visited = new Set();
+  const queue = [];
+  for (const id of GRAPH.nodes.keys()) {
+    queue.push({ id, depth: 0 });
+  }
+
+  const edges = [];
+  visited.clear();
+  for (let i = 0; i < queue.length; i++) {
+    const { id, depth } = queue[i];
+    if (visited.has(id)) continue;
+    visited.add(id);
+
+    for (const nb of GRAPH.neighbors(id)) {
+      if (!visited.has(nb)) {
+        edges.push({ from: id, to: nb, depth });
+      }
+    }
+  }
+
+  edges.forEach((edge, idx) => {
+    const delay = (edge.depth * 30) + (idx % 5) * 15;
+    setTimeout(() => {
+      const fromPt = GRAPH.nodes[edge.from];
+      const toPt = GRAPH.nodes[edge.to];
+      if (!fromPt || !toPt) return;
+
+      const pathImg = [fromPt, toPt];
+      const proj = projectXY(pathImg);
+      const cum = cumulativeLengths(proj);
+      const len = cum[cum.length - 1];
+      if (!len) return;
+
+      cascadeAnims.push({
+        projPts: proj,
+        cum,
+        len,
+        s: 0,
+        v: 800,
+        alpha: 0.15 + Math.random() * 0.1
+      });
+    }, delay);
+  });
+
+  setTimeout(() => {
+    cascadeActive = false;
+    cascadeAnims = [];
+  }, 1800);
+}
+
+function drawCascade(dt) {
+  if (!cascadeActive || cascadeAnims.length === 0) return;
+
+  const survivors = [];
+  for (const anim of cascadeAnims) {
+    anim.s += anim.v * dt;
+    if (anim.s > anim.len) continue;
+
+    const head = pointAt(anim.projPts, anim.cum, anim.s);
+    const tail = pointAt(anim.projPts, anim.cum, Math.max(0, anim.s - 40));
+
+    sparkCtx.save();
+    sparkCtx.lineCap = 'round';
+
+    sparkCtx.strokeStyle = `rgba(143,180,255,${anim.alpha * 0.5})`;
+    sparkCtx.lineWidth = 12;
+    sparkCtx.shadowBlur = 24;
+    sparkCtx.shadowColor = `rgba(143,180,255,${anim.alpha * 0.3})`;
+    sparkCtx.beginPath();
+    sparkCtx.moveTo(tail[0], tail[1]);
+    sparkCtx.lineTo(head[0], head[1]);
+    sparkCtx.stroke();
+
+    sparkCtx.strokeStyle = `rgba(194,74,46,${anim.alpha * 0.3})`;
+    sparkCtx.lineWidth = 6;
+    sparkCtx.shadowBlur = 16;
+    sparkCtx.beginPath();
+    sparkCtx.moveTo(tail[0], tail[1]);
+    sparkCtx.lineTo(head[0], head[1]);
+    sparkCtx.stroke();
+
+    sparkCtx.restore();
+    survivors.push(anim);
+  }
+  cascadeAnims = survivors;
+}
+
+function drawSparks(dt) {
+  if (!sparkCtx || !sparkCanvas) return;
+  const cssW = window.innerWidth;
+  const cssH = window.innerHeight;
+  sparkCtx.clearRect(0, 0, cssW, cssH);
+
+  drawCascade(dt);
+
+  const trailLen = 60;
+  const survivors = [];
+
+  for (const anim of ACTIVE_ANIMS) {
+    anim.s += anim.v * dt;
+    if (anim.s > anim.len) continue;
+
+    const head = pointAt(anim.projPts, anim.cum, anim.s);
+    const tail = pointAt(anim.projPts, anim.cum, Math.max(0, anim.s - trailLen));
+
+    sparkCtx.save();
+    sparkCtx.lineCap = 'round';
+    sparkCtx.lineJoin = 'round';
+
+    sparkCtx.strokeStyle = 'rgba(143,180,255,0.2)';
+    sparkCtx.lineWidth = 8;
+    sparkCtx.shadowBlur = 20;
+    sparkCtx.shadowColor = 'rgba(143,180,255,0.4)';
+    sparkCtx.beginPath();
+    sparkCtx.moveTo(tail[0], tail[1]);
+    sparkCtx.lineTo(head[0], head[1]);
+    sparkCtx.stroke();
+
+    sparkCtx.strokeStyle = 'rgba(122,174,138,0.6)';
+    sparkCtx.lineWidth = 4;
+    sparkCtx.shadowBlur = 12;
+    sparkCtx.shadowColor = 'rgba(122,174,138,0.7)';
+    sparkCtx.beginPath();
+    sparkCtx.moveTo(tail[0], tail[1]);
+    sparkCtx.lineTo(head[0], head[1]);
+    sparkCtx.stroke();
+
+    sparkCtx.strokeStyle = 'rgba(240,255,245,0.9)';
+    sparkCtx.lineWidth = 2;
+    sparkCtx.shadowBlur = 8;
+    sparkCtx.beginPath();
+    sparkCtx.moveTo(tail[0], tail[1]);
+    sparkCtx.lineTo(head[0], head[1]);
+    sparkCtx.stroke();
+
+    sparkCtx.fillStyle = 'rgba(200,255,220,1)';
+    sparkCtx.shadowBlur = 12;
+    sparkCtx.shadowColor = 'rgba(200,255,220,0.8)';
+    sparkCtx.beginPath();
+    sparkCtx.arc(head[0], head[1], 2.8, 0, Math.PI * 2);
+    sparkCtx.fill();
+
+    sparkCtx.restore();
+    survivors.push(anim);
+  }
+
+  ACTIVE_ANIMS = survivors;
+
+  // Follower light dots: glowing dots that move with each label (no trails)
+  if (ritualActive && followerSparks.length && !prefersReducedMotion){
+    for (const f of followerSparks){
+      const route = LOCKED_ROUTES[f.id];
+      if (!route || !route.projPts || route.projPts.length < 2) continue;
+      
+      // Get current position (head only, no tail)
+      const head = pointAtRoute(route, route.s);
+
+      sparkCtx.save();
+
+      // Outer glow
+      sparkCtx.fillStyle = `rgba(143,180,255,${0.25 * f.alpha})`;
+      sparkCtx.shadowBlur = 20;
+      sparkCtx.shadowColor = `rgba(143,180,255,${0.4 * f.alpha})`;
+      sparkCtx.beginPath();
+      sparkCtx.arc(head[0], head[1], 8, 0, Math.PI * 2);
+      sparkCtx.fill();
+
+      // Mid glow
+      sparkCtx.fillStyle = `rgba(122,174,138,${0.6 * f.alpha})`;
+      sparkCtx.shadowBlur = 12;
+      sparkCtx.shadowColor = `rgba(122,174,138,${0.7 * f.alpha})`;
+      sparkCtx.beginPath();
+      sparkCtx.arc(head[0], head[1], 4, 0, Math.PI * 2);
+      sparkCtx.fill();
+
+      // Bright core
+      sparkCtx.fillStyle = `rgba(200,255,220,${0.9 * f.alpha})`;
+      sparkCtx.shadowBlur = 8;
+      sparkCtx.shadowColor = 'rgba(200,255,220,0.8)';
+      sparkCtx.beginPath();
+      sparkCtx.arc(head[0], head[1], 2, 0, Math.PI * 2);
+      sparkCtx.fill();
+
+      sparkCtx.restore();
+    }
+  }
+}
 
 function sparkLoop(ts) {
-  const dt = getSparkDelta(ts);
+  const dt = Math.min(0.05, (ts - lastSparkTs) / 1000);
+  lastSparkTs = ts;
   updateMovingLabels(dt); // Move labels along their branch tails
   drawSparks(dt);
   requestAnimationFrame(sparkLoop);
@@ -415,9 +884,9 @@ function sparkLoop(ts) {
 
 function resizeAll() {
   if (!COVER.ready) return; // Don't resize until image is loaded
-  computeCoverFromImage(bgImg);
-  resizeSparkCanvas();
-  resizeSporeCanvas();
+  computeCoverFromImage();
+  sizeCanvas(sparkCanvas);
+  sizeCanvas(sporeCanvas);
   if (hudEnabled && hudCanvas) {
     hudCanvas.width = window.innerWidth;
     hudCanvas.height = window.innerHeight;
@@ -466,7 +935,7 @@ function initAfterImageLoad() {
   console.log(`🖼️ Background image loaded: ${bgImg.naturalWidth}×${bgImg.naturalHeight}px`);
   
   // Compute cover using naturalWidth/naturalHeight
-  if (!computeCoverFromImage(bgImg)) {
+  if (!computeCoverFromImage()) {
     console.error('❌ Failed to compute cover from image');
     return;
   }
@@ -705,10 +1174,149 @@ function handleNavLeave(id, el) {
 }
 
 // ━━━ Spores Layer (ambient) ━━━
-// Now imported from js/graphics/spores.js
+
+function createSpores() {
+  if (!sporeCanvas || !sporeCtx) return;
+  const cssW = window.innerWidth;
+  const cssH = window.innerHeight;
+  const count = cssW < 768 ? 30 : 50;
+  spores = new Array(count).fill(0).map(() => ({
+    x: Math.random() * cssW,
+    y: Math.random() * cssH,
+    vx: (Math.random() - 0.5) * 0.2,
+    vy: (Math.random() - 0.5) * 0.2,
+    r: 1 + Math.random() * 3,
+    p: Math.random() * Math.PI * 2,
+    a: 0.1 + Math.random() * 0.25,
+    scalePhase: Math.random() * Math.PI * 2
+  }));
+  lastSporeFrame = 0;
+}
+
+function drawSpores(ts) {
+  if (!sporeCtx || !sporeCanvas) return;
+  if (ts - lastSporeFrame < 33) return;
+  lastSporeFrame = ts;
+
+  const c = sporeCtx;
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  c.clearRect(0, 0, w, h);
+
+  for (const s of spores) {
+    s.x = (s.x + s.vx + w) % w;
+    s.y = (s.y + s.vy + h) % h;
+
+    const pulse = (Math.sin(ts * 0.001 + s.p) + 1) / 2;
+    const scalePulse = 0.8 + 0.4 * (Math.sin(ts * 0.0015 + s.scalePhase) + 1) / 2;
+    const radius = s.r * scalePulse;
+
+    c.shadowBlur = 8;
+    c.shadowColor = `rgba(122,174,138,${s.a * pulse * 0.6})`;
+    c.fillStyle = `rgba(122,174,138,${s.a * pulse})`;
+    c.beginPath();
+    c.arc(s.x, s.y, radius, 0, Math.PI * 2);
+    c.fill();
+
+    c.shadowBlur = 0;
+    c.fillStyle = `rgba(200,255,220,${s.a * pulse * 0.8})`;
+    c.beginPath();
+    c.arc(s.x, s.y, radius * 0.4, 0, Math.PI * 2);
+    c.fill();
+  }
+}
+
+function startSpores() {
+  if (!sporeCanvas || prefersReducedMotion) return;
+  sporeCtx = sporeCtx || sporeCanvas.getContext('2d');
+  if (!sporeCtx) return;
+  createSpores();
+
+  function loop(ts) {
+    drawSpores(ts);
+    requestAnimationFrame(loop);
+  }
+
+  requestAnimationFrame(loop);
+}
+
+function nearestNodeId(pt) {
+  if (!GRAPH) return -1;
+  return GRAPH.nearestId(pt.x, pt.y, 96, 24);
+}
 
 // ━━━ [LOCKED-ROUTE] Stable Single-Branch Label Motion ━━━
-// resamplePolyline and projectOntoPolyline imported from js/utils/geometry.js
+
+// [LOCKED-ROUTE] Resample polyline to uniform spacing in image space
+function resamplePolyline(pts, step = 10) {
+  if (!pts || pts.length < 2) return pts;
+  
+  const resampled = [pts[0]];
+  let accumulated = 0;
+  
+  for (let i = 1; i < pts.length; i++) {
+    const [x0, y0] = pts[i - 1];
+    const [x1, y1] = pts[i];
+    const segLen = Math.hypot(x1 - x0, y1 - y0);
+    
+    let localDist = 0;
+    while (accumulated + localDist + step <= segLen) {
+      localDist += step;
+      const t = localDist / segLen;
+      resampled.push([
+        x0 + (x1 - x0) * t,
+        y0 + (y1 - y0) * t
+      ]);
+    }
+    accumulated = segLen - localDist;
+  }
+  
+  // Always include endpoint
+  const last = pts[pts.length - 1];
+  if (resampled[resampled.length - 1] !== last) {
+    resampled.push(last);
+  }
+  
+  return resampled;
+}
+
+// [LOCKED-ROUTE] Find closest point on polyline and return arc-length
+function projectOntoPolyline(px, py, polyline) {
+  let bestDist = Infinity;
+  let bestS = 0;
+  let cumS = 0;
+  
+  for (let i = 1; i < polyline.length; i++) {
+    const [x0, y0] = polyline[i - 1];
+    const [x1, y1] = polyline[i];
+    const dx = x1 - x0;
+    const dy = y1 - y0;
+    const segLen = Math.hypot(dx, dy);
+    
+    if (segLen < 1e-6) {
+      const d = Math.hypot(px - x0, py - y0);
+      if (d < bestDist) {
+        bestDist = d;
+        bestS = cumS;
+      }
+      continue;
+    }
+    
+    const t = Math.max(0, Math.min(1, ((px - x0) * dx + (py - y0) * dy) / (segLen * segLen)));
+    const closestX = x0 + t * dx;
+    const closestY = y0 + t * dy;
+    const d = Math.hypot(px - closestX, py - closestY);
+    
+    if (d < bestDist) {
+      bestDist = d;
+      bestS = cumS + t * segLen;
+    }
+    
+    cumS += segLen;
+  }
+  
+  return { dist: bestDist, s: bestS };
+}
 
 // [LOCKED-ROUTE] Slice polyline by arc-length window [sStart, sEnd]
 function slicePolylineByS(poly, sStart, sEnd) {
@@ -1093,7 +1701,53 @@ function updateMovingLabels(dt) {
 }
 
 // [LOCKED-ROUTE] Spark to current label position
-// [LOCKED-ROUTE] Spark functions now imported from js/graphics/sparks.js
+function startSparkToPoint(fromKey, imgX, imgY, speed = 750) {
+  if (prefersReducedMotion || !GRAPH) return;
+  
+  const fromId = NODE_IDS[fromKey];
+  if (fromId == null || fromId < 0) return;
+  
+  // Find nearest graph node to target point
+  const toId = GRAPH.nearestId(imgX, imgY, 96, 24);
+  if (toId == null || toId < 0) {
+    console.warn(`[LOCKED-ROUTE] No graph node near (${imgX.toFixed(0)}, ${imgY.toFixed(0)}) for spark`);
+    return;
+  }
+  
+  const solved = aStarPath(fromId, toId);
+  if (!solved || solved.length < 2) return;
+  
+  const imgPts = solved.map(p => ({ x: p.x, y: p.y }));
+  const projPts = projectXY(imgPts);
+  const cum = cumulativeLengths(projPts);
+  const len = cum[cum.length - 1];
+  if (!len) return;
+  
+  ACTIVE_ANIMS.push({
+    imgPts, projPts, cum, len,
+    s: 0, v: speed
+  });
+}
+
+// [LOCKED-ROUTE] Ritual: sparks to all current label positions
+function ritualCatchUp() {
+  if (prefersReducedMotion) return;
+  
+  let delay = 0;
+  // Iterate over what's actually locked
+  for (const id of Object.keys(LOCKED_ROUTES)) {
+    const route = LOCKED_ROUTES[id];
+    if (!route) continue;
+    
+    const [imgX, imgY] = imgPointAtRoute(route, route.s);
+    
+    setTimeout(() => {
+      startSparkToPoint('intro', imgX, imgY, 750);
+    }, delay);
+    
+    delay += 60 + Math.random() * 40;
+  }
+}
 
 // ━━━ Initialization ━━━
 async function initNetworkAndNav() {
@@ -1161,7 +1815,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 window.addEventListener('load', () => {
   // Ensure cover is recomputed after all assets settle
   if (COVER.ready) {
-    computeCoverFromImage(bgImg);
+    computeCoverFromImage();
     computeNavOffsets();
     layoutNavNodes();
     if (hudEnabled) renderHUD();
