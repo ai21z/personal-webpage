@@ -176,6 +176,109 @@
     </div>
   </section>
 
+  <!-- SECTION: SKILLS -->
+  <section id="skills" class="stage altar-screen" data-section="skills" aria-label="Skills" tabindex="-1">
+    <button class="altar-close" data-action="go-intro" aria-label="Close and return to intro">×</button>
+    <div class="altar">
+      <!-- LIVING RING -->
+      <svg class="ring" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <defs>
+          <path id="orbit-skills" d="M50,5 A45,45 0 1,1 49.99,5" />
+          <path id="hypha1-skills" d="M8,62 C18,50 34,44 50,50 66,56 80,68 92,82" />
+          <path id="hypha2-skills" d="M6,30 C20,28 32,38 50,50 68,62 82,70 94,68" />
+        </defs>
+
+        <circle cx="50" cy="50" r="48" class="halo"/>
+        <circle cx="50" cy="50" r="45" class="ring-stroke"/>
+
+        <text class="ring-text">
+          <textPath href="#orbit-skills" startOffset="2%">
+            • SKILLS — TECH STACK — SYSTEMS THINKING — HUMAN INTERFACE — SCIENTIFIC RIGOR •
+          </textPath>
+        </text>
+
+        <use class="filament" href="#hypha1-skills"/>
+        <use class="filament thin" href="#hypha2-skills"/>
+
+        <circle class="spore" r="0.9">
+          <animateMotion dur="9s" repeatCount="indefinite" rotate="auto">
+            <mpath href="#orbit-skills"/>
+          </animateMotion>
+        </circle>
+        <circle class="spore" r="0.9">
+          <animateMotion dur="12s" repeatCount="indefinite" rotate="auto">
+            <mpath href="#orbit-skills"/>
+          </animateMotion>
+        </circle>
+        <circle class="spore ember" r="1.1">
+          <animateMotion dur="15s" repeatCount="indefinite" rotate="auto">
+            <mpath href="#orbit-skills"/>
+          </animateMotion>
+        </circle>
+      </svg>
+
+      <!-- Portrait / sigil core -->
+      <div class="core">
+        <div class="core-plate">
+          <img src="./myOminousGreenPortrait.png" alt="Vissarion portrait" onerror="this.style.display='none'"/>
+          <div class="sigil-fallback" aria-hidden="true"></div>
+        </div>
+      </div>
+
+      <!-- THREE SKILL CARDS -->
+      <article class="slab slab-systems paper" data-paper aria-label="Systems Thinking" tabindex="0">
+        <h2>Systems Thinking</h2>
+        <h3>Backend & Infrastructure</h3>
+        <ul class="tech-stack">
+          <li>Java</li>
+          <li>Spring Framework</li>
+          <li>RESTful Web Services</li>
+          <li>JUnit5</li>
+          <li>Mockito</li>
+          <li>Test-Driven Development</li>
+          <li>SQL</li>
+          <li>.NET</li>
+          <li>Node.js</li>
+          <li>Firebase</li>
+          <li>API Design</li>
+          <li>Data Exchange Architecture</li>
+        </ul>
+      </article>
+
+      <article class="slab slab-interface paper" data-paper aria-label="Human Interface" tabindex="0">
+        <h2>Human Interface</h2>
+        <h3>Frontend & Translation</h3>
+        <ul class="tech-stack">
+          <li>React</li>
+          <li>Angular</li>
+          <li>TypeScript</li>
+          <li>JavaScript</li>
+          <li>Tailwind</li>
+          <li>Responsive Design</li>
+          <li>HTML/CSS</li>
+          <li>i18n/l10n (Greek ↔ English)</li>
+          <li>UX Engineering</li>
+          <li>WordPress/WooCommerce</li>
+        </ul>
+      </article>
+
+      <article class="slab slab-scientific paper" data-paper aria-label="Scientific Rigor" tabindex="0">
+        <h2>Scientific Rigor</h2>
+        <h3>Data & Analysis</h3>
+        <ul class="tech-stack">
+          <li>Python</li>
+          <li>Environmental Data Analysis</li>
+          <li>Water/Soil Sampling & Testing</li>
+          <li>Chemical Modeling</li>
+          <li>Laboratory Reporting</li>
+          <li>Standard Solution Calibration</li>
+          <li>Wastewater Treatment Compliance</li>
+          <li>Research Methods</li>
+        </ul>
+      </article>
+    </div>
+  </section>
+
   <!-- SECTION: PROJECTS -->
   <section class="stage" data-section="projects" aria-label="Projects">
     <div class="fungi-ambient" aria-hidden="true"></div>

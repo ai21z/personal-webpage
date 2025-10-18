@@ -1938,6 +1938,7 @@ document.addEventListener('click', (e) => {
 
 // ━━━ About: Paper focus (zoom to center + backdrop dim) ━━━
 initAboutPaperFocus();
+initSkillsPaperFocus();
 initPaperHoverRing();
 
 /**
@@ -1947,10 +1948,27 @@ initPaperHoverRing();
  * ESC or clicking the backdrop closes it.
  */
 function initAboutPaperFocus(){
-  const about = document.getElementById('about');
-  if (!about) return;
+  initPaperFocusForSection('about');
+}
+
+/**
+ * initSkillsPaperFocus
+ * 
+ * Click (or Enter/Space) on a Skills "paper" zooms it to center and darkens the rest.
+ * ESC or clicking the backdrop closes it.
+ */
+function initSkillsPaperFocus(){
+  initPaperFocusForSection('skills');
+}
+
+/**
+ * Generic paper focus for altar sections
+ */
+function initPaperFocusForSection(sectionId){
+  const section = document.getElementById(sectionId);
+  if (!section) return;
   // Remove any old, scoped overlays (they caused the rectangle issue)
-  about.querySelectorAll('.paper-overlay')?.forEach(n=>n.remove());
+  section.querySelectorAll('.paper-overlay')?.forEach(n=>n.remove());
 
   const backdrop = document.getElementById('paper-backdrop');
   if (!backdrop) {
@@ -1958,7 +1976,7 @@ function initAboutPaperFocus(){
     return;
   }
   
-  const papers = about.querySelectorAll('.paper');
+  const papers = section.querySelectorAll('.paper');
   papers.forEach(p => {
     // ensure focusable for keyboard users
     if (!p.hasAttribute('tabindex')) p.setAttribute('tabindex','0');
