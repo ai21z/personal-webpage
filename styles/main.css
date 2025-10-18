@@ -11,6 +11,3 @@
 
 /* 3. Navigation System */
 @import 'navigation.css';
-
-/* 4. Legacy styles (to be refactored incrementally) */
-@import '../styles-legacy.css';
