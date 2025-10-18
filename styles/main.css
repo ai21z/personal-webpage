@@ -12,5 +12,14 @@
 /* 3. Navigation System */
 @import 'navigation.css';
 
-/* 4. Legacy styles (remaining to be fully modularized) */
-@import '../styles-legacy.css';
+/* 4. Layout & Grid Systems */
+@import 'layout.css';
+
+/* 5. Reusable Components */
+@import 'components.css';
+
+/* 6. Content Sections */
+@import 'sections.css';
+
+/* 7. Ritual Altar System */
+@import 'altar.css';
