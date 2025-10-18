@@ -9,6 +9,7 @@
 
 // ━━━ Module Imports ━━━
 import { sizeCanvas, cumulativeLengths, pointAt, approach } from './js/utils.js';
+import { buildGraphFromPaths, aStarPath } from './js/graph.js';
 
 // ━━━ A11y: Insert current year in footer ━━━
 const yearElement = document.getElementById('yr');
@@ -81,134 +82,6 @@ let ritualActive = false;
 let followerSparks = []; // [{ id, alpha }]
 const RITUAL_RETURN_MS = 420;          // duration to glide home
 const NAV_SPEED_WHEN_ACTIVE = 48;      // reduced by ~17% for better clickability
-
-function buildGraphFromPaths(paths) {
-  const QUANT = 3;
-  const key = (x, y) => `${Math.round(x / QUANT)},${Math.round(y / QUANT)}`;
-
-  const nodes = [];
-  const keyToId = new Map();
-  const adj = [];
-
-  const addNode = (x, y) => {
-    const k = key(x, y);
-    if (!keyToId.has(k)) {
-      keyToId.set(k, nodes.length);
-      nodes.push({ x, y });
-    }
-    return keyToId.get(k);
-  };
-
-  const link = (a, b) => {
-    if (a === b) return;
-    (adj[a] ??= new Set()).add(b);
-    (adj[b] ??= new Set()).add(a);
-  };
-
-  for (const poly of paths) {
-    if (!poly || poly.length === 0) continue;
-    let prev = addNode(poly[0][0], poly[0][1]);
-    for (let i = 1; i < poly.length; i++) {
-      const cur = addNode(poly[i][0], poly[i][1]);
-      link(prev, cur);
-      prev = cur;
-    }
-  }
-
-  const neighborCache = new Map();
-  const neighbors = (id) => {
-    if (!neighborCache.has(id)) neighborCache.set(id, Array.from(adj[id] ?? []));
-    return neighborCache.get(id);
-  };
-
-  const nearestId = (x, y, radius = 80, step = 24) => {
-    let best = -1;
-    let bestD2 = Infinity;
-
-    const tryPoint = (px, py) => {
-      const id = keyToId.get(key(px, py));
-      if (id != null) {
-        const dx = nodes[id].x - x;
-        const dy = nodes[id].y - y;
-        const d2 = dx * dx + dy * dy;
-        if (d2 < bestD2) {
-          best = id;
-          bestD2 = d2;
-        }
-      }
-    };
-
-    for (let r = 0; r <= radius; r += step) {
-      for (let dx = -r; dx <= r; dx += step) {
-        tryPoint(x + dx, y - r);
-        tryPoint(x + dx, y + r);
-      }
-      for (let dy = -r + step; dy <= r - step; dy += step) {
-        tryPoint(x - r, y + dy);
-        tryPoint(x + r, y + dy);
-      }
-    }
-    return best;
-  };
-
-  return { nodes, neighbors, nearestId };
-}
-
-function aStarPath(idA, idB) {
-  if (!GRAPH || idA < 0 || idB < 0) return null;
-  const cacheKey = `${idA}->${idB}`;
-  if (PATH_CACHE.has(cacheKey)) return PATH_CACHE.get(cacheKey);
-
-  const nodes = GRAPH.nodes;
-  const neighbors = GRAPH.neighbors;
-
-  const open = new Set([idA]);
-  const came = new Map();
-  const g = new Map([[idA, 0]]);
-  const f = new Map([[idA, 0]]);
-
-  const h = (id) => {
-    const A = nodes[id];
-    const B = nodes[idB];
-    const dx = A.x - B.x;
-    const dy = A.y - B.y;
-    return dx * dx + dy * dy;
-  };
-
-  while (open.size) {
-    let current = null;
-    let best = Infinity;
-    for (const id of open) {
-      const fi = f.get(id) ?? Infinity;
-      if (fi < best) {
-        best = fi;
-        current = id;
-      }
-    }
-
-    if (current === idB) {
-      const out = [];
-      for (let c = current; c != null; c = came.get(c)) out.push(nodes[c]);
-      out.reverse();
-      PATH_CACHE.set(cacheKey, out);
-      return out;
-    }
-
-    open.delete(current);
-
-    for (const nb of neighbors(current)) {
-      const tentative = (g.get(current) ?? Infinity) + 1;
-      if (tentative < (g.get(nb) ?? Infinity)) {
-        came.set(nb, current);
-        g.set(nb, tentative);
-        f.set(nb, tentative + h(nb));
-        open.add(nb);
-      }
-    }
-  }
-
-  return null;
-}
 
 /* --- DESIGN ANCHORS (1920×1080 reference) --- */
 // [LOCKED-ROUTE] Fixed design anchors in image space (1920×1080) - DO NOT CHANGE
@@ -590,7 +463,7 @@ function startSpark(fromKey, toKey, speedPxPerSec = 650) {
     return;
   }
 
-  const solved = aStarPath(idA, idB);
+  const solved = aStarPath(idA, idB, GRAPH, PATH_CACHE);
   if (!solved || solved.length < 2) {
     const key = `${fromKey}->${toKey}`;
     if (!loggedPathFailures.has(key)) {
@@ -1667,7 +1540,7 @@ function startSparkToPoint(fromKey, imgX, imgY, speed = 750) {
     return;
   }
   
-  const solved = aStarPath(fromId, toId);
+  const solved = aStarPath(fromId, toId, GRAPH, PATH_CACHE);
   if (!solved || solved.length < 2) return;
   
   const imgPts = solved.map(p => ({ x: p.x, y: p.y }));
@@ -1718,8 +1591,8 @@ async function initNetworkAndNav() {
   if (introId != null && introId >= 0) {
     for (const [id, gid] of Object.entries(NODE_IDS)) {
       if (id === 'intro' || gid == null || gid < 0) continue;
-      aStarPath(introId, gid); // warm both ways
-      aStarPath(gid, introId);
+      aStarPath(introId, gid, GRAPH, PATH_CACHE); // warm both ways
+      aStarPath(gid, introId, GRAPH, PATH_CACHE);
     }
   }
 
