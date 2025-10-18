@@ -10,6 +10,20 @@
 // ━━━ Module Imports ━━━
 import { sizeCanvas, cumulativeLengths, pointAt, approach } from './js/utils.js';
 import { buildGraphFromPaths, aStarPath } from './js/graph.js';
+import {
+  RITUAL_RETURN_MS,
+  NAV_SPEED_WHEN_ACTIVE,
+  NAV_COORDS,
+  NAV_ORDER,
+  LABEL_OFFSET_PX,
+  LABEL_SPEEDS,
+  DEFAULT_SPEED,
+  MAX_SPARKS,
+  MIN_ROUTE_LEN_PX,
+  MAX_ROUTE_LEN_PX,
+  RESAMPLE_STEP_PX,
+  RESAMPLE_MIN_POINTS
+} from './js/config.js';
 
 // ━━━ A11y: Insert current year in footer ━━━
 const yearElement = document.getElementById('yr');
@@ -80,36 +94,9 @@ const PATH_CACHE = new Map(); // "fromId->toId" => [{x,y}, …]
 /* ━━━ Ritual State + Follower Lightning ━━━ */
 let ritualActive = false;
 let followerSparks = []; // [{ id, alpha }]
-const RITUAL_RETURN_MS = 420;          // duration to glide home
-const NAV_SPEED_WHEN_ACTIVE = 48;      // reduced by ~17% for better clickability
-
-/* --- DESIGN ANCHORS (1920×1080 reference) --- */
-// [LOCKED-ROUTE] Fixed design anchors in image space (1920×1080) - DO NOT CHANGE
-const NAV_COORDS = {
-  intro:   { x: 1640, y: 160 },
-  about:   { x: 1466, y: 179 },
-  work:    { x: 1463, y: 275 },
-  projects:{ x: 1170, y: 404 },
-  contact: { x: 1524, y: 411 },
-  blog:    { x: 1624, y: 429 },
-  resume:  { x:  1432, y: 637 },
-  skills:  { x:  1119, y: 240 }
-};
-
-const NAV_ORDER = ['intro','about','work','projects','contact','blog','resume','skills'];
-
-const LABEL_OFFSET_PX = {
-  intro: 34, about: 26, work: 24, projects: 22,
-  contact: 24, blog: 26, resume: 20, skills: 24
-};
 
 // [LOCKED-ROUTE] Per-label locked polyline routes (never re-snap at runtime)
 let LOCKED_ROUTES = {}; // id -> {imgPts, projPts, cum, len, s, dir, speed} - populated by buildLockedRoutes()
-const LABEL_SPEEDS = { 
-  about: 65, work: 70, projects: 75, contact: 68, 
-  blog: 72, resume: 66, skills: 74
-};
-const DEFAULT_SPEED = 68; // fallback if label not in LABEL_SPEEDS
 
 const NODE_IDS = {}; // id -> graph node index
 const NAV_OFFSETS = {}; // id -> {nx, ny} in image space
@@ -431,7 +418,6 @@ function projectXY(points) {
   return points.map((p) => toViewport(p.x, p.y));
 }
 
-const MAX_SPARKS = 12;
 const loggedPathFailures = new Set();
 
 function startSpark(fromKey, toKey, speedPxPerSec = 650) {
@@ -1199,11 +1185,6 @@ function slicePolylineByS(poly, sStart, sEnd) {
 }
 
 // --- LOCKED BRANCH ROUTES (robust branch-walking system) ---
-const MIN_ROUTE_LEN_PX     = 320;  // generous travel
-const MAX_ROUTE_LEN_PX     = 900;  // don't span the whole canvas
-const RESAMPLE_STEP_PX     = 18;   // output spacing in pixels
-const RESAMPLE_MIN_POINTS  = 64;   // guarantee enough samples
-
 const LOCKED = new Map(); // id -> {imgPts, projPts, cum, len, s, dir, speed}
 
 const hyp = (a,b) => Math.hypot(a.x - b.x, a.y - b.y);
