@@ -11,3 +11,6 @@
 
 /* 3. Navigation System */
 @import 'navigation.css';
+
+/* 4. Legacy styles (remaining to be fully modularized) */
+@import '../styles-legacy.css';
