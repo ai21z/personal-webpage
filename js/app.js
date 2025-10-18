@@ -8,8 +8,8 @@
  */
 
 // ━━━ Module Imports ━━━
-import { sizeCanvas, cumulativeLengths, pointAt, approach } from './js/utils.js';
-import { buildGraphFromPaths, aStarPath } from './js/graph.js';
+import { sizeCanvas, cumulativeLengths, pointAt, approach } from './utils.js';
+import { buildGraphFromPaths, aStarPath } from './graph.js';
 import {
   RITUAL_RETURN_MS,
   NAV_SPEED_WHEN_ACTIVE,
@@ -23,286 +23,106 @@ import {
   MAX_ROUTE_LEN_PX,
   RESAMPLE_STEP_PX,
   RESAMPLE_MIN_POINTS
-} from './js/config.js';
+} from './config.js';
+import {
+  prefersReducedMotion,
+  hudEnabled,
+  hudCanvas,
+  hudCtx,
+  setHudEnabled,
+  setHudCanvas,
+  setHudCtx,
+  bgImg,
+  COVER,
+  MYC_MAP,
+  setMycMap,
+  GRAPH,
+  PATH_CACHE,
+  setGraph,
+  ritualActive,
+  followerSparks,
+  setRitualActive,
+  setFollowerSparks,
+  LOCKED_ROUTES,
+  setLockedRoutes,
+  NODE_IDS,
+  NAV_OFFSETS,
+  currentNavHover,
+  setCurrentNavHover,
+  sparkCanvas,
+  sparkCtx,
+  sporeCanvas,
+  sporeCtx,
+  setSparkCanvas,
+  setSparkCtx,
+  setSporeCanvas,
+  setSporeCtx,
+  ACTIVE_ANIMS,
+  cascadeAnims,
+  cascadeActive,
+  spores,
+  lastSporeFrame,
+  lastSparkTs,
+  setActiveAnims,
+  setCascadeAnims,
+  setCascadeActive,
+  setSpores,
+  setLastSporeFrame,
+  setLastSparkTs
+} from './state.js';
+import {
+  computeCoverFromImage,
+  coverMap,
+  toViewport,
+  projectXY
+} from './viewport.js';
+import {
+  startSpark,
+  ritualCascade,
+  drawSparks,
+  startSparkToPoint
+} from './sparks.js';
+import {
+  computeNavOffsets,
+  showSection,
+  createNavLabel,
+  createSigilNode,
+  layoutNavNodes,
+  handleNavEnter,
+  handleNavLeave,
+  updateMovingLabels
+} from './navigation.js';
+import {
+  buildLockedRoutes,
+  pointAtRoute,
+  imgPointAtRoute
+} from './routes.js';
 
 // ━━━ A11y: Insert current year in footer ━━━
 const yearElement = document.getElementById('yr');
 if (yearElement) yearElement.textContent = new Date().getFullYear();
 
-// ━━━ PRM Gate: Detect user preference ━━━
-const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-// ━━━ HUD Toggle ━━━
-let hudEnabled = new URLSearchParams(window.location.search).has('hud');
-let hudCanvas = null;
-let hudCtx = null;
-
-// ━━━ Background Geometry (Image Space) ━━━
-// ━━━ SINGLE source of truth for cover transform ━━━
-const bgImg = document.getElementById('bg-front-img');
-const COVER = { s: 1, dx: 0, dy: 0, baseW: 0, baseH: 0, ready: false };
-
-function computeCoverFromImage() {
-  const vw = window.innerWidth, vh = window.innerHeight;
-  // MUST use naturalWidth/naturalHeight from loaded image
-  const W = bgImg ? bgImg.naturalWidth : 0;
-  const H = bgImg ? bgImg.naturalHeight : 0;
-  
-  if (!W || !H) {
-    console.warn('⚠️ Cover: Image not ready yet, dimensions unavailable');
-    return false;
-  }
-  
-  const s = Math.max(vw / W, vh / H);
-  COVER.s = s;
-  COVER.dx = (vw - W * s) * 0.5;
-  COVER.dy = (vh - H * s) * 0.5;
-  COVER.baseW = W; 
-  COVER.baseH = H;
-  COVER.ready = true;
-  
-  console.log(`📐 Cover`, { baseW: W, baseH: H, s: s.toFixed(4), dx: COVER.dx.toFixed(2), dy: COVER.dy.toFixed(2), viewport: `${vw}×${vh}` });
-  return true;
-}
-
-// SINGLE coverMap function used everywhere (labels, sparks, follower lightning, HUD)
-function coverMap(x, y) { 
-  return [ x * COVER.s + COVER.dx, y * COVER.s + COVER.dy ]; 
-}
-
-// Alias for backward compatibility
-function toViewport(x, y) { 
-  return coverMap(x, y);
-}
-
 // ━━━ Mycelium Geometry System (Exported from Python) ━━━
-let MYC_MAP = null; // {seed, width, height, paths, junctions}
-
 /**
  * Load exported geometry JSON and preload background image.
  */
 async function loadMycelium() {
   const response = await fetch('artifacts/network.json');
-  MYC_MAP = await response.json();
+  setMycMap(await response.json());
   console.log(`✅ Loaded ${MYC_MAP.paths.length} paths, ${MYC_MAP.junctions.length} junctions`);
 }
 
 /* ━━━ Image-Space Graph + Pathfinding ━━━ */
-let GRAPH = null; // { nodes: Array<{x,y}>, neighbors(id)->id[], nearestId(x,y) }
-const PATH_CACHE = new Map(); // "fromId->toId" => [{x,y}, …]
-
-/* ━━━ Ritual State + Follower Lightning ━━━ */
-let ritualActive = false;
-let followerSparks = []; // [{ id, alpha }]
-
-// [LOCKED-ROUTE] Per-label locked polyline routes (never re-snap at runtime)
-let LOCKED_ROUTES = {}; // id -> {imgPts, projPts, cum, len, s, dir, speed} - populated by buildLockedRoutes()
-
-const NODE_IDS = {}; // id -> graph node index
-const NAV_OFFSETS = {}; // id -> {nx, ny} in image space
-
-function computeNavOffsets(){
-  if (!MYC_MAP || !MYC_MAP.paths) return;
-  const cx = COVER.baseW/2, cy = COVER.baseH/2;
-
-  for (const [id, {x:px, y:py}] of Object.entries(NAV_COORDS)){
-    // Skip intro (sigil) - it should never have an offset
-    if (id === 'intro') {
-      NAV_OFFSETS[id] = { nx: 0, ny: 0 };
-      continue;
-    }
-    
-    let bestD2 = Infinity, nx = 0, ny = 0;
-
-    for (const path of MYC_MAP.paths){
-      if (!path || path.length < 2) continue;
-      for (let i=0;i<path.length-1;i++){
-        const [ax,ay] = path[i], [bx,by] = path[i+1];
-        const abx=bx-ax, aby=by-ay, ab2=abx*abx+aby*aby;
-        if (ab2 < 1e-6) continue;
-
-        const t = Math.max(0, Math.min(1, ((px-ax)*abx + (py-ay)*aby)/ab2));
-        const cxp = ax + t*abx, cyp = ay + t*aby;
-        const dx = px - cxp, dy = py - cyp, d2 = dx*dx + dy*dy;
-        if (d2 < bestD2){
-          bestD2 = d2;
-          const len = Math.sqrt(ab2);
-          nx = -aby/len; ny = abx/len; // left normal
-          // make normal point away from canvas center
-          const vx = px - cx, vy = py - cy;
-          if (nx*vx + ny*vy < 0){ nx = -nx; ny = -ny; }
-        }
-      }
-    }
-
-    const mag = LABEL_OFFSET_PX[id] ?? 22;
-    NAV_OFFSETS[id] = { nx: nx*mag, ny: ny*mag };
-  }
-}
-
-function showSection(sectionName) {
-  // Update active section
-  const sections = document.querySelectorAll('.stage');
-  sections.forEach(s => s.classList.toggle('active-section', s.dataset.section === sectionName));
-  
-  // Update nav aria-current
-  document.querySelectorAll('.network-node-label, .network-sigil-node').forEach(label =>
-    {
-      const isActive = label.dataset.section === sectionName;
-      label.classList.toggle('active', isActive);
-      if (isActive) {
-        label.setAttribute('aria-current', 'page');
-      } else {
-        label.removeAttribute('aria-current');
-      }
-    }
-  );
-  
-  // Update hash (replaceState to avoid scroll jump)
-  const hashId = sectionName === 'intro' ? '' : sectionName;
-  const newUrl = hashId ? `${window.location.pathname}#${hashId}` : window.location.pathname;
-  history.replaceState(null, '', newUrl);
-  
-  // Lock body scroll for panel screens (altar-screen or panel-screen)
-  const activeSection = document.querySelector(`.stage[data-section="${sectionName}"]`);
-  const isPanel = activeSection?.classList.contains('panel-screen') || activeSection?.classList.contains('altar-screen');
-  document.documentElement.style.overflow = isPanel ? 'hidden' : '';
-  document.body.style.overflow = isPanel ? 'hidden' : '';
-  
-  // Toggle nav suppression + ritual background
-  document.body.classList.toggle('nav-suppressed', !!isPanel);
-  if (isPanel) {
-    startRitualBackground();
-  } else {
-    stopRitualBackground();
-  }
-  
-  // Focus the active section for accessibility
-  if (activeSection && activeSection.getAttribute('tabindex') === '-1') {
-    setTimeout(() => {
-      activeSection.focus({ preventScroll: true });
-    }, 100);
-  }
-}
-
-function createNavLabel(id) {
-  const label = document.createElement('a');
-  label.dataset.node = id;
-  label.dataset.section = id;
-  label.className = 'network-node-label';
-  const anchorId = id === 'intro' ? 'main' : id;
-  label.href = `#${anchorId}`;
-  label.innerHTML = `<span class="node-label">${id}</span>`;
-  label.setAttribute('aria-label', `Navigate to ${id}`);
-  return label;
-}
-
-function createSigilNode() {
-  const sigil = document.createElement('button');
-  sigil.dataset.node = 'intro';
-  sigil.dataset.section = 'intro';
-  sigil.className = 'network-sigil-node';
-  sigil.setAttribute('role', 'button');
-  sigil.setAttribute('aria-label', 'Toggle ritual');
-  // Image starts at 0° (no initial rotation - will rotate to 180° when clicked)
-  sigil.innerHTML = '<img id="sigil" src="./artifacts/sigil/AZ-VZ-01.png" alt="" width="64" height="64">';
-  return sigil;
-}
-
-function layoutNavNodes() {
-  const nav = document.getElementById('network-nav');
-  if (!nav) return;
-  
-  // Don't layout if cover isn't ready yet
-  if (!COVER.ready) {
-    console.warn('⚠️ layoutNavNodes: COVER not ready, skipping layout');
-    return;
-  }
-
-  if (nav.children.length === 0) {
-    const frag = document.createDocumentFragment();
-    for (const id of NAV_ORDER) {
-      if (id === 'intro') {
-        const sigil = createSigilNode();
-        frag.appendChild(sigil);
-      } else {
-        const label = createNavLabel(id);
-        label.addEventListener('click', (event) => {
-          const targetStage = document.querySelector(`.stage[data-section="${id}"]`);
-          if (targetStage) {
-            event.preventDefault();
-            showSection(id);
-            targetStage.focus?.({ preventScroll: false });
-          }
-        });
-        frag.appendChild(label);
-      }
-    }
-    nav.appendChild(frag);
-    wireSigilToggle(); // Wire up the ritual toggle
-  }
-
-  // Static mode = ZERO offsets, proper logging
-  for (const [id, pt] of Object.entries(NAV_COORDS)) {
-    const el = nav.querySelector(`[data-node="${id}"]`);
-    if (!el) continue;
-
-    const [ax, ay] = coverMap(pt.x, pt.y);
-
-    // Only apply branch-normal offset when ritualActive === true
-    let tx = 0, ty = 0;
-    if (ritualActive) {
-      const off = NAV_OFFSETS[id] || { nx: 0, ny: 0 };
-      const [ox, oy] = coverMap(pt.x + off.nx, pt.y + off.ny);
-      tx = Math.round(ox - ax);
-      ty = Math.round(oy - ay);
-    }
-
-    const left = Math.round(ax) + 0.5;
-    const top = Math.round(ay) + 0.5;
-    el.style.left = `${left}px`;
-    el.style.top  = `${top}px`;
-    
-    // Labels ONLY use translate(-50%,-50%) translate(dx,dy)
-    el.style.transform = `translate(-50%, -50%) translate(${tx}px, ${ty}px)`;
-    
-    // Log each label in static mode
-    if (!ritualActive) {
-      console.log(`📍 Static[${id}]: left=${left.toFixed(1)}px, top=${top.toFixed(1)}px, delta=(${tx},${ty})`);
-    }
-
-    // NO collision nudging in static mode
-    if (ritualActive && id === 'blog') {
-      const target = el.getBoundingClientRect();
-      const face = document.querySelector('.portrait-wrap')?.getBoundingClientRect();
-      if (face && !(target.right < face.left || target.left > face.right || target.bottom < face.top || target.top > face.bottom)) {
-        // nudge along normal in viewport space
-        let step = 0, tx2 = tx, ty2 = ty;
-        const off = NAV_OFFSETS[id] || { nx: 0, ny: 0 };
-        const [nox1, noy1] = coverMap(pt.x + off.nx + 4, pt.y + off.ny + 4);
-        const [nox0, noy0] = coverMap(pt.x + off.nx, pt.y + off.ny);
-        const ndx = Math.sign((nox1 - nox0) || 0), ndy = Math.sign((noy1 - noy0) || 0);
-        while (step++ < 8) {
-          tx2 += 4*ndx; ty2 += 4*ndy;
-          el.style.transform = `translate(-50%, -50%) translate(${tx2}px, ${ty2}px)`;
-          const r = el.getBoundingClientRect();
-          if (r.right < face.left || r.left > face.right || r.bottom < face.top || r.top > face.bottom) break;
-        }
-      }
-    }
-  }
-
-  if (hudEnabled) renderHUD();
-}
 
 // ━━━ HUD Rendering ━━━
 function initHUD() {
   if (!hudCanvas) {
-    hudCanvas = document.createElement('canvas');
-    hudCanvas.id = 'hud-canvas';
-    hudCanvas.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:9999;';
-    document.body.appendChild(hudCanvas);
-    hudCtx = hudCanvas.getContext('2d');
+    const canvas = document.createElement('canvas');
+    canvas.id = 'hud-canvas';
+    canvas.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:9999;';
+    document.body.appendChild(canvas);
+    setHudCanvas(canvas);
+    setHudCtx(canvas.getContext('2d'));
   }
   hudCanvas.width = window.innerWidth;
   hudCanvas.height = window.innerHeight;
@@ -384,314 +204,37 @@ function renderHUD() {
 }
 
 function toggleHUD() {
-  hudEnabled = !hudEnabled;
+  setHudEnabled(!hudEnabled);
   if (hudEnabled) {
     initHUD();
     renderHUD();
   } else if (hudCanvas) {
     hudCanvas.remove();
-    hudCanvas = null;
-    hudCtx = null;
+    setHudCanvas(null);
+    setHudCtx(null);
   }
 }
 
-// ━━━ Spark Animation State ━━━
-let sparkCanvas = document.getElementById('reveal-canvas') || document.getElementById('spark-canvas');
+// ━━━ Initialize canvas contexts (sparkCanvas already imported from state) ━━━
 if (!sparkCanvas) {
-  sparkCanvas = document.createElement('canvas');
-  sparkCanvas.id = 'spark-canvas';
-  sparkCanvas.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:5;';
-  document.body.appendChild(sparkCanvas);
+  const canvas = document.createElement('canvas');
+  canvas.id = 'spark-canvas';
+  canvas.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:5;';
+  document.body.appendChild(canvas);
+  setSparkCanvas(canvas);
 }
-const sparkCtx = sparkCanvas.getContext('2d');
-
-const sporeCanvas = document.getElementById('spore-canvas');
-let sporeCtx = sporeCanvas ? sporeCanvas.getContext('2d') : null;
-let spores = [];
-let lastSporeFrame = 0;
-
-let lastSparkTs = performance.now();
-let ACTIVE_ANIMS = [];
-
-// projectXY is kept here because it depends on toViewport (which needs COVER)
-function projectXY(points) {
-  return points.map((p) => toViewport(p.x, p.y));
+  setSparkCtx(sparkCanvas.getContext('2d'));
+if (sporeCanvas) {
+  setSporeCtx(sporeCanvas.getContext('2d'));
 }
 
-const loggedPathFailures = new Set();
-
-function startSpark(fromKey, toKey, speedPxPerSec = 650) {
-  if (prefersReducedMotion || !GRAPH) return;
-  if (ACTIVE_ANIMS.length >= MAX_SPARKS) ACTIVE_ANIMS.shift();
-
-  const fromAnchor = NAV_COORDS[fromKey];
-  const toAnchor = NAV_COORDS[toKey];
-  if (!fromAnchor || !toAnchor) return;
-
-  let idA = NODE_IDS[fromKey];
-  let idB = NODE_IDS[toKey];
-  
-  // Recompute NODE_IDS if invalid
-  if (idA == null || idB == null || idA < 0 || idB < 0) {
-    for (const [id, pt] of Object.entries(NAV_COORDS)) {
-      NODE_IDS[id] = GRAPH.nearestId(pt.x, pt.y, 80, 24);
-    }
-    idA = NODE_IDS[fromKey];
-    idB = NODE_IDS[toKey];
-  }
-
-  if (idA == null || idB == null || idA < 0 || idB < 0) {
-    const key = `${fromKey}->${toKey}`;
-    if (!loggedPathFailures.has(key)) {
-      console.warn('nearestId failed for spark path', key, { idA, idB });
-      loggedPathFailures.add(key);
-    }
-    return;
-  }
-
-  const solved = aStarPath(idA, idB, GRAPH, PATH_CACHE);
-  if (!solved || solved.length < 2) {
-    const key = `${fromKey}->${toKey}`;
-    if (!loggedPathFailures.has(key)) {
-      console.warn('A* path missing for spark', key);
-      loggedPathFailures.add(key);
-    }
-    return;
-  }
-
-  const pathImg = solved.map((pt) => ({ x: pt.x, y: pt.y }));
-  pathImg[0] = { x: fromAnchor.x, y: fromAnchor.y };
-  pathImg[pathImg.length - 1] = { x: toAnchor.x, y: toAnchor.y };
-
-  const proj = projectXY(pathImg);
-  const cum = cumulativeLengths(proj);
-  const len = cum[cum.length - 1];
-  if (!len) return;
-
-  ACTIVE_ANIMS.push({
-    imgPts: pathImg,
-    projPts: proj,
-    cum,
-    len,
-    s: 0,
-    v: speedPxPerSec
-  });
-}
-
-let cascadeAnims = [];
-let cascadeActive = false;
-
-function ritualCascade() {
-  if (prefersReducedMotion) {
-    document.querySelectorAll('.network-node-label, .network-sigil-node').forEach(n => {
-      n.classList.add('motion-highlight');
-      setTimeout(() => n.classList.remove('motion-highlight'), 200);
-    });
-    return;
-  }
-  if (cascadeActive) return;
-  cascadeActive = true;
-  cascadeAnims = [];
-
-  if (!GRAPH || !MYC_MAP) {
-    cascadeActive = false;
-    return;
-  }
-
-  const visited = new Set();
-  const queue = [];
-  for (const id of GRAPH.nodes.keys()) {
-    queue.push({ id, depth: 0 });
-  }
-
-  const edges = [];
-  visited.clear();
-  for (let i = 0; i < queue.length; i++) {
-    const { id, depth } = queue[i];
-    if (visited.has(id)) continue;
-    visited.add(id);
-
-    for (const nb of GRAPH.neighbors(id)) {
-      if (!visited.has(nb)) {
-        edges.push({ from: id, to: nb, depth });
-      }
-    }
-  }
-
-  edges.forEach((edge, idx) => {
-    const delay = (edge.depth * 30) + (idx % 5) * 15;
-    setTimeout(() => {
-      const fromPt = GRAPH.nodes[edge.from];
-      const toPt = GRAPH.nodes[edge.to];
-      if (!fromPt || !toPt) return;
-
-      const pathImg = [fromPt, toPt];
-      const proj = projectXY(pathImg);
-      const cum = cumulativeLengths(proj);
-      const len = cum[cum.length - 1];
-      if (!len) return;
-
-      cascadeAnims.push({
-        projPts: proj,
-        cum,
-        len,
-        s: 0,
-        v: 800,
-        alpha: 0.15 + Math.random() * 0.1
-      });
-    }, delay);
-  });
-
-  setTimeout(() => {
-    cascadeActive = false;
-    cascadeAnims = [];
-  }, 1800);
-}
-
-function drawCascade(dt) {
-  if (!cascadeActive || cascadeAnims.length === 0) return;
-
-  const survivors = [];
-  for (const anim of cascadeAnims) {
-    anim.s += anim.v * dt;
-    if (anim.s > anim.len) continue;
-
-    const head = pointAt(anim.projPts, anim.cum, anim.s);
-    const tail = pointAt(anim.projPts, anim.cum, Math.max(0, anim.s - 40));
-
-    sparkCtx.save();
-    sparkCtx.lineCap = 'round';
-
-    sparkCtx.strokeStyle = `rgba(143,180,255,${anim.alpha * 0.5})`;
-    sparkCtx.lineWidth = 12;
-    sparkCtx.shadowBlur = 24;
-    sparkCtx.shadowColor = `rgba(143,180,255,${anim.alpha * 0.3})`;
-    sparkCtx.beginPath();
-    sparkCtx.moveTo(tail[0], tail[1]);
-    sparkCtx.lineTo(head[0], head[1]);
-    sparkCtx.stroke();
-
-    sparkCtx.strokeStyle = `rgba(194,74,46,${anim.alpha * 0.3})`;
-    sparkCtx.lineWidth = 6;
-    sparkCtx.shadowBlur = 16;
-    sparkCtx.beginPath();
-    sparkCtx.moveTo(tail[0], tail[1]);
-    sparkCtx.lineTo(head[0], head[1]);
-    sparkCtx.stroke();
-
-    sparkCtx.restore();
-    survivors.push(anim);
-  }
-  cascadeAnims = survivors;
-}
-
-function drawSparks(dt) {
-  if (!sparkCtx || !sparkCanvas) return;
-  const cssW = window.innerWidth;
-  const cssH = window.innerHeight;
-  sparkCtx.clearRect(0, 0, cssW, cssH);
-
-  drawCascade(dt);
-
-  const trailLen = 60;
-  const survivors = [];
-
-  for (const anim of ACTIVE_ANIMS) {
-    anim.s += anim.v * dt;
-    if (anim.s > anim.len) continue;
-
-    const head = pointAt(anim.projPts, anim.cum, anim.s);
-    const tail = pointAt(anim.projPts, anim.cum, Math.max(0, anim.s - trailLen));
-
-    sparkCtx.save();
-    sparkCtx.lineCap = 'round';
-    sparkCtx.lineJoin = 'round';
-
-    sparkCtx.strokeStyle = 'rgba(143,180,255,0.2)';
-    sparkCtx.lineWidth = 8;
-    sparkCtx.shadowBlur = 20;
-    sparkCtx.shadowColor = 'rgba(143,180,255,0.4)';
-    sparkCtx.beginPath();
-    sparkCtx.moveTo(tail[0], tail[1]);
-    sparkCtx.lineTo(head[0], head[1]);
-    sparkCtx.stroke();
-
-    sparkCtx.strokeStyle = 'rgba(122,174,138,0.6)';
-    sparkCtx.lineWidth = 4;
-    sparkCtx.shadowBlur = 12;
-    sparkCtx.shadowColor = 'rgba(122,174,138,0.7)';
-    sparkCtx.beginPath();
-    sparkCtx.moveTo(tail[0], tail[1]);
-    sparkCtx.lineTo(head[0], head[1]);
-    sparkCtx.stroke();
-
-    sparkCtx.strokeStyle = 'rgba(240,255,245,0.9)';
-    sparkCtx.lineWidth = 2;
-    sparkCtx.shadowBlur = 8;
-    sparkCtx.beginPath();
-    sparkCtx.moveTo(tail[0], tail[1]);
-    sparkCtx.lineTo(head[0], head[1]);
-    sparkCtx.stroke();
-
-    sparkCtx.fillStyle = 'rgba(200,255,220,1)';
-    sparkCtx.shadowBlur = 12;
-    sparkCtx.shadowColor = 'rgba(200,255,220,0.8)';
-    sparkCtx.beginPath();
-    sparkCtx.arc(head[0], head[1], 2.8, 0, Math.PI * 2);
-    sparkCtx.fill();
-
-    sparkCtx.restore();
-    survivors.push(anim);
-  }
-
-  ACTIVE_ANIMS = survivors;
-
-  // Follower light dots: glowing dots that move with each label (no trails)
-  if (ritualActive && followerSparks.length && !prefersReducedMotion){
-    for (const f of followerSparks){
-      const route = LOCKED_ROUTES[f.id];
-      if (!route || !route.projPts || route.projPts.length < 2) continue;
-      
-      // Get current position (head only, no tail)
-      const head = pointAtRoute(route, route.s);
-
-      sparkCtx.save();
-
-      // Outer glow
-      sparkCtx.fillStyle = `rgba(143,180,255,${0.25 * f.alpha})`;
-      sparkCtx.shadowBlur = 20;
-      sparkCtx.shadowColor = `rgba(143,180,255,${0.4 * f.alpha})`;
-      sparkCtx.beginPath();
-      sparkCtx.arc(head[0], head[1], 8, 0, Math.PI * 2);
-      sparkCtx.fill();
-
-      // Mid glow
-      sparkCtx.fillStyle = `rgba(122,174,138,${0.6 * f.alpha})`;
-      sparkCtx.shadowBlur = 12;
-      sparkCtx.shadowColor = `rgba(122,174,138,${0.7 * f.alpha})`;
-      sparkCtx.beginPath();
-      sparkCtx.arc(head[0], head[1], 4, 0, Math.PI * 2);
-      sparkCtx.fill();
-
-      // Bright core
-      sparkCtx.fillStyle = `rgba(200,255,220,${0.9 * f.alpha})`;
-      sparkCtx.shadowBlur = 8;
-      sparkCtx.shadowColor = 'rgba(200,255,220,0.8)';
-      sparkCtx.beginPath();
-      sparkCtx.arc(head[0], head[1], 2, 0, Math.PI * 2);
-      sparkCtx.fill();
-
-      sparkCtx.restore();
-    }
-  }
-}
-
-function sparkLoop(ts) {
+// Main spark animation loop - wraps imported draw functions
+function sparkLoopWrapper(ts) {
   const dt = Math.min(0.05, (ts - lastSparkTs) / 1000);
-  lastSparkTs = ts;
-  updateMovingLabels(dt); // Move labels along their branch tails
-  drawSparks(dt);
-  requestAnimationFrame(sparkLoop);
+  setLastSparkTs(ts);
+  updateMovingLabels(dt, pointAtRoute);
+  drawSparks(dt, pointAtRoute);
+  requestAnimationFrame(sparkLoopWrapper);
 }
 
 function resizeAll() {
@@ -703,9 +246,9 @@ function resizeAll() {
     hudCanvas.width = window.innerWidth;
     hudCanvas.height = window.innerHeight;
   }
-  layoutNavNodes();
+  layoutNavNodes(wireSigilToggle, renderHUD, (sectionName) => showSection(sectionName, startRitualBackground, stopRitualBackground));
 
-  ACTIVE_ANIMS = ACTIVE_ANIMS.map((anim) => {
+  setActiveAnims(ACTIVE_ANIMS.map((anim) => {
     const projPts = projectXY(anim.imgPts);
     const cum = cumulativeLengths(projPts);
     const len = cum[cum.length - 1];
@@ -713,7 +256,7 @@ function resizeAll() {
     const ratio = anim.len ? anim.s / anim.len : (anim.dir > 0 ? 0 : 1);
     const s = Math.max(0, Math.min(len, ratio * len));
     return { ...anim, projPts, cum, len, s };
-  }).filter(Boolean);
+  }).filter(Boolean));
 
   // [LOCKED-ROUTE] Reproject locked routes (keep imgPts unchanged, only update projPts/cum/len)
   for (const [id, route] of Object.entries(LOCKED_ROUTES)) {
@@ -755,7 +298,7 @@ function initAfterImageLoad() {
   computeNavOffsets(); // Compute offsets with proper base dimensions
   
   // First layout now happens AFTER image loads
-  layoutNavNodes();
+  layoutNavNodes(wireSigilToggle, renderHUD, (sectionName) => showSection(sectionName, startRitualBackground, stopRitualBackground));
   
   console.log(`✅ Initial layout complete — ritual is ${ritualActive ? 'ACTIVE' : 'OFF'}`);
   
@@ -765,7 +308,7 @@ function initAfterImageLoad() {
   if (sporeCtx) createSpores();
   
   // Start animation loops
-  requestAnimationFrame(sparkLoop);
+  requestAnimationFrame(sparkLoopWrapper);
   startSpores();
 }
 
@@ -793,12 +336,9 @@ window.addEventListener('resize', () => {
   resizeTimer = window.setTimeout(resizeAll, 80);
 }, { passive: true });
 
-// ━━━ Navigation Hover State ━━━
-let currentNavHover = null;
-
 /* ━━━ Ritual Toggle (Sigil) — P0 FIX #3, #4 ━━━ */
 function toggleRitualFromSigil(el){
-  ritualActive = !ritualActive;
+  setRitualActive(!ritualActive);
   
   // Apply rotation to CHILD img#sigil only (not parent .network-sigil-node)
   // Simple toggle: 0° when off, 180° when on
@@ -827,7 +367,7 @@ function toggleRitualFromSigil(el){
   }
   
   // Update layout to apply/remove offsets immediately
-  layoutNavNodes();
+  layoutNavNodes(wireSigilToggle, renderHUD, (sectionName) => showSection(sectionName, startRitualBackground, stopRitualBackground));
 }
 
 function wireSigilToggle(){
@@ -861,13 +401,16 @@ function wireSigilToggle(){
 }
 
 function attachFollowerSparks(){
-  followerSparks = [];
+  const sparks = [];
   for (const [id] of Object.entries(LOCKED_ROUTES)){
     if (id === 'intro') continue;
-    followerSparks.push({ id, alpha: 0.85 });
+    sparks.push({ id, alpha: 0.85 });
   }
+  setFollowerSparks(sparks);
 }
-function detachFollowerSparks(){ followerSparks = []; }
+function detachFollowerSparks(){ 
+  setFollowerSparks([]);
+}
 
 function sendLightningHome(){
   for (const [id] of Object.entries(LOCKED_ROUTES)){
@@ -903,88 +446,6 @@ function stopRitualMotion(){
   console.log('🏠 Routes reset to home positions (anchors)');
 }
 
-function handleNavEnter(id, el) {
-  if (currentNavHover === id) return;
-  currentNavHover = id;
-
-  if (prefersReducedMotion) {
-    document.querySelectorAll('.network-node-label, .network-sigil-node').forEach(node => node.classList.remove('motion-highlight'));
-    el.classList.add('motion-highlight');
-    if (id !== 'intro') {
-      const introEl = document.querySelector('.network-sigil-node[data-node="intro"], .network-node-label[data-node="intro"]');
-      introEl?.classList.add('motion-highlight');
-    }
-    return;
-  }
-
-  if (id === 'intro') {
-    let delay = 0;
-    for (const dest of NAV_ORDER) {
-      if (dest === 'intro') continue;
-      
-      setTimeout(() => {
-        // If ritual is active, spark to current position on route
-        if (ritualActive) {
-          const route = LOCKED_ROUTES[dest];
-          if (route && route.len >= 60) {
-            // Get current VIEWPORT position on route (not image space)
-            const [vpX, vpY] = pointAtRoute(route, route.s);
-            
-            // Convert back to image space for startSparkToPoint
-            // Inverse of coverMap: (vp - dx) / s = img
-            const imgX = (vpX - COVER.dx) / COVER.s;
-            const imgY = (vpY - COVER.dy) / COVER.s;
-            
-            startSparkToPoint('intro', imgX, imgY, 700);
-          } else {
-            // Fallback to anchor if route is too short or missing
-            startSpark('intro', dest, 700);
-          }
-        } else {
-          // Static mode: spark to anchor
-          startSpark('intro', dest, 700);
-        }
-      }, delay);
-      
-      delay += 50 + Math.random() * 50;
-    }
-  } else {
-    // When hovering a label, spark back to intro
-    // If ritual is active, use current position
-    if (ritualActive) {
-      const route = LOCKED_ROUTES[id];
-      if (route && route.len >= 60) {
-        const [vpX, vpY] = pointAtRoute(route, route.s);
-        
-        // Convert viewport back to image space
-        const imgX = (vpX - COVER.dx) / COVER.s;
-        const imgY = (vpY - COVER.dy) / COVER.s;
-        
-        startSparkToPoint(id, NAV_COORDS.intro.x, NAV_COORDS.intro.y, 700);
-      } else {
-        startSpark(id, 'intro', 700);
-      }
-    } else {
-      startSpark(id, 'intro', 700);
-    }
-  }
-}
-
-function handleNavLeave(id, el) {
-  if (currentNavHover !== id) return;
-  currentNavHover = null;
-
-  if (prefersReducedMotion) {
-    el.classList.remove('motion-highlight');
-    if (id !== 'intro') {
-      const introEl = document.querySelector('.network-sigil-node[data-node="intro"], .network-node-label[data-node="intro"]');
-      introEl?.classList.remove('motion-highlight');
-    }
-  } else {
-    ACTIVE_ANIMS = [];
-  }
-}
-
 // ━━━ Spores Layer (ambient) ━━━
 
 function createSpores() {
@@ -992,7 +453,7 @@ function createSpores() {
   const cssW = window.innerWidth;
   const cssH = window.innerHeight;
   const count = cssW < 768 ? 30 : 50;
-  spores = new Array(count).fill(0).map(() => ({
+  setSpores(new Array(count).fill(0).map(() => ({
     x: Math.random() * cssW,
     y: Math.random() * cssH,
     vx: (Math.random() - 0.5) * 0.2,
@@ -1001,14 +462,14 @@ function createSpores() {
     p: Math.random() * Math.PI * 2,
     a: 0.1 + Math.random() * 0.25,
     scalePhase: Math.random() * Math.PI * 2
-  }));
-  lastSporeFrame = 0;
+  })));
+  setLastSporeFrame(0);
 }
 
 function drawSpores(ts) {
   if (!sporeCtx || !sporeCanvas) return;
   if (ts - lastSporeFrame < 33) return;
-  lastSporeFrame = ts;
+  setLastSporeFrame(ts);
 
   const c = sporeCtx;
   const w = window.innerWidth;
@@ -1040,7 +501,7 @@ function drawSpores(ts) {
 
 function startSpores() {
   if (!sporeCanvas || prefersReducedMotion) return;
-  sporeCtx = sporeCtx || sporeCanvas.getContext('2d');
+  if (!sporeCtx) setSporeCtx(sporeCanvas.getContext('2d'));
   if (!sporeCtx) return;
   createSpores();
 
@@ -1184,358 +645,6 @@ function slicePolylineByS(poly, sStart, sEnd) {
   return result.length >= 2 ? result : poly;
 }
 
-// --- LOCKED BRANCH ROUTES (robust branch-walking system) ---
-const LOCKED = new Map(); // id -> {imgPts, projPts, cum, len, s, dir, speed}
-
-const hyp = (a,b) => Math.hypot(a.x - b.x, a.y - b.y);
-const deg = (id)   => (GRAPH.neighbors(id) || []).length;
-
-/** Walk off tiny spurs: if start is a leaf, climb until a junction (deg!=2). */
-function climbToSpine(id, prev = null, maxHops = 80) {
-  let a = prev, b = id, hops = 0;
-  while (hops++ < maxHops) {
-    const nbs = GRAPH.neighbors(b).filter(n => n !== a);
-    if (nbs.length !== 1) break; // stop at leaf(0) or junction(>=2)
-    a = b; b = nbs[0];
-  }
-  return b;
-}
-
-/** BFS in geodesic length; optionally forbid the first hop from src. */
-function farthestLeafFrom(src, forbidFirstHop = -1) {
-  const q = [src];
-  const dist   = new Map([[src, 0]]);
-  const parent = new Map();
-  const firstHop = new Map();
-
-  while (q.length) {
-    const u = q.shift();
-    for (const v of GRAPH.neighbors(u)) {
-      if (u === src && v === forbidFirstHop) continue;
-      if (!dist.has(v)) {
-        const w = hyp(GRAPH.nodes[u], GRAPH.nodes[v]);
-        dist.set(v, dist.get(u) + w);
-        parent.set(v, u);
-        firstHop.set(v, firstHop.get(u) ?? v);
-        q.push(v);
-      }
-    }
-  }
-
-  let best = src, bestD = -1;
-  for (const [v, d] of dist) if (d > bestD) { best = v; bestD = d; }
-  return { leaf: best, parent, dist, firstHop };
-}
-
-function rebuildPath(parent, end) {
-  const out = [];
-  for (let v = end; v != null; v = parent.get(v)) out.push(GRAPH.nodes[v]);
-  return out.reverse();
-}
-
-/** Slice a polyline to a centered window (by arc-length) around the anchor. */
-function trimAroundAnchor(imgPts, maxLenPx, anchor) {
-  const proj = imgPts.map(p => [p.x, p.y]);
-  const cum  = cumulativeLengths(proj);
-  const total = cum[cum.length - 1];
-
-  // index of poly point closest to anchor
-  const idx = proj.reduce((best, p, i) =>
-    (Math.hypot(p[0]-anchor.x, p[1]-anchor.y) <
-     Math.hypot(proj[best][0]-anchor.x, proj[best][1]-anchor.y)) ? i : best
-  , 0);
-
-  const centerS = cum[idx];
-  const half = maxLenPx / 2;
-  const s0 = Math.max(0, centerS - half);
-  const s1 = Math.min(total, centerS + half);
-
-  // turn window into points
-  const out = [];
-  const steps = Math.max(2, Math.round((s1 - s0) / RESAMPLE_STEP_PX));
-  for (let i = 0; i <= steps; i++) {
-    const s = s0 + (i * (s1 - s0)) / steps;
-    out.push(pointAt(proj, cum, s));
-  }
-  return { imgPts: out.map(([x,y]) => ({ x, y })), len: s1 - s0 };
-}
-
-function resampleToViewport(imgPts) {
-  // Project to viewport, then resample to uniform spacing with a minimum count.
-  const screenPts = projectXY(imgPts);
-  const cum = cumulativeLengths(screenPts);
-  const len = cum[cum.length - 1];
-  const N = Math.max(RESAMPLE_MIN_POINTS, Math.ceil(len / RESAMPLE_STEP_PX));
-  const out = [];
-  for (let i = 0; i < N; i++) {
-    const s = (len * i) / (N - 1);
-    out.push(pointAt(screenPts, cum, s));
-  }
-  return { projPts: out, cum: cumulativeLengths(out), len };
-}
-
-function computeLockedRouteFor(id, anchor) {
-  // Wider radius + finer step, with retry on failure
-  let start = GRAPH.nearestId(anchor.x, anchor.y, /*radius*/ 160, /*step*/ 12);
-  
-  // Retry with wider radius if first attempt failed
-  if (start < 0) {
-    console.warn(`⚠️ [LOCKED-ROUTE] ${id}: nearestId failed at r=160, retrying with r=240`);
-    start = GRAPH.nearestId(anchor.x, anchor.y, /*radius*/ 240, /*step*/ 12);
-  }
-  
-  if (start < 0) {
-    console.error(`❌ [LOCKED-ROUTE] ${id}: nearestId failed even with r=240`);
-    return null;
-  }
-
-  // If on a tiny twig, walk to a spine before evaluating both directions.
-  if (deg(start) <= 1) start = climbToSpine(start);
-
-  // Two directions from the spine: pick two farthest leaves on distinct sides.
-  const A = farthestLeafFrom(start);
-  const avoid = A.firstHop.get(A.leaf) ?? -1;
-  const B = farthestLeafFrom(start, avoid);
-
-  let left  = rebuildPath(A.parent, A.leaf);
-  let right = rebuildPath(B.parent, B.leaf);
-
-  // Ensure both include the spine as their first point.
-  const spine = GRAPH.nodes[start];
-  const eq = (p,q) => p.x === q.x && p.y === q.y;
-  while (left.length  && !eq(left[0], spine))  left.shift();
-  while (right.length && !eq(right[0], spine)) right.shift();
-
-  // Build a long, continuous branch passing through the anchor's spine.
-  const raw = [...left.reverse(), spine, ...right.slice(1)];
-
-  // Limit window around the anchor so movement is generous but not crazy.
-  const trimmed = trimAroundAnchor(raw, MAX_ROUTE_LEN_PX, anchor);
-
-  // Guarantee enough samples to move smoothly.
-  const sampled = resampleToViewport(trimmed.imgPts);
-  if (sampled.projPts.length < 2) {
-    console.error(`❌ [LOCKED-ROUTE] ${id}: resample produced < 2 points`);
-    return null;
-  }
-
-  // Enforce minimum length (target 140-240px)
-  if (sampled.len < MIN_ROUTE_LEN_PX) {
-    console.warn(`⚠️ [LOCKED-ROUTE] ${id}: route too short (${sampled.len.toFixed(1)}px < ${MIN_ROUTE_LEN_PX}px)`);
-    return { ...sampled, imgPts: trimmed.imgPts, len: sampled.len, tooShort: true };
-  }
-  
-  return { ...sampled, imgPts: trimmed.imgPts };
-}
-
-// Helper: Find arc-length on route closest to a viewport point
-function findClosestSOnRoute(route, vpX, vpY) {
-  let bestS = 0;
-  let bestDist = Infinity;
-  
-  for (let i = 0; i < route.projPts.length; i++) {
-    const [x, y] = route.projPts[i];
-    const dist = Math.hypot(x - vpX, y - vpY);
-    if (dist < bestDist) {
-      bestDist = dist;
-      bestS = route.cum[i];
-    }
-  }
-  
-  return bestS;
-}
-
-function buildLockedRoutes() {
-  LOCKED.clear();
-  console.log('\n=== Building Locked Routes ===');
-  
-  for (const [id, anchor] of Object.entries(NAV_COORDS)) {
-    if (id === 'intro') continue; // sigil stays static
-    
-    const route = computeLockedRouteFor(id, anchor);
-    if (!route) {
-      console.warn(`❌ [LOCKED-ROUTE] ${id}: failed; fallback to static anchor`);
-      LOCKED.set(id, null);
-      continue;
-    }
-    
-    const pointsCount = route.projPts?.length || 0;
-    
-    // Log route quality with clear criteria
-    if (route.tooShort || route.len < 140 || pointsCount < 3) {
-      console.warn(`⚠️ [LOCKED-ROUTE] ${id}: len=${route.len.toFixed(1)}px, points=${pointsCount} (BELOW TARGET: want 140-240px, ≥3 points)`);
-    } else {
-      console.log(`✅ [LOCKED-ROUTE] ${id}: len=${route.len.toFixed(1)}px, points=${pointsCount}`);
-    }
-    
-    // Find the arc-length position on route closest to the anchor
-    // This is where labels START (sHome) and where they are in static mode
-    const [anchorX, anchorY] = coverMap(anchor.x, anchor.y);
-    const sHome = findClosestSOnRoute(route, anchorX, anchorY);
-    
-    // Add animation state with safe margins (sMin/sMax)
-    const MIN_S = 24;
-    const MAX_S = Math.max(MIN_S + 1, route.len - 24);
-    
-    // Clamp sHome to safe bounds
-    const clampedHome = Math.max(MIN_S, Math.min(MAX_S, sHome));
-    
-    route.s = clampedHome; // Start at anchor position
-    route.sHome = clampedHome; // Where it returns when ritual is off
-    route.sMin = MIN_S;
-    route.sMax = MAX_S;
-    route.dir = 1;
-    route.speed = LABEL_SPEEDS[id] ?? DEFAULT_SPEED;
-    
-    console.log(`  📍 ${id}: sHome=${clampedHome.toFixed(1)} (closest to anchor on route)`);
-    
-    LOCKED.set(id, route);
-  }
-  
-  // Copy to LOCKED_ROUTES for compatibility with existing code
-  LOCKED_ROUTES = {};
-  for (const [id, route] of LOCKED) {
-    if (route) LOCKED_ROUTES[id] = route;
-  }
-  
-  console.log(`=== Locked ${Object.keys(LOCKED_ROUTES).length} routes ===\n`);
-}
-
-// Alias for backward compatibility
-const lockNavRoutes = buildLockedRoutes;
-
-// [LOCKED-ROUTE] Interpolate position along locked route
-function pointAtRoute(route, s) {
-  if (s <= 0) return [route.projPts[0][0], route.projPts[0][1]];
-  if (s >= route.len) {
-    const last = route.projPts[route.projPts.length - 1];
-    return [last[0], last[1]];
-  }
-  
-  let lo = 0, hi = route.cum.length - 1;
-  while (lo < hi) {
-    const mid = (lo + hi) >> 1;
-    if (route.cum[mid] < s) lo = mid + 1;
-    else hi = mid;
-  }
-  
-  const i = Math.max(1, lo);
-  const segStart = route.cum[i - 1];
-  const segLen = Math.max(1e-6, route.cum[i] - segStart);
-  const t = (s - segStart) / segLen;
-  
-  const [x0, y0] = route.projPts[i - 1];
-  const [x1, y1] = route.projPts[i];
-  
-  return [
-    x0 + (x1 - x0) * t,
-    y0 + (y1 - y0) * t
-  ];
-}
-
-// [LOCKED-ROUTE] Get image-space point at current s
-function imgPointAtRoute(route, s) {
-  if (s <= 0) return [route.imgPts[0].x, route.imgPts[0].y];
-  if (s >= route.len) {
-    const last = route.imgPts[route.imgPts.length - 1];
-    return [last.x, last.y];
-  }
-  
-  let lo = 0, hi = route.cum.length - 1;
-  while (lo < hi) {
-    const mid = (lo + hi) >> 1;
-    if (route.cum[mid] < s) lo = mid + 1;
-    else hi = mid;
-  }
-  
-  const i = Math.max(1, lo);
-  const segStart = route.cum[i - 1];
-  const segLen = Math.max(1e-6, route.cum[i] - segStart);
-  const t = (s - segStart) / segLen;
-  
-  const pt0 = route.imgPts[i - 1];
-  const pt1 = route.imgPts[i];
-  
-  return [
-    pt0.x + (pt1.x - pt0.x) * t,
-    pt0.y + (pt1.y - pt0.y) * t
-  ];
-}
-
-// [LOCKED-ROUTE] Update label positions along locked routes (P0 FIX #4, #6, #7)
-function updateMovingLabels(dt) {
-  if (prefersReducedMotion) return; // PRM: freeze motion globally
-  
-  // CRITICAL FIX: Only run this when ritual is ACTIVE
-  // Static labels are positioned by layoutNavNodes() ONLY
-  if (!ritualActive) return;
-  
-  const nav = document.getElementById('network-nav');
-  if (!nav) return;
-  
-  // Iterate over what's actually locked (not a static list)
-  for (const id of Object.keys(LOCKED_ROUTES)) {
-    const route = LOCKED_ROUTES[id];
-    if (!route || route.len < 60) continue; // too short → stay static (no jitter)
-    
-    // Get anchor position in viewport using coverMap
-    const anchor = NAV_COORDS[id];
-    if (!anchor) continue;
-    const [anchorX, anchorY] = coverMap(anchor.x, anchor.y);
-    
-    // Ritual active: oscillate along the route
-    route.speed = NAV_SPEED_WHEN_ACTIVE;
-    route.s += route.dir * route.speed * dt;
-
-    if (route.s >= route.sMax){ route.s = route.sMax; route.dir = -1; }
-    if (route.s <= route.sMin){ route.s = route.sMin; route.dir =  1; }
-    
-    // Recompute position using SAME locked route (uses coverMap internally)
-    const [px, py] = pointAtRoute(route, route.s);
-    
-    // Position element with delta from anchor
-    const el = nav.querySelector(`[data-node="${id}"]`);
-    if (!el) continue;
-    
-    const dx = Math.round(px - anchorX);
-    const dy = Math.round(py - anchorY);
-    el.style.left = `${anchorX}px`;
-    el.style.top = `${anchorY}px`;
-    
-    // P0 FIX #7: Labels ONLY use translate(-50%,-50%) translate(dx,dy)
-    el.style.transform = `translate(-50%, -50%) translate(${dx}px, ${dy}px)`;
-  }
-}
-
-// [LOCKED-ROUTE] Spark to current label position
-function startSparkToPoint(fromKey, imgX, imgY, speed = 750) {
-  if (prefersReducedMotion || !GRAPH) return;
-  
-  const fromId = NODE_IDS[fromKey];
-  if (fromId == null || fromId < 0) return;
-  
-  // Find nearest graph node to target point
-  const toId = GRAPH.nearestId(imgX, imgY, 96, 24);
-  if (toId == null || toId < 0) {
-    console.warn(`[LOCKED-ROUTE] No graph node near (${imgX.toFixed(0)}, ${imgY.toFixed(0)}) for spark`);
-    return;
-  }
-  
-  const solved = aStarPath(fromId, toId, GRAPH, PATH_CACHE);
-  if (!solved || solved.length < 2) return;
-  
-  const imgPts = solved.map(p => ({ x: p.x, y: p.y }));
-  const projPts = projectXY(imgPts);
-  const cum = cumulativeLengths(projPts);
-  const len = cum[cum.length - 1];
-  if (!len) return;
-  
-  ACTIVE_ANIMS.push({
-    imgPts, projPts, cum, len,
-    s: 0, v: speed
-  });
-}
-
 // [LOCKED-ROUTE] Ritual: sparks to all current label positions
 function ritualCatchUp() {
   if (prefersReducedMotion) return;
@@ -1560,7 +669,7 @@ function ritualCatchUp() {
 async function initNetworkAndNav() {
   if (!MYC_MAP) return;
 
-  GRAPH = buildGraphFromPaths(MYC_MAP.paths);
+  setGraph(buildGraphFromPaths(MYC_MAP.paths));
   computeNavOffsets();                 // AFTER graph built
   PATH_CACHE.clear();
 
@@ -1578,9 +687,9 @@ async function initNetworkAndNav() {
   }
 
   // [LOCKED-ROUTE] Lock each label to a single polyline (never re-snap)
-  lockNavRoutes();
+  buildLockedRoutes();
 
-  layoutNavNodes();
+  layoutNavNodes(wireSigilToggle, renderHUD, (sectionName) => showSection(sectionName, startRitualBackground, stopRitualBackground));
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
@@ -1591,9 +700,9 @@ window.addEventListener('DOMContentLoaded', async () => {
   if (nav) {
     nav.querySelectorAll('.network-node-label, .network-sigil-node').forEach(el => {
       const id = el.dataset.node;
-      el.addEventListener('pointerenter', () => handleNavEnter(id, el));
+      el.addEventListener('pointerenter', () => handleNavEnter(id, el, startSpark, startSparkToPoint, pointAtRoute));
       el.addEventListener('pointerleave', () => handleNavLeave(id, el));
-      el.addEventListener('focus', () => handleNavEnter(id, el));
+      el.addEventListener('focus', () => handleNavEnter(id, el, startSpark, startSparkToPoint, pointAtRoute));
       el.addEventListener('blur', () => handleNavLeave(id, el));
     });
   }
@@ -1603,7 +712,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   const validSections = ['intro', 'about', 'work', 'projects', 'contact', 'blog', 'resume', 'skills'];
   const initialSection = validSections.includes(hash) ? hash : 'intro';
   console.log(`🎯 Page Load: hash="${hash}", showing section="${initialSection}"`);
-  showSection(initialSection);
+  showSection(initialSection, startRitualBackground, stopRitualBackground);
 
   if (hudEnabled) {
     initHUD();
@@ -1624,7 +733,7 @@ window.addEventListener('load', () => {
   if (COVER.ready) {
     computeCoverFromImage();
     computeNavOffsets();
-    layoutNavNodes();
+    layoutNavNodes(wireSigilToggle, renderHUD, (sectionName) => showSection(sectionName, startRitualBackground, stopRitualBackground));
     if (hudEnabled) renderHUD();
   }
 });
@@ -1729,9 +838,9 @@ window.addEventListener('hashchange', () => {
   const hash = window.location.hash.slice(1);
   const validSections = ['intro', 'about', 'work', 'projects', 'contact', 'blog', 'resume', 'skills'];
   if (validSections.includes(hash)) {
-    showSection(hash);
+    showSection(hash, startRitualBackground, stopRitualBackground);
   } else if (!hash) {
-    showSection('intro');
+    showSection('intro', startRitualBackground, stopRitualBackground);
   }
 });
 
@@ -1740,7 +849,7 @@ document.addEventListener('click', (e) => {
   const btn = e.target.closest('[data-action="go-intro"]');
   if (!btn) return;
   e.preventDefault();
-  showSection('intro');
+  showSection('intro', startRitualBackground, stopRitualBackground);
 });
 
 // ━━━ About: Paper focus (zoom to center + backdrop dim) ━━━
