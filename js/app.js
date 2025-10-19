@@ -940,8 +940,18 @@ function initPaperFocusForSection(sectionId){
     if (document.body.classList.contains('has-paper-open-global')) return;
     // Freeze current pixels before portaling
     const r = el.getBoundingClientRect();
-    el.__portal = { parent: el.parentNode, placeholder: document.createComment('paper-pl') };
-    el.__portal.parent.insertBefore(el.__portal.placeholder, el.nextSibling);
+    const computed = getComputedStyle(el);
+    
+    // Create an invisible placeholder that holds the exact same space and positioning
+    const placeholder = document.createElement('div');
+    // Copy all the classes so it gets the same CSS positioning rules
+    placeholder.className = el.className.replace('paper-open', '') + ' paper-placeholder';
+    placeholder.style.visibility = 'hidden';
+    placeholder.style.pointerEvents = 'none';
+    // Don't override the CSS positioning - let it use the same rules
+    
+    el.__portal = { parent: el.parentNode, placeholder: placeholder };
+    el.__portal.parent.insertBefore(placeholder, el);
     // Move to <body> so fixed positioning uses viewport (avoids rectangle/backdrop bugs)
     document.body.appendChild(el);
     el.classList.add('paper-open');
@@ -1078,17 +1088,8 @@ let SIGNALS = {
 };
 
 function initRitualBackground(){
-  const c = document.getElementById('signals-canvas') || createSignalsCanvas();
-  SIGNALS.canvas = c;
-  SIGNALS.ctx = c.getContext('2d');
-  const resize = () => {
-    const dpr = Math.max(1, window.devicePixelRatio || 1);
-    c.width = Math.floor(c.clientWidth * dpr);
-    c.height = Math.floor(c.clientHeight * dpr);
-    SIGNALS.ctx.setTransform(dpr,0,0,dpr,0,0);
-  };
-  window.addEventListener('resize', resize, { passive: true });
-  resize();
+  // DISABLED FOR PERFORMANCE - No radial rays effect
+  return;
 }
 function createSignalsCanvas(){
   const c = document.createElement('canvas');
@@ -1110,29 +1111,12 @@ function getSigilCenter(){
 }
 
 function startRitualBackground(){
-  // Spin sigil continuously
-  const sigil = getSigilEl();
-  if (sigil) sigil.classList.add('sigil-spin');
-
-  // Start animation loop (idempotent)
-  if (!SIGNALS.raf) {
-    SIGNALS.lastTs = performance.now();
-    const loop = (ts) => {
-      SIGNALS.raf = requestAnimationFrame(loop);
-      const dt = (ts - SIGNALS.lastTs) / 1000;
-      SIGNALS.lastTs = ts;
-      renderSignals(dt);
-    };
-    SIGNALS.raf = requestAnimationFrame(loop);
-  }
-  // Fire a first burst soon, then repeat every 2–3s
-  triggerLightningBurst();
-  if (!SIGNALS.interval) {
-    SIGNALS.interval = setInterval(() => {
-      triggerLightningBurst();
-    }, 2000 + Math.random()*1000);
-  }
+  // DISABLED FOR PERFORMANCE - No more radial rays effect
+  // Ensure everything is stopped and cleared
+  stopRitualBackground();
+  return;
 }
+
 function stopRitualBackground(){
   const sigil = getSigilEl();
   if (sigil) sigil.classList.remove('sigil-spin', 'sigil-kick');

@@ -98,53 +98,53 @@
     35% 99.5%, 30% 98.8%, 25% 99.2%, 20% 99.5%, 15% 99%, 10% 99.5%, 5% 99%, 2% 99.5%, 0% 98%
   );
   transform: rotate(-0.5deg);
-  animation: notebookReveal 0.8s ease-out;
+  animation: notebookReveal 0.3s ease-out;
 
-  /* Aged paper texture - matches reference image */
+  /* Aged paper texture - richer, darker tones */
   background: 
     /* Subtle horizontal lines */
     repeating-linear-gradient(
       0deg,
       transparent,
       transparent 31px,
-      rgba(139, 125, 107, 0.12) 31px,
-      rgba(139, 125, 107, 0.12) 32px
+      rgba(139, 125, 107, 0.15) 31px,
+      rgba(139, 125, 107, 0.15) 32px
     ),
-    /* Heavy coffee stain top */
+    /* Heavy coffee stain top - darker */
     radial-gradient(
       ellipse 800px 400px at 50% -10%,
-      rgba(101, 67, 33, 0.35) 0%,
-      rgba(139, 125, 107, 0.25) 30%,
+      rgba(101, 67, 33, 0.45) 0%,
+      rgba(139, 125, 107, 0.32) 30%,
       transparent 60%
     ),
-    /* Coffee stain bottom right */
+    /* Coffee stain bottom right - darker */
     radial-gradient(
       ellipse 600px 500px at 90% 110%,
-      rgba(101, 67, 33, 0.4) 0%,
-      rgba(139, 125, 107, 0.2) 35%,
+      rgba(101, 67, 33, 0.5) 0%,
+      rgba(139, 125, 107, 0.28) 35%,
       transparent 65%
     ),
-    /* Coffee stain bottom left */
+    /* Coffee stain bottom left - darker */
     radial-gradient(
       ellipse 500px 450px at -5% 95%,
-      rgba(101, 67, 33, 0.3) 0%,
-      rgba(120, 100, 70, 0.15) 40%,
+      rgba(101, 67, 33, 0.38) 0%,
+      rgba(120, 100, 70, 0.2) 40%,
       transparent 70%
     ),
-    /* Vertical center stain */
+    /* Vertical center stain - darker */
     radial-gradient(
       ellipse 200px 800px at 45% 50%,
-      rgba(139, 125, 107, 0.15) 0%,
+      rgba(139, 125, 107, 0.2) 0%,
       transparent 60%
     ),
-    /* Base aged paper color */
+    /* Base aged paper color - slightly darker */
     linear-gradient(
       to bottom,
-      #F0E8D0 0%,
-      #E8DFC5 20%,
-      #E5DBBD 50%,
-      #DFD5B5 80%,
-      #D5CBB0 100%
+      #E8E0C8 0%,
+      #E0D7BD 20%,
+      #DDD3B5 50%,
+      #D7CDAD 80%,
+      #CCC3A8 100%
     );
 }
 
@@ -176,48 +176,48 @@
   width: 100%;
   height: 100%;
   background-image:
-    /* Large irregular coffee stains with spills */
-    radial-gradient(ellipse 80px 95px at 82% 18%, rgba(101, 67, 33, 0.35) 0%, rgba(101, 67, 33, 0.2) 35%, transparent 60%),
-    radial-gradient(ellipse 45px 60px at 85% 16%, rgba(101, 67, 33, 0.28) 0%, transparent 55%),
-    radial-gradient(circle 25px at 79% 21%, rgba(101, 67, 33, 0.25) 0%, transparent 70%),
+    /* Large irregular coffee stains with spills - darker */
+    radial-gradient(ellipse 80px 95px at 82% 18%, rgba(101, 67, 33, 0.42) 0%, rgba(101, 67, 33, 0.25) 35%, transparent 60%),
+    radial-gradient(ellipse 45px 60px at 85% 16%, rgba(101, 67, 33, 0.35) 0%, transparent 55%),
+    radial-gradient(circle 25px at 79% 21%, rgba(101, 67, 33, 0.32) 0%, transparent 70%),
     
-    /* Medium irregular stains */
-    radial-gradient(ellipse 65px 48px at 22% 28%, rgba(101, 67, 33, 0.3) 0%, rgba(101, 67, 33, 0.15) 40%, transparent 65%),
-    radial-gradient(ellipse 35px 45px at 19% 32%, rgba(101, 67, 33, 0.22) 0%, transparent 60%),
+    /* Medium irregular stains - darker */
+    radial-gradient(ellipse 65px 48px at 22% 28%, rgba(101, 67, 33, 0.37) 0%, rgba(101, 67, 33, 0.2) 40%, transparent 65%),
+    radial-gradient(ellipse 35px 45px at 19% 32%, rgba(101, 67, 33, 0.28) 0%, transparent 60%),
     
-    /* Coffee drip/spill effect */
-    radial-gradient(ellipse 38px 72px at 73% 38%, rgba(101, 67, 33, 0.25) 0%, rgba(101, 67, 33, 0.12) 45%, transparent 70%),
-    radial-gradient(ellipse 25px 55px at 76% 44%, rgba(101, 67, 33, 0.18) 0%, transparent 65%),
+    /* Coffee drip/spill effect - darker */
+    radial-gradient(ellipse 38px 72px at 73% 38%, rgba(101, 67, 33, 0.32) 0%, rgba(101, 67, 33, 0.18) 45%, transparent 70%),
+    radial-gradient(ellipse 25px 55px at 76% 44%, rgba(101, 67, 33, 0.24) 0%, transparent 65%),
     
-    /* Bottom left cluster */
-    radial-gradient(ellipse 90px 75px at 18% 62%, rgba(101, 67, 33, 0.32) 0%, rgba(101, 67, 33, 0.18) 38%, transparent 62%),
-    radial-gradient(ellipse 55px 45px at 14% 58%, rgba(101, 67, 33, 0.28) 0%, transparent 58%),
-    radial-gradient(circle 30px at 22% 65%, rgba(101, 67, 33, 0.24) 0%, transparent 68%),
+    /* Bottom left cluster - darker */
+    radial-gradient(ellipse 90px 75px at 18% 62%, rgba(101, 67, 33, 0.4) 0%, rgba(101, 67, 33, 0.24) 38%, transparent 62%),
+    radial-gradient(ellipse 55px 45px at 14% 58%, rgba(101, 67, 33, 0.35) 0%, transparent 58%),
+    radial-gradient(circle 30px at 22% 65%, rgba(101, 67, 33, 0.3) 0%, transparent 68%),
     
-    /* Bottom right stain cluster */
-    radial-gradient(ellipse 110px 85px at 88% 78%, rgba(101, 67, 33, 0.38) 0%, rgba(101, 67, 33, 0.22) 35%, transparent 65%),
-    radial-gradient(ellipse 65px 50px at 92% 82%, rgba(101, 67, 33, 0.3) 0%, transparent 60%),
-    radial-gradient(circle 35px at 85% 75%, rgba(101, 67, 33, 0.26) 0%, transparent 70%),
+    /* Bottom right stain cluster - darker */
+    radial-gradient(ellipse 110px 85px at 88% 78%, rgba(101, 67, 33, 0.45) 0%, rgba(101, 67, 33, 0.28) 35%, transparent 65%),
+    radial-gradient(ellipse 65px 50px at 92% 82%, rgba(101, 67, 33, 0.38) 0%, transparent 60%),
+    radial-gradient(circle 35px at 85% 75%, rgba(101, 67, 33, 0.32) 0%, transparent 70%),
     
-    /* Small random spatter marks */
-    radial-gradient(ellipse 28px 35px at 42% 15%, rgba(101, 67, 33, 0.22) 0%, transparent 65%),
-    radial-gradient(circle 18px at 58% 25%, rgba(101, 67, 33, 0.18) 0%, transparent 70%),
-    radial-gradient(ellipse 32px 24px at 35% 48%, rgba(101, 67, 33, 0.2) 0%, transparent 68%),
-    radial-gradient(circle 22px at 68% 55%, rgba(101, 67, 33, 0.19) 0%, transparent 72%),
-    radial-gradient(ellipse 26px 38px at 45% 72%, rgba(101, 67, 33, 0.24) 0%, transparent 66%),
-    radial-gradient(circle 16px at 52% 88%, rgba(101, 67, 33, 0.21) 0%, transparent 75%),
-    radial-gradient(ellipse 20px 28px at 30% 92%, rgba(101, 67, 33, 0.23) 0%, transparent 68%),
+    /* Small random spatter marks - darker */
+    radial-gradient(ellipse 28px 35px at 42% 15%, rgba(101, 67, 33, 0.28) 0%, transparent 65%),
+    radial-gradient(circle 18px at 58% 25%, rgba(101, 67, 33, 0.24) 0%, transparent 70%),
+    radial-gradient(ellipse 32px 24px at 35% 48%, rgba(101, 67, 33, 0.26) 0%, transparent 68%),
+    radial-gradient(circle 22px at 68% 55%, rgba(101, 67, 33, 0.25) 0%, transparent 72%),
+    radial-gradient(ellipse 26px 38px at 45% 72%, rgba(101, 67, 33, 0.3) 0%, transparent 66%),
+    radial-gradient(circle 16px at 52% 88%, rgba(101, 67, 33, 0.27) 0%, transparent 75%),
+    radial-gradient(ellipse 20px 28px at 30% 92%, rgba(101, 67, 33, 0.29) 0%, transparent 68%),
     
-    /* Tiny speckles for authenticity */
-    radial-gradient(circle 8px at 25% 18%, rgba(101, 67, 33, 0.25) 0%, transparent 80%),
-    radial-gradient(circle 6px at 55% 38%, rgba(101, 67, 33, 0.22) 0%, transparent 85%),
-    radial-gradient(circle 10px at 65% 68%, rgba(101, 67, 33, 0.2) 0%, transparent 80%),
-    radial-gradient(circle 7px at 12% 45%, rgba(101, 67, 33, 0.24) 0%, transparent 82%),
-    radial-gradient(circle 9px at 92% 52%, rgba(101, 67, 33, 0.21) 0%, transparent 78%),
+    /* Tiny speckles for authenticity - darker */
+    radial-gradient(circle 8px at 25% 18%, rgba(101, 67, 33, 0.32) 0%, transparent 80%),
+    radial-gradient(circle 6px at 55% 38%, rgba(101, 67, 33, 0.28) 0%, transparent 85%),
+    radial-gradient(circle 10px at 65% 68%, rgba(101, 67, 33, 0.26) 0%, transparent 80%),
+    radial-gradient(circle 7px at 12% 45%, rgba(101, 67, 33, 0.3) 0%, transparent 82%),
+    radial-gradient(circle 9px at 92% 52%, rgba(101, 67, 33, 0.27) 0%, transparent 78%),
     
-    /* Edge wear and tear - darker, worn edges */
-    linear-gradient(to right, rgba(101, 67, 33, 0.25) 0%, rgba(101, 67, 33, 0.08) 6%, transparent 12%),
-    linear-gradient(to left, rgba(101, 67, 33, 0.2) 0%, rgba(101, 67, 33, 0.06) 4%, transparent 8%),
+    /* Edge wear and tear - darker, more pronounced worn edges */
+    linear-gradient(to right, rgba(101, 67, 33, 0.32) 0%, rgba(101, 67, 33, 0.12) 6%, transparent 12%),
+    linear-gradient(to left, rgba(101, 67, 33, 0.28) 0%, rgba(101, 67, 33, 0.1) 4%, transparent 8%),
     linear-gradient(to bottom, rgba(101, 67, 33, 0.22) 0%, rgba(101, 67, 33, 0.05) 5%, transparent 10%),
     linear-gradient(to top, rgba(101, 67, 33, 0.25) 0%, rgba(101, 67, 33, 0.08) 6%, transparent 12%);
   pointer-events: none;

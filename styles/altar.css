@@ -23,29 +23,16 @@
   z-index: 9;
 }
 
-.altar-screen.active-section {
-  animation: altarIn 600ms cubic-bezier(0.2, 0.9, 0.15, 1) both;
-}
-
 /* The circular altar */
 .altar {
   position: relative;
   width: min(92vh, 88vw);
   aspect-ratio: 1/1;
-  filter: drop-shadow(0 30px 80px rgba(0,0,0,0.6));
 }
 
-/* Rotating scan-sweep */
+/* Rotating scan-sweep - DISABLED for performance */
 .altar::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: conic-gradient(from 0deg, rgba(45,212,175,0.12), transparent 30% 100%);
-  mix-blend-mode: screen;
-  opacity: 0.5;
-  animation: spin 18s linear infinite;
-  pointer-events: none;
+  display: none;
 }
 
 /* Ring SVG */
@@ -74,15 +61,11 @@
 }
 
 .filament {
-  fill: none;
-  stroke: rgba(45,212,175,0.18);
-  stroke-width: 0.6;
-  stroke-linecap: round;
+  display: none; /* Hide radial filaments for clean look */
 }
 
 .filament.thin {
-  stroke-width: 0.4;
-  opacity: 0.65;
+  display: none; /* Hide thin radial filaments */
 }
 
 .spore {
@@ -141,7 +124,7 @@
   position: absolute;
   width: 36%;
   max-height: 32%;
-  padding: 14px 16px 16px;
+  padding: 14px 16px 16px 30px; /* Extra left padding for spiral holes */
   color: #2A251F;
   
   /* Aged paper texture - matches contact form */
@@ -212,13 +195,34 @@
   );
   
   overflow: hidden;
-  position: relative;
+  position: absolute;
   
   /* Compose transforms so we never lose the base translate */
   --rot: 0deg;
-  --base-transform: translate3d(0,0,0) rotate(var(--rot));
+  --base-transform: rotate(var(--rot));
   transform: var(--base-transform);
-  transition: transform 220ms ease, box-shadow 220ms ease;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+  /* Optimize for transform animations */
+  will-change: transform;
+}
+
+/* Spiral notebook holes on the left edge */
+.slab::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 16px;
+  width: 14px;
+  height: 100%;
+  background-image: 
+    /* Individual holes - circular with inner shadow */
+    radial-gradient(circle at center, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0.5) 45%, transparent 50%),
+    radial-gradient(circle at center, #0B0B0C 0%, #0B0B0C 40%, transparent 41%);
+  background-size: 14px 14px;
+  background-position: 0 20px;
+  background-repeat: repeat-y;
+  pointer-events: none;
+  z-index: 3;
 }
 
 /* Coffee stains overlay for each slab */
@@ -266,12 +270,23 @@
   );
 }
 
-.slab:hover {
+/* Disable hover effects on non-open papers when one is magnified */
+.slab:hover:not(.paper-open) {
   transform: var(--base-transform) scale(1.02);
   box-shadow: 
     0 15px 50px rgba(0, 0, 0, 0.6),
     inset 0 0 120px rgba(101, 67, 33, 0.35),
     inset -20px 0 40px rgba(101, 67, 33, 0.25);
+}
+
+/* Completely disable hover effects on background papers when any paper is open */
+.has-paper-open-global .slab:hover:not(.paper-open) {
+  transform: var(--base-transform);
+  box-shadow: 
+    0 10px 40px rgba(0, 0, 0, 0.5),
+    inset 0 0 120px rgba(101, 67, 33, 0.3),
+    inset -20px 0 40px rgba(101, 67, 33, 0.2);
+  pointer-events: none;
 }
 
 .slab h2,
@@ -342,18 +357,22 @@
 
 .slab-expertise {
   right: 2%;
-  top: 10%;
+  top: 8%;
   --rot: 3deg;
 }
 
 /* Bottom paper: same width/shape as others, but centered; set base translate via CSS var */
 .slab-vitals {
-  left: 50%;
-  bottom: 4%;
-  width: 36%;
-  max-height: 32%;
-  --rot: -3deg;
-  --base-transform: translateX(-50%) rotate(var(--rot));
+  left: 2%;
+  bottom: 8%;
+  --rot: -2deg;
+}
+
+/* Art's paramour - positioned on the right side */
+.slab-paramour {
+  right: 2%;
+  bottom: 8%;
+  --rot: 2deg;
 }
 
 /* Skills section slab positioning */
@@ -365,17 +384,21 @@
 
 .slab-interface {
   right: 2%;
-  top: 10%;
+  top: 8%;
   --rot: 3deg;
 }
 
 .slab-scientific {
-  left: 50%;
-  bottom: 4%;
-  width: 36%;
-  max-height: 32%;
-  --rot: -3deg;
-  --base-transform: translateX(-50%) rotate(var(--rot));
+  right: 2%;
+  bottom: 8%;
+  --rot: 3deg;
+}
+
+/* The rest of my life - positioned on the left side */
+.slab-restoflife {
+  left: 2%;
+  bottom: 8%;
+  --rot: -2deg;
 }
 
 /* Tech stack list styling - notebook aesthetic */
@@ -400,7 +423,7 @@
   border-radius: 3px;
   color: #2A251F;
   font-weight: 400;
-  transition: all 0.2s ease;
+  transition: all 100ms ease;
 }
 
 .tech-stack li:hover {
@@ -419,7 +442,7 @@ button.ghost {
   cursor: var(--cursor-spore), pointer;
   font-family: inherit;
   font-size: clamp(10px, 1vw, 12px);
-  transition: all 0.3s ease;
+  transition: all 150ms ease;
   position: relative;
   z-index: 1;
 }
@@ -442,8 +465,6 @@ button.ghost:hover {
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
   font-feature-settings: "kern" 1, "liga" 1;
-  backface-visibility: hidden;
-  transform-style: preserve-3d;
 }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -455,7 +476,7 @@ button.ghost:hover {
 .paper-backdrop{
   position: fixed; inset: 0; z-index: 8;
   background: rgba(6,8,10,0.88);
-  opacity: 0; pointer-events: none; transition: opacity 300ms ease;
+  opacity: 0; pointer-events: none; transition: opacity 150ms ease;
 }
 .has-paper-open-global .paper-backdrop{
   opacity: 1; pointer-events: auto;
@@ -470,22 +491,20 @@ button.ghost:hover {
              scale(var(--open-scale,1))
              rotate(var(--rot,0deg));
   transform-origin: center center;
-  will-change: transform;
+  transition: transform 300ms cubic-bezier(0.4, 0, 0.2, 1);
   cursor: inherit;
-  box-shadow: 
-    0 15px 60px rgba(0, 0, 0, 0.7),
-    inset 0 0 140px rgba(101, 67, 33, 0.35),
-    inset -20px 0 50px rgba(101, 67, 33, 0.25);
+  /* Simplified shadow for performance */
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+  /* GPU acceleration hints */
+  will-change: transform;
+  backface-visibility: hidden;
 }
 /* Prevent hover from nudging the enlarged paper */
 .paper.paper-open:hover{
   transform: translate(var(--open-tx,0), var(--open-ty,0))
              scale(var(--open-scale,1))
              rotate(var(--rot,0deg)) !important;
-  box-shadow: 
-    0 20px 70px rgba(0, 0, 0, 0.8),
-    inset 0 0 140px rgba(101, 67, 33, 0.4),
-    inset -20px 0 50px rgba(101, 67, 33, 0.3);
+  box-shadow: 0 25px 70px rgba(0, 0, 0, 0.8);
 }
 
 /* Tiny breathing ring around your glowing dot when a paper is hoverable */
@@ -501,29 +520,22 @@ button.ghost:hover {
   opacity: 0;
   /* Center on cursor position set by JS */
   transform: translate(-50%, -50%);
-  will-change: transform, opacity;
-  transition: opacity 150ms ease;
+  transition: opacity 100ms ease;
 }
 .hovering-paper .cursor-ring{
   opacity: 1;
-  animation: ring-breathe 1.6s ease-in-out infinite;
-}
-@keyframes ring-breathe{
-  0%, 100%{
-    transform: translate(-50%, -50%) scale(1);
-    opacity: .95;
-  }
-  50%{
-    transform: translate(-50%, -50%) scale(1.35);
-    opacity: .7;
-  }
+  /* Removed breathing animation for performance */
 }
 
-/* While a paper is open, subtly mute the altar visuals behind */
+/* While a paper is open, subtly mute the altar visuals behind - USE OPACITY INSTEAD OF FILTER */
 .altar-screen.has-paper-open .ring,
 .altar-screen.has-paper-open .core,
 .altar-screen.has-paper-open .slab:not(.paper-open){
-  filter: saturate(.7) brightness(.7);
+  opacity: 0.5;
+  transition: opacity 150ms ease;
+  /* Prevent interaction and optimize rendering */
+  pointer-events: none;
+  will-change: opacity;
 }
 
 /* Keyboard focus ring on papers */
@@ -551,8 +563,7 @@ button.ghost:hover {
 
 /* Signals overlay sits above the network, below panels */
 .signals-canvas{
-  position: fixed; inset: 0; z-index: 6;
-  pointer-events: none;
+  display: none !important; /* DISABLED - No radial rays effect */
 }
 
 /* Close/Back button (top-right corner) */
@@ -571,9 +582,8 @@ button.ghost:hover {
   color: rgba(232,232,234,0.7);
   font-size: 20px;
   line-height: 1;
-  transition: all 0.3s ease;
+  transition: all 150ms ease;
   z-index: 10;
-  backdrop-filter: blur(8px);
 }
 
 .altar-close:hover {
@@ -588,28 +598,7 @@ button.ghost:hover {
   outline-offset: 4px;
 }
 
-/* Entrance animation */
-@keyframes altarIn {
-  0% {
-    transform: scale(0.985);
-    opacity: 0;
-    clip-path: circle(6% at 50% 50%);
-  }
-  60% {
-    clip-path: circle(66% at 50% 50%);
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
-    clip-path: circle(140% at 50% 50%);
-  }
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
+/* Removed slow entrance animations for instant display */
 
 /* Responsive scaling (altar scales down instead of reflowing) */
 @media (max-width: 1100px) {
