@@ -97,6 +97,7 @@ import {
   pointAtRoute,
   imgPointAtRoute
 } from './routes.js';
+import { notebookContact } from './contact.js';
 
 // ━━━ A11y: Insert current year in footer ━━━
 const yearElement = document.getElementById('yr');
@@ -725,6 +726,20 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   // Initialize ritual background system
   initRitualBackground();
+
+  // Initialize contact form
+  notebookContact.init();
+
+  // Contact section: click background to close
+  const contactSection = document.getElementById('contact');
+  if (contactSection) {
+    contactSection.addEventListener('click', (e) => {
+      // Only close if clicking directly on the section (background), not on the notebook or its children
+      if (e.target === contactSection) {
+        showSection('intro', startRitualBackground, stopRitualBackground);
+      }
+    });
+  }
 });
 
 // ━━━ Post-load layout (fonts & image settling) ━━━

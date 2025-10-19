@@ -21,5 +21,8 @@
 /* 6. Content Sections */
 @import 'sections.css';
 
-/* 7. Ritual Altar System */
+/* 7. Contact Form */
+@import 'contact.css';
+
+/* 8. Ritual Altar System */
 @import 'altar.css';

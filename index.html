@@ -396,6 +396,81 @@
     </div>
   </section>
 
+  <!-- SECTION: CONTACT -->
+  <section id="contact" class="stage" data-section="contact" aria-label="Contact">
+    <button class="contact-close" data-action="go-intro" aria-label="Close and return to intro">
+      <span class="close-icon">✕</span>
+    </button>
+    <div class="notebook-page">
+      <!-- Blood-red wax seal at top center -->
+      <div class="wax-seal" aria-hidden="true">
+        <img src="./artifacts/sigil/no-bg-seal-sigil.png" alt="" class="seal-sigil" />
+      </div>
+      
+      <!-- Canvas for mycelium network animation -->
+      <canvas id="notebook-mycelium" class="notebook-mycelium" aria-hidden="true"></canvas>
+
+      <!-- Contact Form -->
+      <form id="contact-form" class="notebook-form">
+        <h2 class="notebook-header">Get in Touch</h2>
+        <p class="notebook-subheader">Let's connect and build something together</p>
+
+        <!-- Email Field -->
+        <div class="notebook-field">
+          <label for="email" class="notebook-label">Your Email</label>
+          <input 
+            type="email" 
+            id="email" 
+            name="email" 
+            class="notebook-input" 
+            required 
+            placeholder="your.email@example.com"
+          />
+          <div class="validation-msg"></div>
+        </div>
+
+        <!-- Subject Field -->
+        <div class="notebook-field">
+          <label for="subject" class="notebook-label">Subject</label>
+          <input 
+            type="text" 
+            id="subject" 
+            name="subject" 
+            class="notebook-input" 
+            required 
+            placeholder="What would you like to discuss?"
+            minlength="5"
+            maxlength="60"
+          />
+          <div class="validation-msg"></div>
+        </div>
+
+        <!-- Message Field -->
+        <div class="notebook-field">
+          <label for="message" class="notebook-label">Message</label>
+          <textarea 
+            id="message" 
+            name="message" 
+            class="notebook-textarea" 
+            required 
+            placeholder="Share your thoughts..."
+            minlength="10"
+            maxlength="350"
+          ></textarea>
+          <div class="char-counter">
+            <span class="char-count">0/350</span>
+          </div>
+          <div class="validation-msg"></div>
+        </div>
+
+        <!-- Submit Button -->
+        <button type="submit" class="notebook-submit">
+          <span>Send Message</span>
+        </button>
+      </form>
+    </div>
+  </section>
+
   <!-- Lightweight overlay for lightning pulses + spores -->
   <canvas id="signals-canvas" class="signals-canvas" aria-hidden="true"></canvas>
 

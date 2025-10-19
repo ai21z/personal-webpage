@@ -1,4 +1,4 @@
-# Necrography — Vissarion Zounarakis
+# Vissarion Zounarakis
 
 A single-screen, no-scroll landing page built with **framework-free HTML/CSS/JS**. Features procedural fungal animations, organic growth patterns, and a spectral aesthetic rooted in deep blacks and bone text.
 

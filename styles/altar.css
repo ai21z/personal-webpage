@@ -136,54 +136,168 @@
   filter: blur(0.6px) contrast(120%);
 }
 
-/* Necro-slabs (jagged shards) */
+/* Necro-slabs (aged notebook paper style) */
 .slab {
   position: absolute;
   width: 36%;
   max-height: 32%;
   padding: 14px 16px 16px;
-  color: rgba(232,232,234,0.9);
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.0)),
-    repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,.04) 2px, rgba(0,0,0,.04) 4px),
-    #0f1014;
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 14px;
-  box-shadow: 0 0 0 1px rgba(45,212,175,0.06) inset;
-  clip-path: polygon(6% 0%, 98% 0%, 100% 20%, 94% 100%, 2% 100%, 0% 12%);
+  color: #2A251F;
+  
+  /* Aged paper texture - matches contact form */
+  background: 
+    /* Subtle horizontal lines */
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 31px,
+      rgba(139, 125, 107, 0.12) 31px,
+      rgba(139, 125, 107, 0.12) 32px
+    ),
+    /* Heavy coffee stain top */
+    radial-gradient(
+      ellipse 800px 400px at 50% -10%,
+      rgba(101, 67, 33, 0.35) 0%,
+      rgba(139, 125, 107, 0.25) 30%,
+      transparent 60%
+    ),
+    /* Coffee stain bottom right */
+    radial-gradient(
+      ellipse 600px 500px at 90% 110%,
+      rgba(101, 67, 33, 0.4) 0%,
+      rgba(139, 125, 107, 0.2) 35%,
+      transparent 65%
+    ),
+    /* Coffee stain bottom left */
+    radial-gradient(
+      ellipse 500px 450px at -5% 95%,
+      rgba(101, 67, 33, 0.3) 0%,
+      rgba(120, 100, 70, 0.15) 40%,
+      transparent 70%
+    ),
+    /* Vertical center stain */
+    radial-gradient(
+      ellipse 200px 800px at 45% 50%,
+      rgba(139, 125, 107, 0.15) 0%,
+      transparent 60%
+    ),
+    /* Base aged paper color */
+    linear-gradient(
+      to bottom,
+      #F0E8D0 0%,
+      #E8DFC5 20%,
+      #E5DBBD 50%,
+      #DFD5B5 80%,
+      #D5CBB0 100%
+    );
+  
+  border: none;
+  /* Wrinkled, worn edges */
+  border-radius: 
+    8px 3px 12px 5px / 5px 10px 7px 15px;
+  
+  box-shadow: 
+    0 10px 40px rgba(0, 0, 0, 0.5),
+    inset 0 0 120px rgba(101, 67, 33, 0.3),
+    inset -20px 0 40px rgba(101, 67, 33, 0.2);
+  
+  /* Irregular paper edges */
+  clip-path: polygon(
+    0% 2%, 1% 0%, 3% 1%, 5% 0.5%, 8% 1%, 12% 0.8%, 15% 1.5%, 18% 0.5%, 22% 1%, 
+    25% 0.8%, 30% 1.2%, 35% 0.5%, 40% 1%, 45% 0.8%, 50% 1.2%, 55% 0.5%, 60% 1%, 
+    65% 0.8%, 70% 1.5%, 75% 0.5%, 80% 1.2%, 85% 0.8%, 90% 1%, 95% 0.5%, 98% 1%, 100% 2%,
+    100% 98%, 99% 100%, 97% 99%, 95% 99.5%, 92% 99%, 88% 99.5%, 85% 98.5%, 82% 99.5%, 78% 99%,
+    75% 99.2%, 70% 98.8%, 65% 99.5%, 60% 99%, 55% 99.2%, 50% 98.8%, 45% 99.5%, 40% 99%,
+    35% 99.5%, 30% 98.8%, 25% 99.2%, 20% 99.5%, 15% 99%, 10% 99.5%, 5% 99%, 2% 99.5%, 0% 98%
+  );
+  
   overflow: hidden;
+  position: relative;
+  
   /* Compose transforms so we never lose the base translate */
   --rot: 0deg;
   --base-transform: translate3d(0,0,0) rotate(var(--rot));
   transform: var(--base-transform);
-  transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease;
+  transition: transform 220ms ease, box-shadow 220ms ease;
+}
+
+/* Coffee stains overlay for each slab */
+.slab::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image:
+    /* Large irregular coffee stains with spills */
+    radial-gradient(ellipse 80px 95px at 82% 18%, rgba(101, 67, 33, 0.35) 0%, rgba(101, 67, 33, 0.2) 35%, transparent 60%),
+    radial-gradient(ellipse 45px 60px at 85% 16%, rgba(101, 67, 33, 0.28) 0%, transparent 55%),
+    
+    /* Medium irregular stains */
+    radial-gradient(ellipse 65px 48px at 22% 28%, rgba(101, 67, 33, 0.3) 0%, rgba(101, 67, 33, 0.15) 40%, transparent 65%),
+    
+    /* Small random spatter marks */
+    radial-gradient(ellipse 28px 35px at 42% 15%, rgba(101, 67, 33, 0.22) 0%, transparent 65%),
+    radial-gradient(circle 18px at 58% 25%, rgba(101, 67, 33, 0.18) 0%, transparent 70%),
+    radial-gradient(ellipse 32px 24px at 35% 48%, rgba(101, 67, 33, 0.2) 0%, transparent 68%),
+    radial-gradient(circle 22px at 68% 55%, rgba(101, 67, 33, 0.19) 0%, transparent 72%),
+    
+    /* Tiny speckles */
+    radial-gradient(circle 8px at 25% 18%, rgba(101, 67, 33, 0.25) 0%, transparent 80%),
+    radial-gradient(circle 6px at 55% 38%, rgba(101, 67, 33, 0.22) 0%, transparent 85%),
+    radial-gradient(circle 10px at 65% 68%, rgba(101, 67, 33, 0.2) 0%, transparent 80%),
+    
+    /* Edge wear */
+    linear-gradient(to right, rgba(101, 67, 33, 0.25) 0%, rgba(101, 67, 33, 0.08) 6%, transparent 12%),
+    linear-gradient(to left, rgba(101, 67, 33, 0.2) 0%, rgba(101, 67, 33, 0.06) 4%, transparent 8%),
+    linear-gradient(to bottom, rgba(101, 67, 33, 0.22) 0%, rgba(101, 67, 33, 0.05) 5%, transparent 10%),
+    linear-gradient(to top, rgba(101, 67, 33, 0.25) 0%, rgba(101, 67, 33, 0.08) 6%, transparent 12%);
+  pointer-events: none;
+  border-radius: 
+    8px 3px 12px 5px / 5px 10px 7px 15px;
+  clip-path: polygon(
+    0% 2%, 1% 0%, 3% 1%, 5% 0.5%, 8% 1%, 12% 0.8%, 15% 1.5%, 18% 0.5%, 22% 1%, 
+    25% 0.8%, 30% 1.2%, 35% 0.5%, 40% 1%, 45% 0.8%, 50% 1.2%, 55% 0.5%, 60% 1%, 
+    65% 0.8%, 70% 1.5%, 75% 0.5%, 80% 1.2%, 85% 0.8%, 90% 1%, 95% 0.5%, 98% 1%, 100% 2%,
+    100% 98%, 99% 100%, 97% 99%, 95% 99.5%, 92% 99%, 88% 99.5%, 85% 98.5%, 82% 99.5%, 78% 99%,
+    75% 99.2%, 70% 98.8%, 65% 99.5%, 60% 99%, 55% 99.2%, 50% 98.8%, 45% 99.5%, 40% 99%,
+    35% 99.5%, 30% 98.8%, 25% 99.2%, 20% 99.5%, 15% 99%, 10% 99.5%, 5% 99%, 2% 99.5%, 0% 98%
+  );
 }
 
 .slab:hover {
   transform: var(--base-transform) scale(1.02);
-  border-color: rgba(45,212,175,0.35);
   box-shadow: 
-    0 0 0 1px rgba(45,212,175,0.25) inset, 
-    0 20px 50px rgba(0,0,0,0.6);
+    0 15px 50px rgba(0, 0, 0, 0.6),
+    inset 0 0 120px rgba(101, 67, 33, 0.35),
+    inset -20px 0 40px rgba(101, 67, 33, 0.25);
 }
 
 .slab h2,
 .slab h3 {
   margin: 0 0 6px;
-  color: var(--bone);
-  text-shadow: 0 0 16px rgba(45,212,175,0.18);
+  color: #2A251F;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
   font-size: clamp(14px, 1.4vw, 18px);
+  position: relative;
+  z-index: 1;
 }
 
 .slab p,
 .slab li {
   font-size: clamp(11px, 1.05vw, 13px);
   line-height: 1.35;
+  color: #3A3530;
+  position: relative;
+  z-index: 1;
 }
 
 .slab ul {
   margin: 0;
   padding-left: 1.1em;
+  position: relative;
+  z-index: 1;
 }
 
 .kv {
@@ -192,6 +306,8 @@
   padding: 0;
   display: grid;
   gap: 8px;
+  position: relative;
+  z-index: 1;
 }
 
 .kv li {
@@ -199,21 +315,22 @@
   justify-content: space-between;
   gap: 12px;
   font-size: clamp(10px, 1vw, 12px);
+  color: #3A3530;
 }
 
 .kv li span:first-child {
-  color: rgba(232,232,234,0.55);
+  color: #5A5040;
 }
 
 .kv a {
-  color: var(--bone);
+  color: #2A251F;
   text-decoration: none;
-  border-bottom: 1px dashed rgba(45,212,175,0.35);
+  border-bottom: 1px dashed rgba(101, 67, 33, 0.4);
 }
 
 .kv a:hover {
-  color: var(--decay-green);
-  border-bottom-color: var(--decay-green);
+  color: #654321;
+  border-bottom-color: #654321;
 }
 
 /* Place the slabs around the ring */
@@ -261,7 +378,7 @@
   --base-transform: translateX(-50%) rotate(var(--rot));
 }
 
-/* Tech stack list styling */
+/* Tech stack list styling - notebook aesthetic */
 .tech-stack {
   list-style: none;
   padding: 0;
@@ -271,93 +388,56 @@
   gap: 6px;
   font-size: clamp(10px, 1.1vw, 13px);
   line-height: 1.3;
+  position: relative;
+  z-index: 1;
 }
 
 .tech-stack li {
   display: inline-block;
   padding: 4px 10px;
-  background: rgba(139,99,49,0.12);
-  border: 1px solid rgba(57,39,20,0.25);
-  border-radius: 4px;
-  color: #2a2216;
-  font-weight: 500;
+  background: rgba(101, 67, 33, 0.15);
+  border: 1px solid rgba(101, 67, 33, 0.3);
+  border-radius: 3px;
+  color: #2A251F;
+  font-weight: 400;
   transition: all 0.2s ease;
 }
 
 .tech-stack li:hover {
-  background: rgba(139,99,49,0.2);
-  border-color: rgba(57,39,20,0.4);
+  background: rgba(101, 67, 33, 0.25);
+  border-color: rgba(101, 67, 33, 0.5);
   transform: translateY(-1px);
 }
 
 button.ghost {
   margin-top: 10px;
-  background: transparent;
-  color: rgba(232,232,234,0.82);
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 12px;
+  background: rgba(101, 67, 33, 0.1);
+  color: #2A251F;
+  border: 1px solid rgba(101, 67, 33, 0.3);
+  border-radius: 4px;
   padding: 8px 12px;
   cursor: var(--cursor-spore), pointer;
   font-family: inherit;
   font-size: clamp(10px, 1vw, 12px);
   transition: all 0.3s ease;
+  position: relative;
+  z-index: 1;
 }
 
 button.ghost:hover {
-  border-color: rgba(45,212,175,0.45);
-  color: var(--bone);
+  border-color: rgba(101, 67, 33, 0.5);
+  background: rgba(101, 67, 33, 0.2);
+  color: #1A1510;
 }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   ABOUT "PAPER" LOOK — necrography parchment, decomposing edges
-   (Scoped to the altar-screen so other sections can reuse .slab)
+   OLD PAPER STYLE - DISABLED (using notebook aesthetic in .slab now)
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
-.altar-screen .paper,
-.paper.paper-open{
-  /* Old parchment base */
-  color: #1e1a14;
-  background:
-    /* stains + sun-fade */
-    radial-gradient(120% 90% at 12% -10%, rgba(139,99,49,.18) 0%, transparent 52%),
-    radial-gradient(140% 120% at 110% 110%, rgba(78,55,28,.18) 0%, transparent 58%),
-    /* faint vertical fiber lines */
-    repeating-linear-gradient(90deg, rgba(0,0,0,.06) 0 1px, transparent 1px 5px),
-    /* pulp variation */
-    radial-gradient(100% 100% at 40% 35%, rgba(255,255,255,.18), rgba(0,0,0,.08)),
-    /* parchment tint */
-    #ede5cf;
-  border: 1px solid rgba(57,39,20,.45);
-  box-shadow:
-    0 0 0 1px rgba(255,255,255,.06) inset,
-    0 12px 30px rgba(0,0,0,.45),
-    0 2px 0 rgba(0,0,0,.35) inset;
-  /* Use % sizes so tears/rot scale with the element (fixes different shape when enlarged) */
-  -webkit-mask-image:
-    radial-gradient(8% 5% at 6% 8%, transparent 0 58%, black 62%),
-    radial-gradient(6% 4.5% at 94% 7%, transparent 0 58%, black 62%),
-    radial-gradient(9% 6% at 93% 92%, transparent 0 58%, black 62%),
-    radial-gradient(7% 5% at 7% 86%, transparent 0 58%, black 62%),
-    radial-gradient(4.6% 3% at 18% 50%, transparent 0 50%, black 54%),
-    radial-gradient(4% 3% at 82% 42%, transparent 0 48%, black 52%),
-    linear-gradient(black, black);
-  -webkit-mask-composite: source-over, source-over, source-over, source-over, source-over, source-over, destination-in;
-  mask-image:
-    radial-gradient(8% 5% at 6% 8%, transparent 0 58%, black 62%),
-    radial-gradient(6% 4.5% at 94% 7%, transparent 0 58%, black 62%),
-    radial-gradient(9% 6% at 93% 92%, transparent 0 58%, black 62%),
-    radial-gradient(7% 5% at 7% 86%, transparent 0 58%, black 62%),
-    radial-gradient(4.6% 3% at 18% 50%, transparent 0 50%, black 54%),
-    radial-gradient(4% 3% at 82% 42%, transparent 0 48%, black 52%),
-    linear-gradient(black, black);
-  mask-composite: intersect; /* best-effort cross-browser */
-  cursor: inherit; /* keep your glowing dot; no magnifying glass */
-  /* smooth transform animation for pick-up effect */
-  transition: transform 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
-}
+/* .altar-screen .paper styles moved to .slab with notebook aesthetic */
 
-/* Crisp text rendering for magnified cards */
-.paper.paper-open,
-.paper.paper-open *{
+/* Crisp text rendering for all slabs */
+.slab,
+.slab *{
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -366,49 +446,9 @@ button.ghost:hover {
   transform-style: preserve-3d;
 }
 
-.altar-screen .paper h2,
-.altar-screen .paper h3,
-.paper.paper-open h2,
-.paper.paper-open h3{
-  color:#1b170f;
-  text-shadow:none;
-  font-family: 'Special Elite', ui-serif, system-ui;
-}
-.altar-screen .paper p,
-.altar-screen .paper li,
-.paper.paper-open p,
-.paper.paper-open li{
-  color:#1f1a13;
-}
-/* Burnt edge + mycelial creep overlay */
-.altar-screen .paper::before,
-.paper.paper-open::before{
-  content:""; position:absolute; inset:-1px; pointer-events:none;
-  background:
-    /* burnt rim */
-    radial-gradient(100% 30% at 50% 0%, rgba(0,0,0,.18), transparent 60%),
-    radial-gradient(90% 26% at 50% 100%, rgba(0,0,0,.18), transparent 62%),
-    radial-gradient(40% 100% at 0% 50%, rgba(0,0,0,.12), transparent 60%),
-    radial-gradient(40% 100% at 100% 50%, rgba(0,0,0,.12), transparent 60%);
-  mix-blend-mode:multiply; opacity:.55;
-}
-.altar-screen .paper::after,
-.paper.paper-open::after{
-  /* hyphae: faint green filaments "eating" the paper from edges */
-  content:""; position:absolute; inset:0; pointer-events:none;
-  background:
-    radial-gradient(120px 60px at 12% 8%, rgba(45,212,175,.18), transparent 70%),
-    radial-gradient(100px 40px at 88% 10%, rgba(45,212,175,.14), transparent 70%),
-    radial-gradient(120px 60px at 90% 88%, rgba(45,212,175,.14), transparent 70%),
-    radial-gradient(100px 40px at 10% 86%, rgba(45,212,175,.14), transparent 70%);
-  filter: blur(.2px) contrast(110%);
-  opacity:.7;
-}
-/* Hover lift remains subtle on paper */
-.altar-screen .paper:hover{
-  border-color: rgba(57,39,20,.6);
-  box-shadow: 0 0 0 1px rgba(57,39,20,.6) inset, 0 20px 50px rgba(0,0,0,.5);
-}
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   PAPER INTERACTION SYSTEM (kept for click/hover behavior)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
 /* ── Focused reading mode (zoom paper to center + dim rest) ── */
 /* Global backdrop (full viewport, unaffected by transformed ancestors) */
@@ -432,13 +472,20 @@ button.ghost:hover {
   transform-origin: center center;
   will-change: transform;
   cursor: inherit;
-  box-shadow: 0 0 0 1px rgba(57,39,20,.65) inset, 0 26px 80px rgba(0,0,0,.65);
+  box-shadow: 
+    0 15px 60px rgba(0, 0, 0, 0.7),
+    inset 0 0 140px rgba(101, 67, 33, 0.35),
+    inset -20px 0 50px rgba(101, 67, 33, 0.25);
 }
 /* Prevent hover from nudging the enlarged paper */
 .paper.paper-open:hover{
   transform: translate(var(--open-tx,0), var(--open-ty,0))
              scale(var(--open-scale,1))
              rotate(var(--rot,0deg)) !important;
+  box-shadow: 
+    0 20px 70px rgba(0, 0, 0, 0.8),
+    inset 0 0 140px rgba(101, 67, 33, 0.4),
+    inset -20px 0 50px rgba(101, 67, 33, 0.3);
 }
 
 /* Tiny breathing ring around your glowing dot when a paper is hoverable */
@@ -447,8 +494,8 @@ button.ghost:hover {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  border: 1px solid rgba(45,212,175,0.9);
-  box-shadow: 0 0 6px rgba(45,212,175,0.55);
+  border: 1px solid rgba(101, 67, 33, 0.7);
+  box-shadow: 0 0 6px rgba(101, 67, 33, 0.5);
   pointer-events: none;
   z-index: 100;
   opacity: 0;
