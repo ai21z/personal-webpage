@@ -10,6 +10,7 @@
 // ━━━ Module Imports ━━━
 import { sizeCanvas, cumulativeLengths, pointAt, approach } from './utils.js';
 import { buildGraphFromPaths, aStarPath } from './graph.js';
+import { initProjectsWheel } from './projects-wheel.js';
 import {
   RITUAL_RETURN_MS,
   NAV_SPEED_WHEN_ACTIVE,
@@ -870,6 +871,7 @@ document.addEventListener('click', (e) => {
 // ━━━ About: Paper focus (zoom to center + backdrop dim) ━━━
 initAboutPaperFocus();
 initSkillsPaperFocus();
+initProjectsWheel();
 initPaperHoverRing();
 
 /**

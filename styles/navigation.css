@@ -125,6 +125,13 @@
   pointer-events: none !important;
 }
 
+/* Dim navigation when ritual wheel jar is magnified */
+body.has-paper-open-global #network-nav {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 300ms ease;
+}
+
 /* ━━━ Responsive ━━━ */
 @media (max-width: 900px){
   .network-node-label{

@@ -95,8 +95,9 @@ export function showSection(sectionName, startRitualBackground, stopRitualBackgr
   document.documentElement.style.overflow = isPanel ? 'hidden' : '';
   document.body.style.overflow = isPanel ? 'hidden' : '';
   
-  // Toggle nav suppression + ritual background
-  document.body.classList.toggle('nav-suppressed', !!isPanel);
+  // Toggle nav suppression for panel screens OR projects page
+  const shouldSuppressNav = isPanel || sectionName === 'projects';
+  document.body.classList.toggle('nav-suppressed', shouldSuppressNav);
   if (isPanel) {
     startRitualBackground();
   } else {
