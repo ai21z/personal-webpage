@@ -586,7 +586,7 @@ void main() {
   
   // Pulsing size based on life and phase
   float pulse = sin(uTime * 3.0 + phase * 6.28) * 0.3 + 0.7;
-  gl_PointSize = size * (8.0 + 4.0 * pulse) * life * life; // Fade as they die
+  gl_PointSize = size * (4.0 + 2.0 * pulse) * life * life; // Smaller particles (was 8.0 + 4.0)
   
   gl_Position = uProjection * viewPos;
 }
@@ -993,7 +993,7 @@ class SporeSystem {
   emitBurst(originPositions, intensity = 1.0) {
     if (this.emissionCooldown > 0) return; // Prevent spam
     
-    const particlesPerOrigin = Math.floor(15 + intensity * 25); // 15-40 per burst
+    const particlesPerOrigin = Math.floor(40 + intensity * 60); // 40-100 per burst (more particles!)
     const emitted = [];
     
     for (const origin of originPositions) {
@@ -1004,23 +1004,23 @@ class SporeSystem {
         // Spherical explosion pattern
         const theta = Math.random() * Math.PI * 2;
         const phi = Math.acos(Math.random() * 2 - 1);
-        const speed = 0.5 + Math.random() * 1.5; // Explosive velocity
+        const speed = Math.random() * 1.0; // Velocity down to 1
         
         particle.position = [...origin];
         particle.velocity = [
           Math.sin(phi) * Math.cos(theta) * speed,
-          Math.sin(phi) * Math.sin(theta) * speed + 0.3, // Slight upward bias
+          Math.sin(phi) * Math.sin(theta) * speed + 0.25, // Upward bias 0.25
           Math.cos(phi) * speed
         ];
         particle.life = 1.0;
-        particle.size = 0.8 + Math.random() * 0.4;
+        particle.size = 0.3 + Math.random() * 0.3; // Smaller particles (was 0.8-1.2)
         particle.active = true;
         
         emitted.push(particle);
       }
     }
     
-    this.emissionCooldown = 0.3; // 300ms cooldown between bursts
+    this.emissionCooldown = 0.14; // 140ms cooldown
     return emitted.length;
   }
   
@@ -1029,14 +1029,14 @@ class SporeSystem {
   }
   
   update(dt, lightningIntensity = 0) {
-    // Detect lightning strikes (rising edge)
-    if (lightningIntensity > 0.7 && this.lastLightningIntensity < 0.3) {
+    // Detect lightning strikes (more sensitive trigger for frequent bursts)
+    if (lightningIntensity > 0.5 && this.lastLightningIntensity < 0.4) {
       // Get mycelium branch tip positions (sample from actual geometry)
       const tipPositions = this.getMyceliumTips();
       if (tipPositions.length > 0) {
         const numEmitted = this.emitBurst(tipPositions, lightningIntensity);
         if (numEmitted > 0) {
-          console.log(`⚡ [Spores] Lightning strike! Emitted ${numEmitted} spores`);
+          console.log(`⚡ [Spores] Lightning strike! Emitted ${numEmitted} spores from ${tipPositions.length} points`);
         }
       }
     }
@@ -1054,15 +1054,15 @@ class SporeSystem {
       if (!p.active) continue;
       
       // Update life
-      p.life -= dt * 0.4; // 2.5 second lifetime
+      p.life -= dt * 0.25; // 4 second lifetime (was 2.5) for bigger travel distance
       if (p.life <= 0) {
         p.active = false;
         continue;
       }
       
       // Apply physics
-      p.velocity[1] -= dt * 0.8; // Gravity
-      p.velocity[0] *= 0.98; // Drag
+      p.velocity[1] -= dt * 0.8; // Gravity 0.8 (restored to original)
+      p.velocity[0] *= 0.98; // Drag 0.98 (restored to original)
       p.velocity[1] *= 0.98;
       p.velocity[2] *= 0.98;
       
@@ -1434,8 +1434,8 @@ export function initWorkGlobe() {
   
   console.log(`[Work Globe] Created mycelium network: ${mycelium.stats.paths} paths, ${mycelium.stats.segments} segments`);
 
-  // Initialize spore particle system
-  sporeSystem = new SporeSystem(gl, 2000);
+  // Initialize spore particle system (increased capacity for more particles)
+  sporeSystem = new SporeSystem(gl, 4000);
   console.log('[Work Globe] Spore particle system initialized');
 
   // Setup matrices
