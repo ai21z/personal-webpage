@@ -174,8 +174,10 @@ const mat4 = {
 
 // ━━━ GLOBE STATE ━━━
 let gl, canvas;
-let globeProgram, atmosphereProgram, fogProgram, lightningProgram;
+let globeProgram, atmosphereProgram, fogProgram, lightningProgram, myceliumProgram, myceliumCoreProgram, sporeProgram;
 let globeVAO, sphereVertexCount;
+let myceliumVAO, myceliumVertexCount, myceliumGrowthTime = 0;
+let sporeSystem = null;
 let projectionMatrix, viewMatrix, modelMatrix;
 let rotation = { x: 0, y: 0 };
 let rotationVelocity = { x: 0, y: 0 };
@@ -426,6 +428,205 @@ void main() {
 }
 `;
 
+// ━━━ MYCELIUM HYPHAE SHADERS (Body + Core Split) ━━━
+const myceliumVertexShader = `#version 300 es
+precision highp float;
+
+layout(location = 0) in vec3 position;
+layout(location = 1) in vec3 normal;
+layout(location = 2) in vec2 uv;
+layout(location = 3) in float age;
+
+out vec3 vNormal;
+out vec3 vPosition;
+out vec2 vUv;
+out float vAge;
+out float vDepth;
+
+uniform mat4 uProjection;
+uniform mat4 uView;
+uniform mat4 uModel;
+uniform float uTime;
+uniform float uGrowthTime; // Animated reveal
+
+void main() {
+  vNormal = normalize(mat3(uModel) * normal);
+  vPosition = (uModel * vec4(position, 1.0)).xyz;
+  vUv = uv;
+  vAge = age;
+  
+  vec4 viewPos = uView * uModel * vec4(position, 1.0);
+  vDepth = -viewPos.z;
+  
+  gl_Position = uProjection * viewPos;
+}
+`;
+
+const myceliumFragmentShader = `#version 300 es
+precision highp float;
+
+in vec3 vNormal;
+in vec3 vPosition;
+in vec2 vUv;
+in float vAge;
+in float vDepth;
+
+out vec4 fragColor;
+
+uniform float uTime;
+uniform vec3 uBodyColor;      // Dark fibrous base
+uniform vec3 uCoreColor;      // Subtle core glint
+uniform float uCoreGain;      // Core intensity (≤0.18)
+uniform float uGrowthTime;    // Growth reveal
+uniform float uOpacityNoise;  // Micro-noise modulation
+
+// Simple noise for opacity variation
+float hash(vec2 p) {
+  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+}
+
+void main() {
+  // Growth reveal: fade in based on age
+  float reveal = smoothstep(0.0, 50.0, uGrowthTime - vAge);
+  if (reveal < 0.01) discard;
+  
+  // Directional lighting (from upper-right)
+  vec3 lightDir = normalize(vec3(0.5, 0.5, 1.0));
+  float diffuse = max(dot(vNormal, lightDir), 0.0);
+  
+  // Ambient occlusion from radial UV
+  float ao = 0.6 + 0.4 * (1.0 - abs(vUv.x * 2.0 - 1.0));
+  
+  // Body color: dark fibrous mass
+  vec3 bodyLit = uBodyColor * (0.3 + diffuse * 0.5) * ao;
+  
+  // Core glint: only at centerline (vUv.x near 0.5 or 0.0/1.0 for wrapped)
+  float coreStrength = 1.0 - abs(vUv.x * 2.0 - 1.0); // Peaks at center
+  coreStrength = pow(coreStrength, 4.0); // Narrow core
+  vec3 coreGlint = uCoreColor * coreStrength * uCoreGain;
+  
+  // Micro-noise opacity modulation (2-3%)
+  float opacityNoise = hash(vPosition.xy * 100.0) * uOpacityNoise;
+  float baseAlpha = 0.70 + opacityNoise;
+  
+  // Depth fade
+  float depthFade = smoothstep(800.0, 300.0, vDepth);
+  
+  // Final: body (alpha) + core (will be additive in separate pass)
+  vec3 finalColor = bodyLit;
+  float alpha = baseAlpha * depthFade * reveal;
+  
+  fragColor = vec4(finalColor, alpha);
+}
+`;
+
+// Core glint shader (additive pass for centerline)
+const myceliumCoreFragmentShader = `#version 300 es
+precision highp float;
+
+in vec3 vNormal;
+in vec3 vPosition;
+in vec2 vUv;
+in float vAge;
+in float vDepth;
+
+out vec4 fragColor;
+
+uniform float uTime;
+uniform vec3 uCoreColor;
+uniform float uCoreGain;
+uniform float uGrowthTime;
+
+void main() {
+  // Growth reveal
+  float reveal = smoothstep(0.0, 50.0, uGrowthTime - vAge);
+  if (reveal < 0.01) discard;
+  
+  // Core only at centerline
+  float coreStrength = 1.0 - abs(vUv.x * 2.0 - 1.0);
+  coreStrength = pow(coreStrength, 6.0); // Very narrow line
+  
+  // Pulse at tips (high age)
+  float tipPulse = smoothstep(100.0, 150.0, vAge) * (sin(uTime * 2.0) * 0.3 + 0.7);
+  
+  vec3 emissive = uCoreColor * coreStrength * uCoreGain * (0.5 + tipPulse * 0.5);
+  
+  fragColor = vec4(emissive, 1.0);
+}
+`;
+
+// ━━━ SPORE PARTICLE SHADERS ━━━
+const sporeVertexShader = `#version 300 es
+precision highp float;
+
+// Per-vertex attributes
+layout(location = 0) in vec3 position;  // Particle position
+layout(location = 1) in vec3 velocity;  // Particle velocity
+layout(location = 2) in float life;     // Particle life (0-1)
+layout(location = 3) in float size;     // Particle size
+layout(location = 4) in float phase;    // Random phase for variation
+
+out float vLife;
+out float vPhase;
+
+uniform mat4 uProjection;
+uniform mat4 uView;
+uniform mat4 uModel;
+uniform float uTime;
+
+void main() {
+  vLife = life;
+  vPhase = phase;
+  
+  // Apply physics (gravity, drag)
+  vec3 pos = position;
+  pos.y -= 0.5 * (1.0 - life) * (1.0 - life); // Gravity falloff
+  
+  vec4 viewPos = uView * uModel * vec4(pos, 1.0);
+  
+  // Pulsing size based on life and phase
+  float pulse = sin(uTime * 3.0 + phase * 6.28) * 0.3 + 0.7;
+  gl_PointSize = size * (8.0 + 4.0 * pulse) * life * life; // Fade as they die
+  
+  gl_Position = uProjection * viewPos;
+}
+`;
+
+const sporeFragmentShader = `#version 300 es
+precision highp float;
+
+in float vLife;
+in float vPhase;
+
+out vec4 fragColor;
+
+uniform float uTime;
+uniform vec3 uSporeColor;    // Decay-green color
+uniform vec3 uEmberColor;    // Bright ember color for core
+
+void main() {
+  // Distance from center of point sprite
+  vec2 coord = gl_PointCoord - vec2(0.5);
+  float dist = length(coord);
+  
+  // Soft circular falloff
+  if (dist > 0.5) discard;
+  
+  float alpha = smoothstep(0.5, 0.0, dist) * vLife;
+  
+  // Pulsing glow
+  float pulse = sin(uTime * 4.0 + vPhase * 6.28) * 0.3 + 0.7;
+  
+  // Two-tone: dark edge, bright core (like your spore rendering)
+  vec3 edgeColor = uSporeColor * 0.6;
+  vec3 coreColor = mix(uSporeColor, uEmberColor, 0.3);
+  vec3 color = mix(edgeColor, coreColor, 1.0 - dist * 2.0);
+  
+  // Additive blending will be enabled
+  fragColor = vec4(color * pulse, alpha);
+}
+`;
+
 // ━━━ GEOMETRY GENERATION ━━━
 function createSphereGeometry(radius, segments, rings) {
   const positions = [];
@@ -460,8 +661,9 @@ function createSphereGeometry(radius, segments, rings) {
       const a = ring * (segments + 1) + seg;
       const b = a + segments + 1;
 
-      indices.push(a, b, a + 1);
-      indices.push(b, b + 1, a + 1);
+      // Reverse winding order for outward-facing triangles (CW when viewed from outside)
+      indices.push(a, a + 1, b);
+      indices.push(b, a + 1, b + 1);
     }
   }
 
@@ -471,6 +673,476 @@ function createSphereGeometry(radius, segments, rings) {
     uvs: new Float32Array(uvs),
     indices: new Uint16Array(indices)
   };
+}
+
+// ━━━ MYCELIUM HYPHAE GENERATOR ━━━
+// Noise-advected surface paths with branching, merging, and tapering
+
+// Simple 2D Perlin-like noise for direction field
+function noise2D(x, y) {
+  // Simple pseudo-random noise (deterministic)
+  const n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
+  return n - Math.floor(n);
+}
+
+function fbmNoise(lon, lat, octaves = 3) {
+  let value = 0;
+  let amplitude = 1.0;
+  let frequency = 1.0;
+  
+  for (let i = 0; i < octaves; i++) {
+    value += amplitude * (noise2D(lon * frequency, lat * frequency) * 2 - 1);
+    amplitude *= 0.5;
+    frequency *= 2.0;
+  }
+  
+  return value;
+}
+
+function createMyceliumHyphae(radius, seeds, options = {}) {
+  const {
+    landBias = 0.15,          // Bias toward land (not implemented yet - optional)
+    stepSize = 0.008,          // Radians per step (~0.5 degrees)
+    minLength = 120,
+    maxLength = 220,
+    branchProb = 0.08,         // 8% chance per segment
+    killRadius = 0.025,        // Stop when near existing path
+    mergeRadius = 0.015,       // Merge when very close
+    widthBase = 0.010,         // Base strand width
+    widthNode = 0.016,         // Width at branch nodes
+    tubeSegments = 6           // Cross-section resolution
+  } = options;
+  
+  const paths = [];           // All generated paths
+  const occupancyGrid = [];   // Spatial hash for kill/merge detection
+  
+  // Helper: Convert lat/lon to grid cell
+  function toGridKey(lat, lon) {
+    const gridSize = 20; // 20x20 degree cells
+    const latCell = Math.floor((lat + Math.PI/2) / (Math.PI / gridSize));
+    const lonCell = Math.floor((lon + Math.PI) / (Math.PI * 2 / (gridSize * 2)));
+    return `${latCell},${lonCell}`;
+  }
+  
+  // Helper: Check if position is near existing path
+  function isNearPath(lat, lon, checkRadius) {
+    const key = toGridKey(lat, lon);
+    const nearby = occupancyGrid[key] || [];
+    
+    for (const point of nearby) {
+      const dlat = lat - point.lat;
+      const dlon = lon - point.lon;
+      const dist = Math.sqrt(dlat * dlat + dlon * dlon);
+      if (dist < checkRadius) {
+        return point;
+      }
+    }
+    return null;
+  }
+  
+  // Helper: Add point to occupancy grid
+  function addToGrid(lat, lon, pathId, segmentId) {
+    const key = toGridKey(lat, lon);
+    if (!occupancyGrid[key]) occupancyGrid[key] = [];
+    occupancyGrid[key].push({ lat, lon, pathId, segmentId });
+  }
+  
+  // Generate a single path with noise-advected growth
+  function growPath(startLat, startLon, initialDir, pathId, depth = 0, maxDepth = 2) {
+    // Prevent infinite recursion
+    if (depth > maxDepth) return { segments: [], killed: false, pathId };
+    
+    const segments = [];
+    let lat = startLat;
+    let lon = startLon;
+    let direction = initialDir;
+    let age = 0;
+    let width = widthBase;
+    let killed = false;
+    
+    const length = minLength + Math.floor(Math.random() * (maxLength - minLength));
+    
+    for (let step = 0; step < length && !killed; step++) {
+      // Sample noise field for direction advection
+      const noiseVal = fbmNoise(lon * 3, lat * 3, 3);
+      const noiseAngle = noiseVal * Math.PI * 0.3; // ±54 degrees influence
+      
+      // Advect direction
+      direction += noiseAngle * 0.15 + (Math.random() - 0.5) * 0.1;
+      
+      // Move along direction
+      const dlat = Math.sin(direction) * stepSize;
+      const dlon = Math.cos(direction) * stepSize / Math.max(Math.cos(lat), 0.3); // Adjust for latitude compression
+      
+      lat += dlat;
+      lon += dlon;
+      
+      // Wrap longitude
+      if (lon > Math.PI) lon -= Math.PI * 2;
+      if (lon < -Math.PI) lon += Math.PI * 2;
+      
+      // Clamp latitude (avoid poles)
+      lat = Math.max(-Math.PI * 0.45, Math.min(Math.PI * 0.45, lat));
+      
+      // Check for kill condition
+      const nearPoint = isNearPath(lat, lon, killRadius);
+      if (nearPoint && nearPoint.pathId !== pathId) {
+        killed = true;
+        // Mark as merge point if very close
+        if (isNearPath(lat, lon, mergeRadius)) {
+          width = widthNode; // Swell at merge
+        }
+        break;
+      }
+      
+      // Taper width toward tip
+      const tipTaper = 1.0 - (step / length) * 0.7; // 70% thinner at tip
+      const currentWidth = width * tipTaper;
+      
+      // Convert to 3D position - match sphere geometry coordinate system
+      // Lat: -π/2 (south) to +π/2 (north), Lon: -π to +π (wraps at date line)
+      const r = radius * 1.008; // Very close to surface (0.8% above)
+      const x = r * Math.cos(lat) * Math.cos(lon);
+      const y = r * Math.sin(lat);
+      const z = r * Math.cos(lat) * Math.sin(lon);
+      
+      segments.push({ x, y, z, lat, lon, width: currentWidth, age: age++ });
+      addToGrid(lat, lon, pathId, segments.length - 1);
+      
+      // Branching (only if not at max depth)
+      if (depth < maxDepth && step > 10 && step < length - 10 && Math.random() < branchProb) {
+        // Spawn sub-branch with wide angle
+        const branchAngle = direction + (Math.random() - 0.5) * Math.PI * 0.6; // ±108 degrees
+        const branchLength = Math.floor(length * (0.4 + Math.random() * 0.3));
+        const subPath = growPath(lat, lon, branchAngle, paths.length, depth + 1, maxDepth);
+        if (subPath.segments.length > 5) {
+          paths.push(subPath);
+        }
+        // Mark branch node with wider width
+        segments[segments.length - 1].width = widthNode;
+      }
+    }
+    
+    return { segments, killed, pathId };
+  }
+  
+  // Grow from all seed points
+  seeds.forEach((seed, i) => {
+    const { lat, lon } = seed;
+    // Spawn 3-5 main branches from each seed
+    const numBranches = 3 + Math.floor(Math.random() * 3);
+    for (let b = 0; b < numBranches; b++) {
+      const direction = (b / numBranches) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
+      const path = growPath(lat, lon, direction, paths.length, 0, 2); // Start at depth 0, max depth 2
+      if (path.segments.length > 5) {
+        paths.push(path);
+      }
+    }
+  });
+  
+  // Build tube geometry from all paths
+  const positions = [];
+  const normals = [];
+  const uvs = [];
+  const indices = [];
+  const ages = []; // Per-vertex age for animation
+  
+  paths.forEach(path => {
+    if (path.segments.length < 2) return;
+    
+    const vertexOffset = positions.length / 3;
+    
+    path.segments.forEach((seg, i) => {
+      const t = i / (path.segments.length - 1);
+      
+      // Calculate tangent
+      let tangent = { x: 0, y: 0, z: 1 };
+      if (i < path.segments.length - 1) {
+        const next = path.segments[i + 1];
+        tangent.x = next.x - seg.x;
+        tangent.y = next.y - seg.y;
+        tangent.z = next.z - seg.z;
+        const tLen = Math.sqrt(tangent.x**2 + tangent.y**2 + tangent.z**2);
+        if (tLen > 0.001) {
+          tangent.x /= tLen;
+          tangent.y /= tLen;
+          tangent.z /= tLen;
+        }
+      }
+      
+      // Create cross-section ring
+      for (let s = 0; s < tubeSegments; s++) {
+        const angle = (s / tubeSegments) * Math.PI * 2;
+        
+        // Perpendicular vectors
+        const perpX = -tangent.z;
+        const perpZ = tangent.x;
+        const perpLen = Math.sqrt(perpX * perpX + perpZ * perpZ) || 1;
+        
+        const upX = perpX / perpLen;
+        const upY = 0;
+        const upZ = perpZ / perpLen;
+        
+        const rightX = tangent.y * upZ - tangent.z * upY;
+        const rightY = tangent.z * upX - tangent.x * upZ;
+        const rightZ = tangent.x * upY - tangent.y * upX;
+        
+        const r = seg.width;
+        const offsetX = (Math.cos(angle) * upX + Math.sin(angle) * rightX) * r;
+        const offsetY = (Math.cos(angle) * upY + Math.sin(angle) * rightY) * r;
+        const offsetZ = (Math.cos(angle) * upZ + Math.sin(angle) * rightZ) * r;
+        
+        positions.push(seg.x + offsetX, seg.y + offsetY, seg.z + offsetZ);
+        
+        const nLen = Math.sqrt(offsetX**2 + offsetY**2 + offsetZ**2) || 1;
+        normals.push(offsetX / nLen, offsetY / nLen, offsetZ / nLen);
+        
+        uvs.push(s / tubeSegments, t);
+        ages.push(seg.age); // Store age for growth animation
+      }
+      
+      // Create triangles
+      if (i > 0) {
+        for (let s = 0; s < tubeSegments; s++) {
+          const current = vertexOffset + i * tubeSegments + s;
+          const next = vertexOffset + i * tubeSegments + ((s + 1) % tubeSegments);
+          const prevCurrent = current - tubeSegments;
+          const prevNext = next - tubeSegments;
+          
+          indices.push(prevCurrent, current, prevNext);
+          indices.push(current, next, prevNext);
+        }
+      }
+    });
+  });
+  
+  console.log(`[Mycelium Generator] seeds=${seeds.length}, paths=${paths.length}, segments=${positions.length/3}, merges=${paths.filter(p => p.killed).length}`);
+  
+  return {
+    positions: new Float32Array(positions),
+    normals: new Float32Array(normals),
+    uvs: new Float32Array(uvs),
+    indices: new Uint16Array(indices),
+    ages: new Float32Array(ages),
+    stats: {
+      seeds: seeds.length,
+      paths: paths.length,
+      segments: positions.length / 3 / tubeSegments
+    }
+  };
+}
+
+// ━━━ SPORE PARTICLE SYSTEM ━━━
+class SporeSystem {
+  constructor(gl, maxParticles = 2000) {
+    this.gl = gl;
+    this.maxParticles = maxParticles;
+    this.activeParticles = 0;
+    this.particles = [];
+    this.lastLightningIntensity = 0;
+    this.emissionCooldown = 0;
+    
+    // Initialize particle pool
+    for (let i = 0; i < maxParticles; i++) {
+      this.particles.push({
+        position: [0, 0, 0],
+        velocity: [0, 0, 0],
+        life: 0,
+        size: 1,
+        phase: Math.random() * Math.PI * 2,
+        active: false
+      });
+    }
+    
+    // Create buffers
+    this.positionBuffer = gl.createBuffer();
+    this.velocityBuffer = gl.createBuffer();
+    this.lifeBuffer = gl.createBuffer();
+    this.sizeBuffer = gl.createBuffer();
+    this.phaseBuffer = gl.createBuffer();
+    
+    // Pre-allocate typed arrays
+    this.positionData = new Float32Array(maxParticles * 3);
+    this.velocityData = new Float32Array(maxParticles * 3);
+    this.lifeData = new Float32Array(maxParticles);
+    this.sizeData = new Float32Array(maxParticles);
+    this.phaseData = new Float32Array(maxParticles);
+    
+    // Create VAO
+    this.vao = gl.createVertexArray();
+    gl.bindVertexArray(this.vao);
+    
+    // Setup attributes
+    this.setupAttribute(this.positionBuffer, 0, 3, this.positionData);
+    this.setupAttribute(this.velocityBuffer, 1, 3, this.velocityData);
+    this.setupAttribute(this.lifeBuffer, 2, 1, this.lifeData);
+    this.setupAttribute(this.sizeBuffer, 3, 1, this.sizeData);
+    this.setupAttribute(this.phaseBuffer, 4, 1, this.phaseData);
+    
+    gl.bindVertexArray(null);
+  }
+  
+  setupAttribute(buffer, location, size, data) {
+    const gl = this.gl;
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW);
+    gl.enableVertexAttribArray(location);
+    gl.vertexAttribPointer(location, size, gl.FLOAT, false, 0, 0);
+  }
+  
+  emitBurst(originPositions, intensity = 1.0) {
+    if (this.emissionCooldown > 0) return; // Prevent spam
+    
+    const particlesPerOrigin = Math.floor(15 + intensity * 25); // 15-40 per burst
+    const emitted = [];
+    
+    for (const origin of originPositions) {
+      for (let i = 0; i < particlesPerOrigin; i++) {
+        const particle = this.getInactiveParticle();
+        if (!particle) break;
+        
+        // Spherical explosion pattern
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos(Math.random() * 2 - 1);
+        const speed = 0.5 + Math.random() * 1.5; // Explosive velocity
+        
+        particle.position = [...origin];
+        particle.velocity = [
+          Math.sin(phi) * Math.cos(theta) * speed,
+          Math.sin(phi) * Math.sin(theta) * speed + 0.3, // Slight upward bias
+          Math.cos(phi) * speed
+        ];
+        particle.life = 1.0;
+        particle.size = 0.8 + Math.random() * 0.4;
+        particle.active = true;
+        
+        emitted.push(particle);
+      }
+    }
+    
+    this.emissionCooldown = 0.3; // 300ms cooldown between bursts
+    return emitted.length;
+  }
+  
+  getInactiveParticle() {
+    return this.particles.find(p => !p.active);
+  }
+  
+  update(dt, lightningIntensity = 0) {
+    // Detect lightning strikes (rising edge)
+    if (lightningIntensity > 0.7 && this.lastLightningIntensity < 0.3) {
+      // Get mycelium branch tip positions (sample from actual geometry)
+      const tipPositions = this.getMyceliumTips();
+      if (tipPositions.length > 0) {
+        const numEmitted = this.emitBurst(tipPositions, lightningIntensity);
+        if (numEmitted > 0) {
+          console.log(`⚡ [Spores] Lightning strike! Emitted ${numEmitted} spores`);
+        }
+      }
+    }
+    this.lastLightningIntensity = lightningIntensity;
+    
+    // Update cooldown
+    if (this.emissionCooldown > 0) {
+      this.emissionCooldown -= dt;
+    }
+    
+    // Update physics for all particles
+    this.activeParticles = 0;
+    for (let i = 0; i < this.particles.length; i++) {
+      const p = this.particles[i];
+      if (!p.active) continue;
+      
+      // Update life
+      p.life -= dt * 0.4; // 2.5 second lifetime
+      if (p.life <= 0) {
+        p.active = false;
+        continue;
+      }
+      
+      // Apply physics
+      p.velocity[1] -= dt * 0.8; // Gravity
+      p.velocity[0] *= 0.98; // Drag
+      p.velocity[1] *= 0.98;
+      p.velocity[2] *= 0.98;
+      
+      // Update position
+      p.position[0] += p.velocity[0] * dt;
+      p.position[1] += p.velocity[1] * dt;
+      p.position[2] += p.velocity[2] * dt;
+      
+      // Copy to typed arrays
+      const idx = this.activeParticles * 3;
+      this.positionData[idx] = p.position[0];
+      this.positionData[idx + 1] = p.position[1];
+      this.positionData[idx + 2] = p.position[2];
+      
+      this.velocityData[idx] = p.velocity[0];
+      this.velocityData[idx + 1] = p.velocity[1];
+      this.velocityData[idx + 2] = p.velocity[2];
+      
+      this.lifeData[this.activeParticles] = p.life;
+      this.sizeData[this.activeParticles] = p.size;
+      this.phaseData[this.activeParticles] = p.phase;
+      
+      this.activeParticles++;
+    }
+    
+    // Update GPU buffers
+    if (this.activeParticles > 0) {
+      this.updateBuffers();
+    }
+  }
+  
+  updateBuffers() {
+    const gl = this.gl;
+    
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.positionData.subarray(0, this.activeParticles * 3));
+    
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.velocityBuffer);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.velocityData.subarray(0, this.activeParticles * 3));
+    
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.lifeBuffer);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.lifeData.subarray(0, this.activeParticles));
+    
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.sizeBuffer);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.sizeData.subarray(0, this.activeParticles));
+    
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.phaseBuffer);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.phaseData.subarray(0, this.activeParticles));
+  }
+  
+  getMyceliumTips() {
+    // Sample random positions from mycelium branches
+    // In real implementation, we'd track actual branch endpoints
+    const tips = [];
+    const numTips = 3 + Math.floor(Math.random() * 5); // 3-7 emission points
+    
+    for (let i = 0; i < numTips; i++) {
+      // Random positions on sphere surface (will be replaced with actual branch tips)
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(Math.random() * 2 - 1);
+      const r = 1.02; // Slightly above globe surface
+      
+      tips.push([
+        r * Math.cos(phi) * Math.cos(theta),
+        r * Math.sin(phi),
+        r * Math.cos(phi) * Math.sin(theta)
+      ]);
+    }
+    
+    return tips;
+  }
+  
+  render(program) {
+    if (this.activeParticles === 0) return;
+    
+    const gl = this.gl;
+    gl.bindVertexArray(this.vao);
+    gl.drawArrays(gl.POINTS, 0, this.activeParticles);
+    gl.bindVertexArray(null);
+  }
 }
 
 // ━━━ SHADER UTILITIES ━━━
@@ -632,10 +1304,62 @@ export function initWorkGlobe() {
     normal: 1,
     uv: 2
   });
+  
+  myceliumProgram = createProgram(gl, myceliumVertexShader, myceliumFragmentShader, {
+    position: 0,
+    normal: 1,
+    uv: 2,
+    age: 3
+  });
+  
+  myceliumCoreProgram = createProgram(gl, myceliumVertexShader, myceliumCoreFragmentShader, {
+    position: 0,
+    normal: 1,
+    uv: 2,
+    age: 3
+  });
+  
+  sporeProgram = createProgram(gl, sporeVertexShader, sporeFragmentShader, {
+    position: 0,
+    velocity: 1,
+    life: 2,
+    size: 3,
+    phase: 4
+  });
 
   // Create sphere geometry
   const sphere = createSphereGeometry(1.0, 40, 40);
   sphereVertexCount = sphere.indices.length;
+  
+  // Create mycelium hyphae network
+  // Convert degrees to radians: lat in [-π/2, π/2], lon in [-π, π]
+  const toRad = deg => deg * Math.PI / 180;
+  const myceliumSeeds = [
+    { lat: toRad(39.6), lon: toRad(22.4) },   // Larissa, Greece
+    { lat: toRad(41.4), lon: toRad(2.2) }     // Barcelona, Spain
+  ];
+  
+  // Add fewer random land seeds for cleaner look
+  for (let i = 0; i < 6; i++) {
+    myceliumSeeds.push({
+      lat: (Math.random() - 0.5) * Math.PI * 0.6,  // ±54 degrees (avoid poles)
+      lon: (Math.random() - 0.5) * Math.PI * 2     // ±180 degrees
+    });
+  }
+  
+  const mycelium = createMyceliumHyphae(1.0, myceliumSeeds, {
+    stepSize: 0.008,
+    minLength: 120,
+    maxLength: 220,
+    branchProb: 0.08,
+    killRadius: 0.025,
+    mergeRadius: 0.015,
+    widthBase: 0.010,
+    widthNode: 0.016,
+    tubeSegments: 6
+  });
+  
+  myceliumVertexCount = mycelium.indices.length;
 
   // Create VAO for globe
   globeVAO = gl.createVertexArray();
@@ -668,6 +1392,51 @@ export function initWorkGlobe() {
   gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, sphere.indices, gl.STATIC_DRAW);
 
   gl.bindVertexArray(null);
+  
+  // Create VAO for mycelium
+  myceliumVAO = gl.createVertexArray();
+  gl.bindVertexArray(myceliumVAO);
+  
+  // Position buffer
+  const myceliumPositionBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, myceliumPositionBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, mycelium.positions, gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(0);
+  gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+  
+  // Normal buffer
+  const myceliumNormalBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, myceliumNormalBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, mycelium.normals, gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(1);
+  gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 0, 0);
+  
+  // UV buffer
+  const myceliumUvBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, myceliumUvBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, mycelium.uvs, gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(2);
+  gl.vertexAttribPointer(2, 2, gl.FLOAT, false, 0, 0);
+  
+  // Age buffer (for growth animation)
+  const myceliumAgeBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, myceliumAgeBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, mycelium.ages, gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(3);
+  gl.vertexAttribPointer(3, 1, gl.FLOAT, false, 0, 0);
+  
+  // Index buffer
+  const myceliumIndexBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, myceliumIndexBuffer);
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, mycelium.indices, gl.STATIC_DRAW);
+  
+  gl.bindVertexArray(null);
+  
+  console.log(`[Work Globe] Created mycelium network: ${mycelium.stats.paths} paths, ${mycelium.stats.segments} segments`);
+
+  // Initialize spore particle system
+  sporeSystem = new SporeSystem(gl, 2000);
+  console.log('[Work Globe] Spore particle system initialized');
 
   // Setup matrices
   projectionMatrix = mat4.perspective(
@@ -953,6 +1722,80 @@ function render() {
     console.log('⚠️ [DEBUG] FOG/LIGHTNING/ATMOSPHERE DISABLED for isolation test');
   }
   
+  // ━━━ Draw Mycelium Hyphae - Body Pass (alpha-blended, dark fibrous) ━━━
+  if (myceliumProgram && myceliumVAO && myceliumVertexCount > 0) {
+    myceliumGrowthTime += 0.5; // Slower growth speed (~5-6 seconds to fully reveal)
+    
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.enable(gl.DEPTH_TEST);
+    gl.depthMask(false); // Don't write depth - sit on surface
+    gl.enable(gl.CULL_FACE);
+    gl.cullFace(gl.BACK);
+    
+    gl.useProgram(myceliumProgram);
+    gl.bindVertexArray(myceliumVAO);
+    
+    const uProjectionMyc = gl.getUniformLocation(myceliumProgram, 'uProjection');
+    const uViewMyc = gl.getUniformLocation(myceliumProgram, 'uView');
+    const uModelMyc = gl.getUniformLocation(myceliumProgram, 'uModel');
+    const uTimeMyc = gl.getUniformLocation(myceliumProgram, 'uTime');
+    const uBodyColor = gl.getUniformLocation(myceliumProgram, 'uBodyColor');
+    const uCoreColor = gl.getUniformLocation(myceliumProgram, 'uCoreColor');
+    const uCoreGain = gl.getUniformLocation(myceliumProgram, 'uCoreGain');
+    const uGrowthTime = gl.getUniformLocation(myceliumProgram, 'uGrowthTime');
+    const uOpacityNoise = gl.getUniformLocation(myceliumProgram, 'uOpacityNoise');
+    
+    gl.uniformMatrix4fv(uProjectionMyc, false, projectionMatrix);
+    gl.uniformMatrix4fv(uViewMyc, false, viewMatrix);
+    gl.uniformMatrix4fv(uModelMyc, false, modelMatrix);
+    gl.uniform1f(uTimeMyc, time);
+    // Using intro page palette: darker necrotic for body, bright decay-green for highlights
+    gl.uniform3f(uBodyColor, 0.35, 0.50, 0.40); // Darkened necrotic - fibrous mass
+    gl.uniform3f(uCoreColor, 0.247, 1.0, 0.624); // rgb(63, 255, 159) - decay-green glow!
+    gl.uniform1f(uCoreGain, 0.0); // No core in body pass
+    gl.uniform1f(uGrowthTime, myceliumGrowthTime);
+    gl.uniform1f(uOpacityNoise, 0.025); // 2.5% opacity variation
+    
+    gl.drawElements(gl.TRIANGLES, myceliumVertexCount, gl.UNSIGNED_SHORT, 0);
+    
+    if (!firstRenderLogged && texturesReady) {
+      console.log('🍄 [Mycelium Body Pass] Dark fibrous mass, alpha-blended');
+    }
+  }
+  
+  // ━━━ Draw Mycelium Core - Additive Pass (thin centerline glint) ━━━
+  if (myceliumCoreProgram && myceliumVAO && myceliumVertexCount > 0) {
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE); // Additive for core glint
+    gl.depthMask(false);
+    
+    gl.useProgram(myceliumCoreProgram);
+    gl.bindVertexArray(myceliumVAO);
+    
+    const uProjectionCore = gl.getUniformLocation(myceliumCoreProgram, 'uProjection');
+    const uViewCore = gl.getUniformLocation(myceliumCoreProgram, 'uView');
+    const uModelCore = gl.getUniformLocation(myceliumCoreProgram, 'uModel');
+    const uTimeCore = gl.getUniformLocation(myceliumCoreProgram, 'uTime');
+    const uCoreColorCore = gl.getUniformLocation(myceliumCoreProgram, 'uCoreColor');
+    const uCoreGainCore = gl.getUniformLocation(myceliumCoreProgram, 'uCoreGain');
+    const uGrowthTimeCore = gl.getUniformLocation(myceliumCoreProgram, 'uGrowthTime');
+    
+    gl.uniformMatrix4fv(uProjectionCore, false, projectionMatrix);
+    gl.uniformMatrix4fv(uViewCore, false, viewMatrix);
+    gl.uniformMatrix4fv(uModelCore, false, modelMatrix);
+    gl.uniform1f(uTimeCore, time);
+    gl.uniform3f(uCoreColorCore, 0.247, 1.0, 0.624); // Decay-green glint - memorable!
+    gl.uniform1f(uCoreGainCore, 0.15); // Slightly brighter for visibility
+    gl.uniform1f(uGrowthTimeCore, myceliumGrowthTime);
+    
+    gl.drawElements(gl.TRIANGLES, myceliumVertexCount, gl.UNSIGNED_SHORT, 0);
+    
+    if (!firstRenderLogged && texturesReady) {
+      console.log('✨ [Mycelium Core Pass] Subtle centerline glint, additive gain=0.12');
+    }
+  }
+  
   // ━━━ Draw Fog Layer (alpha-blended, scaled sphere) ━━━
   if (!DEBUG_DISABLE_FOG_LIGHTNING && texturesReady && fogTexture) {
     gl.depthMask(false); // Don't write depth
@@ -1073,6 +1916,45 @@ function render() {
         DEPTH_WRITEMASK: gl.getParameter(gl.DEPTH_WRITEMASK),
         ACTIVE_TEXTURE: gl.getParameter(gl.ACTIVE_TEXTURE) - gl.TEXTURE0
       });
+    }
+  }
+  
+  // ━━━ Update Spore Particles ━━━
+  if (sporeSystem) {
+    // Calculate lightning intensity from current flicker state (matches lightning shader logic)
+    const lightningTime = time;
+    const slowPulse = Math.sin(lightningTime * 0.5 * 2.0 * Math.PI) * 0.5 + 0.5; // 0.5Hz
+    const strobePhase = (lightningTime * 2.0) % 1.0;
+    const strobe = strobePhase < 0.04 ? 1.0 : 0.0; // 4% duty cycle
+    const lightningIntensity = slowPulse * (0.3 + strobe * 0.7);
+    
+    sporeSystem.update(0.016, lightningIntensity); // Assume ~60fps (16ms)
+  }
+  
+  // ━━━ Draw Spore Particles (additive blend) ━━━
+  if (sporeProgram && sporeSystem && sporeSystem.activeParticles > 0) {
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE); // Additive for glow
+    gl.depthMask(false);
+    gl.enable(gl.PROGRAM_POINT_SIZE); // Enable point size from vertex shader
+    
+    gl.useProgram(sporeProgram);
+    
+    // Set uniforms
+    gl.uniformMatrix4fv(gl.getUniformLocation(sporeProgram, 'uProjection'), false, projectionMatrix);
+    gl.uniformMatrix4fv(gl.getUniformLocation(sporeProgram, 'uView'), false, viewMatrix);
+    gl.uniformMatrix4fv(gl.getUniformLocation(sporeProgram, 'uModel'), false, modelMatrix);
+    gl.uniform1f(gl.getUniformLocation(sporeProgram, 'uTime'), time);
+    
+    // Use intro page color palette
+    gl.uniform3f(gl.getUniformLocation(sporeProgram, 'uSporeColor'), 0.247, 1.0, 0.624); // Decay-green #3FFF9F
+    gl.uniform3f(gl.getUniformLocation(sporeProgram, 'uEmberColor'), 0.784, 1.0, 0.863); // Ember color #C8FFDC
+    
+    // Render particles
+    sporeSystem.render(sporeProgram);
+    
+    if (!firstRenderLogged && texturesReady) {
+      console.log('🍄 [Spore Particles] Explosive bursts on lightning strikes');
     }
   }
   
