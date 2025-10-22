@@ -11,6 +11,7 @@
 import { sizeCanvas, cumulativeLengths, pointAt, approach } from './utils.js';
 import { buildGraphFromPaths, aStarPath } from './graph.js';
 import { initProjectsWheel } from './projects-wheel.js';
+import { initWorkGlobe, cleanupWorkGlobe } from './work-globe-webgl.js';
 // Resume spirals - DISABLED FOR NOW
 // TODO: Re-enable later by uncommenting: import { initResumeSpirals } from './resume-spirals.js';
 // import { initResumeSpirals } from './resume-spirals.js';
@@ -875,6 +876,7 @@ document.addEventListener('click', (e) => {
 initAboutPaperFocus();
 initSkillsPaperFocus();
 initProjectsWheel();
+initWorkGlobe();
 // Resume spirals disabled for now
 // TODO: Re-enable later by uncommenting: initResumeSpirals();
 // initResumeSpirals();
@@ -1120,12 +1122,12 @@ function getSigilCenter(){
 
 function startRitualBackground(){
   // DISABLED FOR PERFORMANCE - No more radial rays effect
-  // Ensure everything is stopped and cleared
-  stopRitualBackground();
   return;
 }
 
 function stopRitualBackground(){
+  // DISABLED FOR PERFORMANCE - No cleanup needed
+  if (typeof SIGNALS === 'undefined') return;
   const sigil = getSigilEl();
   if (sigil) sigil.classList.remove('sigil-spin', 'sigil-kick');
   if (SIGNALS.interval) { clearInterval(SIGNALS.interval); SIGNALS.interval = 0; }

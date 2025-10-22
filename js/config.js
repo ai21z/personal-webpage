@@ -20,8 +20,7 @@ export const NAV_COORDS = {
   skills:  { x:  1119, y: 240 }
 };
 
-// Resume disabled for now - removed from NAV_ORDER
-export const NAV_ORDER = ['intro','about','work','projects','contact','blog','skills'];
+export const NAV_ORDER = ['intro','about','work','projects','contact','blog','resume','skills'];
 
 export const LABEL_OFFSET_PX = {
   intro: 34, about: 26, work: 24, projects: 22,

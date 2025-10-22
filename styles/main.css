@@ -30,6 +30,9 @@
 /* 9. Projects Ritual Wheel */
 @import 'projects-wheel.css';
 
+/* 10. Mycelial Globe Work Section */
+@import 'work.css';
+
 /* 10. Resume Space-Time Spirals - DISABLED FOR NOW */
 /* TODO: Re-enable later by uncommenting: @import 'resume.css'; */
 /* @import 'resume.css'; */

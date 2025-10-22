@@ -413,6 +413,23 @@
   </section>
   -->
 
+  <!-- SECTION: WORK (Mycelial Globe) -->
+  <section id="work" class="stage work-globe-screen panel-screen" data-section="work" aria-label="Work Experience" tabindex="-1">
+    <button class="work-close" data-action="go-intro" aria-label="Close and return to intro">×</button>
+    
+    <div class="work-globe-container">
+      <canvas id="work-globe-canvas"></canvas>
+      
+      <!-- Location info overlay (positioned via JS) -->
+      <div class="work-location-info" aria-live="polite"></div>
+      
+      <!-- Helper text -->
+      <div class="work-helper-text" aria-hidden="true">
+        Drag to explore • Hover spores for details
+      </div>
+    </div>
+  </section>
+
   <!-- SECTION: CONTACT -->
   <section id="contact" class="stage" data-section="contact" aria-label="Contact">
     <button class="contact-close" data-action="go-intro" aria-label="Close and return to intro">
