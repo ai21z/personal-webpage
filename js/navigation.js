@@ -90,8 +90,10 @@ export function showSection(sectionName, startRitualBackground, stopRitualBackgr
   history.replaceState(null, '', newUrl);
   
   // Lock body scroll for panel screens (altar-screen or panel-screen)
+  // Note: resume-screen detection removed (resume section disabled)
   const activeSection = document.querySelector(`.stage[data-section="${sectionName}"]`);
-  const isPanel = activeSection?.classList.contains('panel-screen') || activeSection?.classList.contains('altar-screen');
+  const isPanel = activeSection?.classList.contains('panel-screen') || 
+                  activeSection?.classList.contains('altar-screen');
   document.documentElement.style.overflow = isPanel ? 'hidden' : '';
   document.body.style.overflow = isPanel ? 'hidden' : '';
   

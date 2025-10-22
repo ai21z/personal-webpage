@@ -11,6 +11,9 @@
 import { sizeCanvas, cumulativeLengths, pointAt, approach } from './utils.js';
 import { buildGraphFromPaths, aStarPath } from './graph.js';
 import { initProjectsWheel } from './projects-wheel.js';
+// Resume spirals - DISABLED FOR NOW
+// TODO: Re-enable later by uncommenting: import { initResumeSpirals } from './resume-spirals.js';
+// import { initResumeSpirals } from './resume-spirals.js';
 import {
   RITUAL_RETURN_MS,
   NAV_SPEED_WHEN_ACTIVE,
@@ -872,6 +875,9 @@ document.addEventListener('click', (e) => {
 initAboutPaperFocus();
 initSkillsPaperFocus();
 initProjectsWheel();
+// Resume spirals disabled for now
+// TODO: Re-enable later by uncommenting: initResumeSpirals();
+// initResumeSpirals();
 initPaperHoverRing();
 
 /**
