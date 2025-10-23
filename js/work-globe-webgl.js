@@ -1,14 +1,6 @@
 /**
- * ━━━ MYCELIAL GLOBE - RAW WEBGL2 IMPLEMENTATION ━━━
- * No libraries - pure WebGL2 for maximum control and performance
- * 
- * Architecture:
- * - UV sphere geometry (procedural)
- * - Custom matrix math (mat4 utilities)
- * - Shader-based necrographic aesthetic
- * - Trackball rotation with inertia
- * - Ray-picking for pins
- * - Instanced rendering for spores
+ * Mycelial globe visualization with WebGL2.
+ * Pure implementation without external libraries.
  */
 
 // Work location data
@@ -79,7 +71,7 @@ const WORK_LOCATIONS = {
   }
 };
 
-// ━━━ MATRIX UTILITIES ━━━
+// Matrix utilities
 const mat4 = {
   create() {
     return new Float32Array([
@@ -586,15 +578,16 @@ void main() {
   vLife = life;
   vPhase = phase;
   
-  // Apply physics (gravity, drag)
+  // Cloud particles: no additional gravity (handled in CPU physics)
   vec3 pos = position;
-  pos.y -= 0.5 * (1.0 - life) * (1.0 - life); // Gravity falloff
   
   vec4 viewPos = uView * uModel * vec4(pos, 1.0);
   
-  // Pulsing size based on life and phase
+  // Size-based rendering: tiny particles (dust) vs regular spores
+  float baseSize = size < 0.2 ? 2.0 : 4.0; // Tiny particles get smaller base
+  float pulseMult = size < 0.2 ? 0.5 : 2.0; // Less pulse on tiny particles
   float pulse = sin(uTime * 3.0 + phase * 6.28) * 0.3 + 0.7;
-  gl_PointSize = size * (4.0 + 2.0 * pulse) * life * life; // Smaller particles (was 8.0 + 4.0)
+  gl_PointSize = size * (baseSize + pulseMult * pulse) * life * life;
   
   gl_Position = uProjection * viewPos;
 }
@@ -1133,8 +1126,6 @@ function createMyceliumHyphae(radius, seeds, options = {}) {
     });
   });
   
-  console.log(`[Mycelium Generator] seeds=${seeds.length}, paths=${paths.length}, segments=${positions.length/3}, merges=${paths.filter(p => p.killed).length}`);
-  
   return {
     positions: new Float32Array(positions),
     normals: new Float32Array(normals),
@@ -1149,9 +1140,9 @@ function createMyceliumHyphae(radius, seeds, options = {}) {
   };
 }
 
-// ━━━ SPORE PARTICLE SYSTEM ━━━
+// Spore particle system
 class SporeSystem {
-  constructor(gl, maxParticles = 2000) {
+  constructor(gl, maxParticles = 10000) {
     this.gl = gl;
     this.maxParticles = maxParticles;
     this.activeParticles = 0;
@@ -1208,36 +1199,106 @@ class SporeSystem {
   }
   
   emitBurst(originPositions, intensity = 1.0) {
-    if (this.emissionCooldown > 0) return; // Prevent spam
+    if (this.emissionCooldown > 0) return;
     
-    const particlesPerOrigin = Math.floor(40 + intensity * 60); // 40-100 per burst (more particles!)
+    const tinyParticles = Math.floor(250 + intensity * 350);
+    const regularParticles = Math.floor(50 + intensity * 100);
     const emitted = [];
     
     for (const origin of originPositions) {
-      for (let i = 0; i < particlesPerOrigin; i++) {
+      const radius = Math.sqrt(origin[0]**2 + origin[1]**2 + origin[2]**2);
+      const normal = [origin[0]/radius, origin[1]/radius, origin[2]/radius];
+      
+      // Tiny particles with surface-biased spread
+      for (let i = 0; i < tinyParticles; i++) {
         const particle = this.getInactiveParticle();
         if (!particle) break;
         
-        // Spherical explosion pattern
         const theta = Math.random() * Math.PI * 2;
-        const phi = Math.acos(Math.random() * 2 - 1);
-        const speed = Math.random() * 1.0; // Velocity down to 1
+        const phi = Math.random() * Math.PI;
         
-        particle.position = [...origin];
-        particle.velocity = [
-          Math.sin(phi) * Math.cos(theta) * speed,
-          Math.sin(phi) * Math.sin(theta) * speed + 0.25, // Upward bias 0.25
-          Math.cos(phi) * speed
+        // Create random direction
+        let dir = [
+          Math.sin(phi) * Math.cos(theta),
+          Math.sin(phi) * Math.sin(theta),
+          Math.cos(phi)
         ];
+        
+        // Project to surface tangent (remove 70% radial component)
+        const radialComponent = dir[0]*normal[0] + dir[1]*normal[1] + dir[2]*normal[2];
+        dir[0] -= normal[0] * radialComponent * 0.7;
+        dir[1] -= normal[1] * radialComponent * 0.7;
+        dir[2] -= normal[2] * radialComponent * 0.7;
+        
+        const len = Math.sqrt(dir[0]**2 + dir[1]**2 + dir[2]**2);
+        const speed = 0.4 + Math.random() * 0.6;
+        dir[0] = (dir[0]/len) * speed;
+        dir[1] = (dir[1]/len) * speed;
+        dir[2] = (dir[2]/len) * speed;
+        
+        dir[0] += normal[0] * 0.08;
+        dir[1] += normal[1] * 0.08;
+        dir[2] += normal[2] * 0.08;
+        
+        const jitter = 0.05;
+        particle.position = [
+          origin[0] + (Math.random() - 0.5) * jitter,
+          origin[1] + (Math.random() - 0.5) * jitter,
+          origin[2] + (Math.random() - 0.5) * jitter
+        ];
+        particle.velocity = dir;
         particle.life = 1.0;
-        particle.size = 0.3 + Math.random() * 0.3; // Smaller particles (was 0.8-1.2)
+        particle.size = 0.03 + Math.random() * 0.06; // Super tiny (0.03-0.09)
+        particle.active = true;
+        
+        emitted.push(particle);
+      }
+      
+      // Regular particles
+      for (let i = 0; i < regularParticles; i++) {
+        const particle = this.getInactiveParticle();
+        if (!particle) break;
+        
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.random() * Math.PI;
+        
+        let dir = [
+          Math.sin(phi) * Math.cos(theta),
+          Math.sin(phi) * Math.sin(theta),
+          Math.cos(phi)
+        ];
+        
+        const radialComponent = dir[0]*normal[0] + dir[1]*normal[1] + dir[2]*normal[2];
+        dir[0] -= normal[0] * radialComponent * 0.7;
+        dir[1] -= normal[1] * radialComponent * 0.7;
+        dir[2] -= normal[2] * radialComponent * 0.7;
+        
+        const len = Math.sqrt(dir[0]**2 + dir[1]**2 + dir[2]**2);
+        const speed = 0.5 + Math.random() * 0.7; // 0.5-1.2
+        dir[0] = (dir[0]/len) * speed;
+        dir[1] = (dir[1]/len) * speed;
+        dir[2] = (dir[2]/len) * speed;
+        
+        dir[0] += normal[0] * 0.1;
+        dir[1] += normal[1] * 0.1;
+        dir[2] += normal[2] * 0.1;
+        
+        const jitter = 0.05;
+        particle.position = [
+          origin[0] + (Math.random() - 0.5) * jitter,
+          origin[1] + (Math.random() - 0.5) * jitter,
+          origin[2] + (Math.random() - 0.5) * jitter
+        ];
+        particle.velocity = dir;
+        particle.life = 1.0;
+        particle.size = 0.12 + Math.random() * 0.15;
         particle.active = true;
         
         emitted.push(particle);
       }
     }
     
-    this.emissionCooldown = 0.14; // 140ms cooldown
+    this.emissionCooldown = 0.35;
     return emitted.length;
   }
   
@@ -1246,15 +1307,11 @@ class SporeSystem {
   }
   
   update(dt, lightningIntensity = 0) {
-    // Detect lightning strikes (more sensitive trigger for frequent bursts)
-    if (lightningIntensity > 0.5 && this.lastLightningIntensity < 0.4) {
+    if (lightningIntensity > 0.7 && this.lastLightningIntensity < 0.5) {
       // Get mycelium branch tip positions (sample from actual geometry)
       const tipPositions = this.getMyceliumTips();
       if (tipPositions.length > 0) {
-        const numEmitted = this.emitBurst(tipPositions, lightningIntensity);
-        if (numEmitted > 0) {
-          console.log(`⚡ [Spores] Lightning strike! Emitted ${numEmitted} spores from ${tipPositions.length} points`);
-        }
+        this.emitBurst(tipPositions, lightningIntensity);
       }
     }
     this.lastLightningIntensity = lightningIntensity;
@@ -1270,25 +1327,38 @@ class SporeSystem {
       const p = this.particles[i];
       if (!p.active) continue;
       
-      // Update life
-      p.life -= dt * 0.25; // 4 second lifetime (was 2.5) for bigger travel distance
+      p.life -= dt * 0.35;
       if (p.life <= 0) {
         p.active = false;
         continue;
       }
       
-      // Apply physics
-      p.velocity[1] -= dt * 0.8; // Gravity 0.8 (restored to original)
-      p.velocity[0] *= 0.98; // Drag 0.98 (restored to original)
-      p.velocity[1] *= 0.98;
-      p.velocity[2] *= 0.98;
+      // Three-phase motion: expansion, peak spread, gravity fall
       
-      // Update position
+      if (p.life > 0.7) {
+        // Expansion phase: Light drag, particles still moving fast
+        const drag = 0.96;
+        p.velocity[0] *= drag;
+        p.velocity[1] *= drag;
+        p.velocity[2] *= drag;
+      } else if (p.life > 0.3) {
+        const drag = 0.93;
+        p.velocity[0] *= drag;
+        p.velocity[1] *= drag;
+        p.velocity[2] *= drag;
+        p.velocity[1] -= dt * 0.3;
+      } else {
+        const drag = 0.90;
+        p.velocity[0] *= drag;
+        p.velocity[1] *= drag;
+        p.velocity[2] *= drag;
+        p.velocity[1] -= dt * 1.2;
+      }
+      
       p.position[0] += p.velocity[0] * dt;
       p.position[1] += p.velocity[1] * dt;
       p.position[2] += p.velocity[2] * dt;
       
-      // Copy to typed arrays
       const idx = this.activeParticles * 3;
       this.positionData[idx] = p.position[0];
       this.positionData[idx + 1] = p.position[1];
@@ -1407,23 +1477,21 @@ class WorkPinSystem {
       const basePos = [
         r * cosTheta * sinPhi,  // X
         r * cosPhi,              // Y (up)
-        r * sinTheta * sinPhi   // Z
+        r * sinTheta * sinPhi
       ];
       
       this.pins.push({
         key,
         name: name || key,
         basePos,
-        color: color || [0.247, 1.0, 0.624], // Decay-green default
+        color: color || [0.247, 1.0, 0.624],
         targetHeight: 0.12,
         currentHeight: 0.12,
         pulsePhase: Math.random() * Math.PI * 2,
         hovered: false,
         selected: false,
-        imageCoords // Store for debugging
+        imageCoords
       });
-      
-      console.log(`[Pin] ${name}: Image(${imageCoords.x}, ${imageCoords.y}) → UV(${u.toFixed(3)}, ${v.toFixed(3)}) → Sphere(${basePos.map(n => n.toFixed(3)).join(', ')})`);
     }
   }
   
@@ -1780,7 +1848,6 @@ function loadTexture(gl, url, options = {}) {
       gl.generateMipmap(gl.TEXTURE_2D);
     }
     
-    // Anisotropic filtering if available
     const ext = gl.getExtension('EXT_texture_filter_anisotropic');
     if (ext) {
       const maxAniso = gl.getParameter(ext.MAX_TEXTURE_MAX_ANISOTROPY_EXT);
@@ -1788,15 +1855,13 @@ function loadTexture(gl, url, options = {}) {
         Math.min(8, maxAniso));
     }
     
-    console.log(`[Work Globe] Texture loaded: ${url}`);
-    
     if (options.onLoad) {
       options.onLoad();
     }
   };
   
   image.onerror = () => {
-    console.error(`[Work Globe] Failed to load texture: ${url}`);
+    console.error(`Failed to load texture: ${url}`);
   };
   
   image.src = url;
@@ -1804,25 +1869,19 @@ function loadTexture(gl, url, options = {}) {
 }
 
 function checkAllTexturesLoaded() {
-  // Simple check - if all three textures are non-null, consider them ready
-  // (actual image loading happens async via onLoad callbacks)
   if (earthTexture && fogTexture && lightningTexture) {
     texturesReady = true;
-    console.log('[Work Globe] All textures initialized');
   }
 }
 
-// ━━━ INITIALIZATION ━━━
+// Initialization
 export function initWorkGlobe() {
   canvas = document.getElementById('work-globe-canvas');
   if (!canvas) {
     console.error('[Work Globe] Canvas not found');
     return;
   }
-
-  console.log('[Work Globe] Initializing WebGL2...');
-
-  // Get WebGL2 context
+  
   gl = canvas.getContext('webgl2', {
     alpha: true,
     antialias: true,
@@ -1830,12 +1889,10 @@ export function initWorkGlobe() {
   });
 
   if (!gl) {
-    console.error('[Work Globe] WebGL2 not supported, falling back...');
-    // TODO: Implement Canvas 2D fallback
+    console.error('WebGL2 not supported');
     return;
   }
 
-  // Setup canvas size
   resizeCanvas();
 
   // Create shader programs with bound attributes
@@ -2008,22 +2065,13 @@ export function initWorkGlobe() {
   
   gl.bindVertexArray(null);
   
-  console.log(`[Work Globe] Created mycelium network: ${mycelium.stats.paths} paths, ${mycelium.stats.segments} segments`);
-
-  // Initialize spore particle system (increased capacity for more particles)
   sporeSystem = new SporeSystem(gl, 4000);
-  console.log('[Work Globe] Spore particle system initialized');
   
-  // Create pin geometry and initialize work location pins
   const pinGeometry = createPinGeometry(0.02, 1.0, 6);
   workPinSystem = new WorkPinSystem(gl, WORK_LOCATIONS, pinGeometry);
-  console.log(`[Work Globe] Created ${workPinSystem.pins.length} work location pins`);
   
-  // Initialize data stream particle system
   dataStreamSystem = new DataStreamSystem(gl, 500);
-  console.log('[Work Globe] Data stream system initialized');
 
-  // Setup matrices
   projectionMatrix = mat4.perspective(
     Math.PI / 4,
     canvas.width / canvas.height,
@@ -2033,28 +2081,18 @@ export function initWorkGlobe() {
   viewMatrix = mat4.lookAt([0, 0, 3], [0, 0, 0], [0, 1, 0]);
   modelMatrix = mat4.create();
 
-  // GL settings
   gl.enable(gl.DEPTH_TEST);
   gl.enable(gl.BLEND);
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
   gl.clearColor(0, 0, 0, 0);
-  
-  console.log('[Work Globe] Initial GL state set: DEPTH_TEST=true, BLEND=true (will disable for globe base pass)');
 
-  // Load textures
   let loadedCount = 0;
   const onTextureLoad = () => {
     loadedCount++;
-    console.log(`[Work Globe] Texture ${loadedCount}/3 loaded`);
     if (loadedCount === 3) {
       texturesReady = true;
-      console.log('[Work Globe] ✅ All textures ready - Earth should be visible now');
-      console.log('[Work Globe] texturesReady flag is now:', texturesReady);
-      console.log('[Work Globe] earthTexture is:', earthTexture);
     }
   };
-  
-  console.log('[Work Globe] Starting texture loading...');
   
   earthTexture = loadTexture(gl, './artifacts/work-page/ominus-earth.png', {
     mipmap: true,
@@ -2081,26 +2119,9 @@ export function initWorkGlobe() {
   // Start animation
   animate();
 
-  console.log('[Work Globe] WebGL2 initialization complete');
 }
 
-// ━━━ RENDERING ━━━
-let firstRenderLogged = false;
-let firstTextureRenderLogged = false;
 function render() {
-  if (!firstRenderLogged) {
-    console.log('[Work Globe] First render frame - globe should be visible');
-    console.log(`[Work Globe] Textures ready: ${texturesReady}, Time: ${time}`);
-    firstRenderLogged = true;
-  }
-  
-  // Log once when textures become ready
-  if (texturesReady && !firstTextureRenderLogged) {
-    console.log('[Work Globe] 🎨 First render WITH textures!');
-    console.log('[Work Globe] earthTexture exists:', !!earthTexture);
-    firstTextureRenderLogged = true;
-  }
-  
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
   // Update time
@@ -2142,125 +2163,24 @@ function render() {
   const uTime = gl.getUniformLocation(globeProgram, 'uTime');
   const uDaymap = gl.getUniformLocation(globeProgram, 'uDaymap');
   const uUseDaymap = gl.getUniformLocation(globeProgram, 'uUseDaymap');
-  
-  // DEBUG: Log uniform locations once
-  if (!firstRenderLogged) {
-    console.log('[Work Globe] Uniform locations:', {
-      uProjection, uView, uModel, uTime, uDaymap, uUseDaymap
-    });
-  }
 
   gl.uniformMatrix4fv(uProjection, false, projectionMatrix);
   gl.uniformMatrix4fv(uView, false, viewMatrix);
   gl.uniformMatrix4fv(uModel, false, modelMatrix);
   gl.uniform1f(uTime, time);
   
-  // Bind Earth texture if ready
   if (texturesReady && earthTexture) {
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, earthTexture);
     gl.uniform1i(uDaymap, 0);
     gl.uniform1i(uUseDaymap, 1);
-    
-    // Check for WebGL errors
-    const error = gl.getError();
-    if (error !== gl.NO_ERROR && !firstRenderLogged) {
-      console.error('[Work Globe] WebGL error after texture binding:', error);
-    }
   } else {
-    // Using procedural fallback
     gl.uniform1i(uUseDaymap, 0);
   }
   
-  // ━━━ COMPREHENSIVE DEBUG (log once per page load) ━━━
-  if (!firstRenderLogged && texturesReady) {
-    console.group('🔍 [Work Globe] FULL WEBGL STATE DIAGNOSTIC');
-    
-    // 0) Canvas/DOM check
-    console.log('Canvas dimensions:', canvas.width, 'x', canvas.height);
-    const computedStyle = window.getComputedStyle(canvas);
-    console.log('Canvas CSS:', {
-      display: computedStyle.display,
-      opacity: computedStyle.opacity,
-      visibility: computedStyle.visibility,
-      zIndex: computedStyle.zIndex,
-      position: computedStyle.position
-    });
-    
-    // 1) Draw call sanity
-    console.log('Sphere vertex count:', sphereVertexCount);
-    console.log('Current program in use:', gl.getParameter(gl.CURRENT_PROGRAM) === globeProgram);
-    
-    // 2) GL state snapshot
-    const viewport = gl.getParameter(gl.VIEWPORT);
-    console.log('VIEWPORT:', viewport);
-    console.log('DEPTH_TEST:', gl.getParameter(gl.DEPTH_TEST));
-    console.log('CULL_FACE:', gl.getParameter(gl.CULL_FACE));
-    console.log('FRONT_FACE:', gl.getParameter(gl.FRONT_FACE), '(CCW=2305, CW=2304)');
-    console.log('BLEND:', gl.getParameter(gl.BLEND));
-    console.log('COLOR_WRITEMASK:', gl.getParameter(gl.COLOR_WRITEMASK));
-    console.log('DEPTH_WRITEMASK:', gl.getParameter(gl.DEPTH_WRITEMASK));
-    console.log('SCISSOR_TEST:', gl.getParameter(gl.SCISSOR_TEST));
-    
-    // 3) Camera & matrices
-    console.log('Camera distance:', cameraDistance);
-    console.log('Camera rotation:', rotation);
-    console.log('Near/Far planes: 0.1 / 100');
-    console.log('Model matrix scale check (should be ~1):', 
-      Math.sqrt(modelMatrix[0]*modelMatrix[0] + modelMatrix[1]*modelMatrix[1] + modelMatrix[2]*modelMatrix[2])
-    );
-    
-    // 4) Program/attribute binding
-    const aPosition = gl.getAttribLocation(globeProgram, 'aPosition');
-    const aNormal = gl.getAttribLocation(globeProgram, 'aNormal');
-    const aUv = gl.getAttribLocation(globeProgram, 'aUv');
-    console.log('Attribute locations:', { aPosition, aNormal, aUv });
-    
-    // 5) Sampler bindings & booleans
-    console.log('ACTIVE_TEXTURE:', gl.getParameter(gl.ACTIVE_TEXTURE) - gl.TEXTURE0);
-    gl.activeTexture(gl.TEXTURE0);
-    console.log('TEXTURE_BINDING_2D on unit 0:', gl.getParameter(gl.TEXTURE_BINDING_2D));
-    console.log('Uniform values set: uDaymap=0, uUseDaymap=1');
-    
-    // 6) Texture upload details
-    gl.bindTexture(gl.TEXTURE_2D, earthTexture);
-    console.log('Earth texture MIN_FILTER:', gl.getTexParameter(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER));
-    console.log('Earth texture MAG_FILTER:', gl.getTexParameter(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER));
-    console.log('Earth texture WRAP_S:', gl.getTexParameter(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S));
-    console.log('Earth texture WRAP_T:', gl.getTexParameter(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T));
-    console.log('UNPACK_FLIP_Y_WEBGL:', gl.getParameter(gl.UNPACK_FLIP_Y_WEBGL));
-    
-    // Final error check
-    const finalError = gl.getError();
-    console.log('gl.getError() before draw:', finalError === gl.NO_ERROR ? 'NO_ERROR ✅' : finalError);
-    
-    console.groupEnd();
-  }
-  
-  // Check shader compilation/link errors
-  if (!firstRenderLogged) {
-    const programError = gl.getProgramParameter(globeProgram, gl.LINK_STATUS);
-    if (!programError) {
-      console.error('[Work Globe] Program not linked:', gl.getProgramInfoLog(globeProgram));
-    }
-  }
-
   gl.drawElements(gl.TRIANGLES, sphereVertexCount, gl.UNSIGNED_SHORT, 0);
-  
-  // Post-draw diagnostic
-  if (!firstRenderLogged && texturesReady) {
-    const drawError = gl.getError();
-    console.log('🎨 [Draw] gl.getError() after globe draw:', drawError === gl.NO_ERROR ? 'NO_ERROR ✅' : drawError);
-    console.log('📊 [Globe Pass] State:', {
-      BLEND: gl.getParameter(gl.BLEND),
-      DEPTH_TEST: gl.getParameter(gl.DEPTH_TEST),
-      DEPTH_WRITEMASK: gl.getParameter(gl.DEPTH_WRITEMASK),
-      CULL_FACE: gl.getParameter(gl.CULL_FACE)
-    });
-  }
 
-  // ━━━ Draw Atmosphere (back-face) ━━━
-  // Atmosphere needs blending for glow effect
+  // Atmosphere (back-face)
   gl.enable(gl.BLEND);
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
   gl.depthMask(false); // Don't write depth for atmosphere glow
@@ -2281,16 +2201,7 @@ function render() {
 
   gl.disable(gl.CULL_FACE);
   
-  // Log atmosphere state
-  if (!firstRenderLogged && texturesReady) {
-    console.log('🌫️ [Atmosphere Pass] State:', {
-      BLEND: gl.getParameter(gl.BLEND),
-      BLEND_FUNC: [gl.getParameter(gl.BLEND_SRC_ALPHA), gl.getParameter(gl.BLEND_DST_ALPHA)],
-      DEPTH_WRITEMASK: gl.getParameter(gl.DEPTH_WRITEMASK)
-    });
-  }
-  
-  // ━━━ Draw Mycelium Hyphae - Body Pass (alpha-blended, dark fibrous) ━━━
+  // Mycelium Hyphae - Body Pass
   if (myceliumProgram && myceliumVAO && myceliumVertexCount > 0) {
     myceliumGrowthTime += 0.5; // Slower growth speed (~5-6 seconds to fully reveal)
     
@@ -2326,13 +2237,9 @@ function render() {
     gl.uniform1f(uOpacityNoise, 0.025); // 2.5% opacity variation
     
     gl.drawElements(gl.TRIANGLES, myceliumVertexCount, gl.UNSIGNED_SHORT, 0);
-    
-    if (!firstRenderLogged && texturesReady) {
-      console.log('🍄 [Mycelium Body Pass] Dark fibrous mass, alpha-blended');
-    }
   }
   
-  // ━━━ Draw Mycelium Core - Additive Pass (thin centerline glint) ━━━
+  // Mycelium Core - Additive Pass
   if (myceliumCoreProgram && myceliumVAO && myceliumVertexCount > 0) {
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE); // Additive for core glint
@@ -2358,13 +2265,9 @@ function render() {
     gl.uniform1f(uGrowthTimeCore, myceliumGrowthTime);
     
     gl.drawElements(gl.TRIANGLES, myceliumVertexCount, gl.UNSIGNED_SHORT, 0);
-    
-    if (!firstRenderLogged && texturesReady) {
-      console.log('✨ [Mycelium Core Pass] Subtle centerline glint, additive gain=0.12');
-    }
   }
   
-  // ━━━ Draw Fog Layer (alpha-blended, scaled sphere) ━━━
+  // Fog Layer
   if (texturesReady && fogTexture) {
     gl.depthMask(false); // Don't write depth
     gl.enable(gl.BLEND);
@@ -2406,24 +2309,9 @@ function render() {
     gl.uniform1f(uTimeFog, time);
     
     gl.drawElements(gl.TRIANGLES, sphereVertexCount, gl.UNSIGNED_SHORT, 0);
-    
-    // Log fog state
-    if (!firstRenderLogged && texturesReady) {
-      console.log('☁️ [Fog Pass] Uniforms:', {
-        uFogTint: [0.15, 0.22, 0.20],
-        uFogStrength: 0.20,
-        uFogScroll: [0.002, 0.0007]
-      });
-      console.log('☁️ [Fog Pass] State:', {
-        BLEND: gl.getParameter(gl.BLEND),
-        BLEND_FUNC: [gl.getParameter(gl.BLEND_SRC_RGB), gl.getParameter(gl.BLEND_DST_RGB)],
-        DEPTH_WRITEMASK: gl.getParameter(gl.DEPTH_WRITEMASK),
-        ACTIVE_TEXTURE: gl.getParameter(gl.ACTIVE_TEXTURE) - gl.TEXTURE0
-      });
-    }
   }
   
-  // ━━━ Draw Lightning Layer (additive, scaled sphere) ━━━
+  // Lightning Layer
   if (texturesReady && lightningTexture) {
     gl.depthMask(false); // Don't write depth
     gl.enable(gl.BLEND);
@@ -2465,29 +2353,13 @@ function render() {
     gl.uniform1f(uLightningGain, 0.50); // Reduced from 0.9 - much more subtle
     gl.uniform2f(uLightningScroll, 0.005, -0.001);
     gl.uniform1f(uTimeLightning, time);
-    gl.uniform1f(uFlickerFreq, 0.5); // Slower - 0.5Hz instead of 0.8Hz
-    gl.uniform1f(uFlickerDuty, 0.04); // Shorter flashes - 4% instead of 6%
+    gl.uniform1f(uFlickerFreq, 0.5);
+    gl.uniform1f(uFlickerDuty, 0.04);
     
     gl.drawElements(gl.TRIANGLES, sphereVertexCount, gl.UNSIGNED_SHORT, 0);
-    
-    // Log lightning state
-    if (!firstRenderLogged && texturesReady) {
-      console.log('⚡ [Lightning Pass] Uniforms:', {
-        uLightningColor: [0.35, 0.70, 0.60],
-        uLightningGain: 0.50,
-        uFlickerFreq: 0.5,
-        uFlickerDuty: 0.04
-      });
-      console.log('⚡ [Lightning Pass] State:', {
-        BLEND: gl.getParameter(gl.BLEND),
-        BLEND_FUNC: [gl.getParameter(gl.BLEND_SRC_RGB), gl.getParameter(gl.BLEND_DST_RGB)],
-        DEPTH_WRITEMASK: gl.getParameter(gl.DEPTH_WRITEMASK),
-        ACTIVE_TEXTURE: gl.getParameter(gl.ACTIVE_TEXTURE) - gl.TEXTURE0
-      });
-    }
   }
   
-  // ━━━ Update Spore Particles ━━━
+  // Update Spore Particles
   if (sporeSystem) {
     // Calculate lightning intensity from current flicker state (matches lightning shader logic)
     const lightningTime = time;
@@ -2518,15 +2390,10 @@ function render() {
     gl.uniform3f(gl.getUniformLocation(sporeProgram, 'uSporeColor'), 0.247, 1.0, 0.624); // Decay-green #3FFF9F
     gl.uniform3f(gl.getUniformLocation(sporeProgram, 'uEmberColor'), 0.784, 1.0, 0.863); // Ember color #C8FFDC
     
-    // Render particles
     sporeSystem.render(sporeProgram);
-    
-    if (!firstRenderLogged && texturesReady) {
-      console.log('🍄 [Spore Particles] Explosive bursts on lightning strikes');
-    }
   }
   
-  // ━━━ Update Work Pin System ━━━
+  // Update Work Pin System
   if (workPinSystem) {
     workPinSystem.update(0.016);
   }
@@ -2540,15 +2407,11 @@ function render() {
     
     gl.useProgram(pinProgram);
     
-    const cameraPos = [0, 0, 3]; // Camera position (from viewMatrix)
+    const cameraPos = [0, 0, 3];
     workPinSystem.render(pinProgram, projectionMatrix, viewMatrix, modelMatrix, time, cameraPos);
-    
-    if (!firstRenderLogged && texturesReady) {
-      console.log('📍 [Work Pins] Glowing crystal pins at work locations');
-    }
   }
   
-  // ━━━ Update Data Stream System ━━━
+  // Update Data Stream System
   if (dataStreamSystem) {
     dataStreamSystem.update(0.016);
     
@@ -2577,31 +2440,11 @@ function render() {
     
     gl.useProgram(dataStreamProgram);
     dataStreamSystem.render(dataStreamProgram, projectionMatrix, viewMatrix, modelMatrix, time);
-    
-    if (!firstRenderLogged && texturesReady) {
-      console.log('📊 [Data Streams] Particle streams from hovered pins');
-    }
   }
   
-  // ━━━ RESTORE STATE FOR NEXT FRAME ━━━
-  // Critical: Reset all state so next frame's globe base pass starts clean
   gl.depthMask(true);
   gl.disable(gl.BLEND);
   gl.bindVertexArray(null);
-  
-  // Log final state restoration
-  if (!firstRenderLogged && texturesReady) {
-    console.log('🔄 [State Restored] Ready for next frame:', {
-      BLEND: gl.getParameter(gl.BLEND),
-      DEPTH_WRITEMASK: gl.getParameter(gl.DEPTH_WRITEMASK)
-    });
-  }
-  
-  // Mark first render complete
-  if (!firstRenderLogged && texturesReady) {
-    firstRenderLogged = true;
-    console.log('✅ [Work Globe] First complete render cycle finished!');
-  }
 }
 
 function animate() {
@@ -2609,7 +2452,7 @@ function animate() {
   render();
 }
 
-// ━━━ INPUT HANDLING ━━━
+// Input handling
 function onPointerDown(e) {
   isDragging = true;
   autoRotate = false;
