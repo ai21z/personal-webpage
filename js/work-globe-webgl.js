@@ -15,7 +15,7 @@
 const WORK_LOCATIONS = {
   larissa: {
     name: 'Larissa, Greece',
-    coords: { lat: 39.6390, lng: 22.4181 },
+    imageCoords: { x: 777, y: 330 }, // Pin A position on texture
     color: [0.48, 0.68, 0.54], // decay-green RGB
     entries: [
       {
@@ -42,7 +42,7 @@ const WORK_LOCATIONS = {
   },
   barcelona: {
     name: 'Barcelona, Spain',
-    coords: { lat: 41.3874, lng: 2.1686 },
+    imageCoords: { x: 689, y: 310 }, // Pin B position on texture
     color: [1.0, 0.48, 0.2], // orange RGB
     entries: [
       {
@@ -174,10 +174,12 @@ const mat4 = {
 
 // ━━━ GLOBE STATE ━━━
 let gl, canvas;
-let globeProgram, atmosphereProgram, fogProgram, lightningProgram, myceliumProgram, myceliumCoreProgram, sporeProgram;
+let globeProgram, atmosphereProgram, fogProgram, lightningProgram, myceliumProgram, myceliumCoreProgram, sporeProgram, pinProgram, dataStreamProgram;
 let globeVAO, sphereVertexCount;
 let myceliumVAO, myceliumVertexCount, myceliumGrowthTime = 0;
 let sporeSystem = null;
+let workPinSystem = null;
+let dataStreamSystem = null;
 let projectionMatrix, viewMatrix, modelMatrix;
 let rotation = { x: 0, y: 0 };
 let rotationVelocity = { x: 0, y: 0 };
@@ -627,6 +629,150 @@ void main() {
 }
 `;
 
+// ━━━ WORK PIN SHADERS ━━━
+const pinVertexShader = `#version 300 es
+precision highp float;
+
+layout(location = 0) in vec3 position;
+layout(location = 1) in vec3 normal;
+layout(location = 2) in vec3 instancePos;    // Pin base position
+layout(location = 3) in vec3 instanceColor;  // Pin color
+layout(location = 4) in float instanceHeight; // Animated height
+layout(location = 5) in float instancePhase;  // Pulse phase
+
+out vec3 vNormal;
+out vec3 vWorldPos;
+out vec3 vColor;
+out float vHeight;
+out float vPhase;
+
+uniform mat4 uProjection;
+uniform mat4 uView;
+uniform mat4 uModel;
+uniform float uTime;
+
+void main() {
+  vColor = instanceColor;
+  vHeight = instanceHeight;
+  vPhase = instancePhase;
+  
+  // Calculate orientation vector (pin points outward from globe center)
+  vec3 upVector = normalize(instancePos);
+  vec3 tangent = normalize(cross(upVector, vec3(0.0, 1.0, 0.0)));
+  vec3 bitangent = cross(upVector, tangent);
+  
+  // Build rotation matrix to orient pin
+  mat3 orientation = mat3(tangent, upVector, bitangent);
+  
+  // Scale and orient geometry
+  vec3 localPos = position;
+  localPos.y *= instanceHeight; // Stretch along pin axis
+  vec3 rotatedPos = orientation * localPos;
+  
+  // Position at base
+  vec3 worldPos = instancePos + rotatedPos;
+  
+  vNormal = mat3(uModel) * (orientation * normal);
+  vWorldPos = (uModel * vec4(worldPos, 1.0)).xyz;
+  
+  gl_Position = uProjection * uView * uModel * vec4(worldPos, 1.0);
+}
+`;
+
+const pinFragmentShader = `#version 300 es
+precision highp float;
+
+in vec3 vNormal;
+in vec3 vWorldPos;
+in vec3 vColor;
+in float vHeight;
+in float vPhase;
+
+out vec4 fragColor;
+
+uniform float uTime;
+uniform vec3 uCameraPos;
+
+void main() {
+  vec3 normal = normalize(vNormal);
+  vec3 viewDir = normalize(uCameraPos - vWorldPos);
+  
+  // Pulsing energy effect
+  float pulse = sin(uTime * 2.0 + vPhase) * 0.3 + 0.7;
+  
+  // Rim lighting (edges glow more)
+  float rim = 1.0 - max(0.0, dot(normal, viewDir));
+  rim = pow(rim, 3.0);
+  
+  // Height-based gradient (brighter at tip)
+  float heightGradient = length(vWorldPos) - 1.0; // Distance from globe center
+  heightGradient = smoothstep(0.0, vHeight, heightGradient);
+  
+  // Combine effects
+  vec3 baseColor = vColor * 0.5;
+  vec3 glowColor = vColor * 2.0;
+  vec3 finalColor = mix(baseColor, glowColor, rim * 0.5 + heightGradient * 0.5);
+  finalColor *= pulse;
+  
+  // Add core glow
+  float coreBrightness = heightGradient * rim;
+  finalColor += vColor * coreBrightness * pulse;
+  
+  fragColor = vec4(finalColor, 0.8 + rim * 0.2);
+}
+`;
+
+// ━━━ DATA STREAM PARTICLE SHADERS ━━━
+const dataStreamVertexShader = `#version 300 es
+precision highp float;
+
+layout(location = 0) in vec3 position;
+layout(location = 1) in float life;
+layout(location = 2) in float phase;
+
+out float vLife;
+out float vPhase;
+
+uniform mat4 uProjection;
+uniform mat4 uView;
+uniform mat4 uModel;
+uniform float uTime;
+
+void main() {
+  vLife = life;
+  vPhase = phase;
+  
+  vec4 viewPos = uView * uModel * vec4(position, 1.0);
+  
+  // Pulsing size
+  float pulse = sin(uTime * 4.0 + phase * 6.28) * 0.3 + 0.7;
+  gl_PointSize = (2.0 + pulse) * life;
+  
+  gl_Position = uProjection * viewPos;
+}
+`;
+
+const dataStreamFragmentShader = `#version 300 es
+precision highp float;
+
+in float vLife;
+in float vPhase;
+
+out vec4 fragColor;
+
+uniform vec3 uStreamColor;
+
+void main() {
+  vec2 coord = gl_PointCoord - vec2(0.5);
+  float dist = length(coord);
+  
+  if (dist > 0.5) discard;
+  
+  float alpha = smoothstep(0.5, 0.0, dist) * vLife;
+  fragColor = vec4(uStreamColor, alpha);
+}
+`;
+
 // ━━━ GEOMETRY GENERATION ━━━
 function createSphereGeometry(radius, segments, rings) {
   const positions = [];
@@ -672,6 +818,71 @@ function createSphereGeometry(radius, segments, rings) {
     normals: new Float32Array(normals),
     uvs: new Float32Array(uvs),
     indices: new Uint16Array(indices)
+  };
+}
+
+function createPinGeometry(baseRadius = 0.02, height = 1.0, sides = 6) {
+  const positions = [];
+  const normals = [];
+  const indices = [];
+  
+  // Create hexagonal crystal pin pointing outward
+  // Base at y=0, tip at y=height
+  
+  // Bottom cap (at globe surface)
+  for (let i = 0; i < sides; i++) {
+    const angle = (i / sides) * Math.PI * 2;
+    const x = Math.cos(angle) * baseRadius;
+    const z = Math.sin(angle) * baseRadius;
+    positions.push(x, 0, z);
+    normals.push(0, -1, 0);
+  }
+  
+  // Top cap (tapered to point)
+  const tipRadius = baseRadius * 0.2; // Sharp tip
+  for (let i = 0; i < sides; i++) {
+    const angle = (i / sides) * Math.PI * 2;
+    const x = Math.cos(angle) * tipRadius;
+    const z = Math.sin(angle) * tipRadius;
+    positions.push(x, height, z);
+    normals.push(0, 1, 0);
+  }
+  
+  // Tip point
+  const tipIdx = positions.length / 3;
+  positions.push(0, height * 1.2, 0);
+  normals.push(0, 1, 0);
+  
+  // Build faces
+  for (let i = 0; i < sides; i++) {
+    const curr = i;
+    const next = (i + 1) % sides;
+    const currTop = sides + i;
+    const nextTop = sides + ((i + 1) % sides);
+    
+    // Side face (quad)
+    indices.push(curr, next, nextTop);
+    indices.push(curr, nextTop, currTop);
+    
+    // Calculate side normal
+    const idx = curr * 3;
+    const x = positions[idx];
+    const z = positions[idx + 2];
+    const nx = x / baseRadius;
+    const nz = z / baseRadius;
+    normals[idx] = nx;
+    normals[idx + 1] = 0.3; // Slight upward angle
+    normals[idx + 2] = nz;
+    
+    // Tip triangle
+    indices.push(currTop, nextTop, tipIdx);
+  }
+  
+  return {
+    positions: new Float32Array(positions),
+    normals: new Float32Array(normals),
+    indices: new Uint16Array(indices),
+    vertexCount: indices.length
   };
 }
 
@@ -1145,6 +1356,348 @@ class SporeSystem {
   }
 }
 
+// ━━━ WORK PIN SYSTEM ━━━
+class WorkPinSystem {
+  constructor(gl, locations, pinGeometry) {
+    this.gl = gl;
+    this.locations = locations;
+    this.pins = [];
+    this.hoveredPin = null;
+    this.selectedPin = null;
+    this.pinGeometry = pinGeometry;
+    
+    // Create instance data for all pins
+    this.initializePins();
+    this.setupBuffers();
+  }
+  
+  initializePins() {
+    for (const [key, loc] of Object.entries(this.locations)) {
+      const { imageCoords, name, color } = loc;
+      
+      if (!imageCoords) {
+        console.warn(`[WorkPinSystem] No image coordinates for ${key}`);
+        continue;
+      }
+      
+      // Convert image coordinates to UV (matching sphere geometry UV mapping)
+      // Image dimensions: 1536×1024
+      const u = 1.0 - (imageCoords.x / 1536.0); // Flip U to match sphere UV
+      const v = imageCoords.y / 1024.0;
+      
+      // Convert UV to spherical coordinates
+      // U maps to longitude (0-1 → 0-2π)
+      // V maps to latitude (0-1 → π-0)
+      const theta = u * Math.PI * 2.0;  // Longitude in radians
+      const phi = v * Math.PI;           // Latitude in radians
+      
+      // Convert spherical to cartesian (matching sphere geometry)
+      const r = 1.0;
+      const sinTheta = Math.sin(theta);
+      const cosTheta = Math.cos(theta);
+      const sinPhi = Math.sin(phi);
+      const cosPhi = Math.cos(phi);
+      
+      const basePos = [
+        r * cosTheta * sinPhi,  // X
+        r * cosPhi,              // Y (up)
+        r * sinTheta * sinPhi   // Z
+      ];
+      
+      this.pins.push({
+        key,
+        name: name || key,
+        basePos,
+        color: color || [0.247, 1.0, 0.624], // Decay-green default
+        targetHeight: 0.12,
+        currentHeight: 0.12,
+        pulsePhase: Math.random() * Math.PI * 2,
+        hovered: false,
+        selected: false,
+        imageCoords // Store for debugging
+      });
+      
+      console.log(`[Pin] ${name}: Image(${imageCoords.x}, ${imageCoords.y}) → UV(${u.toFixed(3)}, ${v.toFixed(3)}) → Sphere(${basePos.map(n => n.toFixed(3)).join(', ')})`);
+    }
+  }
+  
+  setupBuffers() {
+    const gl = this.gl;
+    const numInstances = this.pins.length;
+    
+    // Instance data arrays
+    this.instancePosData = new Float32Array(numInstances * 3);
+    this.instanceColorData = new Float32Array(numInstances * 3);
+    this.instanceHeightData = new Float32Array(numInstances);
+    this.instancePhaseData = new Float32Array(numInstances);
+    
+    // Fill initial data
+    this.pins.forEach((pin, i) => {
+      this.instancePosData[i * 3] = pin.basePos[0];
+      this.instancePosData[i * 3 + 1] = pin.basePos[1];
+      this.instancePosData[i * 3 + 2] = pin.basePos[2];
+      
+      this.instanceColorData[i * 3] = pin.color[0];
+      this.instanceColorData[i * 3 + 1] = pin.color[1];
+      this.instanceColorData[i * 3 + 2] = pin.color[2];
+      
+      this.instanceHeightData[i] = pin.currentHeight;
+      this.instancePhaseData[i] = pin.pulsePhase;
+    });
+    
+    // Create VAO for instanced rendering
+    this.vao = gl.createVertexArray();
+    gl.bindVertexArray(this.vao);
+    
+    // Base geometry (shared across all instances)
+    const posBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, this.pinGeometry.positions, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+    
+    const normalBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, this.pinGeometry.normals, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(1);
+    gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 0, 0);
+    
+    // Instance attributes
+    this.instancePosBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.instancePosBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, this.instancePosData, gl.DYNAMIC_DRAW);
+    gl.enableVertexAttribArray(2);
+    gl.vertexAttribPointer(2, 3, gl.FLOAT, false, 0, 0);
+    gl.vertexAttribDivisor(2, 1);
+    
+    this.instanceColorBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceColorBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, this.instanceColorData, gl.DYNAMIC_DRAW);
+    gl.enableVertexAttribArray(3);
+    gl.vertexAttribPointer(3, 3, gl.FLOAT, false, 0, 0);
+    gl.vertexAttribDivisor(3, 1);
+    
+    this.instanceHeightBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceHeightBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, this.instanceHeightData, gl.DYNAMIC_DRAW);
+    gl.enableVertexAttribArray(4);
+    gl.vertexAttribPointer(4, 1, gl.FLOAT, false, 0, 0);
+    gl.vertexAttribDivisor(4, 1);
+    
+    this.instancePhaseBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.instancePhaseBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, this.instancePhaseData, gl.DYNAMIC_DRAW);
+    gl.enableVertexAttribArray(5);
+    gl.vertexAttribPointer(5, 1, gl.FLOAT, false, 0, 0);
+    gl.vertexAttribDivisor(5, 1);
+    
+    // Index buffer
+    const indexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, this.pinGeometry.indices, gl.STATIC_DRAW);
+    
+    gl.bindVertexArray(null);
+  }
+  
+  update(dt) {
+    // Animate pin heights (grow when hovered)
+    this.pins.forEach((pin, i) => {
+      const target = pin.hovered ? pin.targetHeight * 1.5 : pin.targetHeight;
+      pin.currentHeight += (target - pin.currentHeight) * 0.1;
+      this.instanceHeightData[i] = pin.currentHeight;
+    });
+    
+    // Update GPU buffer
+    const gl = this.gl;
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceHeightBuffer);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.instanceHeightData);
+  }
+  
+  render(program, projMatrix, viewMatrix, modelMatrix, time, cameraPos) {
+    if (this.pins.length === 0) return;
+    
+    const gl = this.gl;
+    gl.bindVertexArray(this.vao);
+    
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, 'uProjection'), false, projMatrix);
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, 'uView'), false, viewMatrix);
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, 'uModel'), false, modelMatrix);
+    gl.uniform1f(gl.getUniformLocation(program, 'uTime'), time);
+    gl.uniform3fv(gl.getUniformLocation(program, 'uCameraPos'), cameraPos);
+    
+    gl.drawElementsInstanced(
+      gl.TRIANGLES,
+      this.pinGeometry.vertexCount,
+      gl.UNSIGNED_SHORT,
+      0,
+      this.pins.length
+    );
+    
+    gl.bindVertexArray(null);
+  }
+  
+  checkHover(ray, cameraPos) {
+    // Ray-sphere intersection for pin selection
+    // Will implement proper picking in next step
+    this.pins.forEach(pin => {
+      pin.hovered = false;
+    });
+  }
+}
+
+// ━━━ DATA STREAM SYSTEM ━━━
+class DataStreamSystem {
+  constructor(gl, maxParticles = 500) {
+    this.gl = gl;
+    this.maxParticles = maxParticles;
+    this.particles = [];
+    this.activeParticles = 0;
+    this.emitting = false;
+    this.emissionPoint = [0, 0, 0];
+    this.emissionColor = [0.247, 1.0, 0.624];
+    
+    // Initialize particle pool
+    for (let i = 0; i < maxParticles; i++) {
+      this.particles.push({
+        position: [0, 0, 0],
+        velocity: [0, 0, 0],
+        life: 0,
+        phase: Math.random() * Math.PI * 2,
+        active: false
+      });
+    }
+    
+    // Create buffers
+    this.positionBuffer = gl.createBuffer();
+    this.lifeBuffer = gl.createBuffer();
+    this.phaseBuffer = gl.createBuffer();
+    
+    this.positionData = new Float32Array(maxParticles * 3);
+    this.lifeData = new Float32Array(maxParticles);
+    this.phaseData = new Float32Array(maxParticles);
+    
+    // Setup VAO
+    this.vao = gl.createVertexArray();
+    gl.bindVertexArray(this.vao);
+    
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, this.positionData, gl.DYNAMIC_DRAW);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+    
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.lifeBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, this.lifeData, gl.DYNAMIC_DRAW);
+    gl.enableVertexAttribArray(1);
+    gl.vertexAttribPointer(1, 1, gl.FLOAT, false, 0, 0);
+    
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.phaseBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, this.phaseData, gl.DYNAMIC_DRAW);
+    gl.enableVertexAttribArray(2);
+    gl.vertexAttribPointer(2, 1, gl.FLOAT, false, 0, 0);
+    
+    gl.bindVertexArray(null);
+  }
+  
+  startEmission(point, color) {
+    this.emitting = true;
+    this.emissionPoint = point;
+    this.emissionColor = color;
+  }
+  
+  stopEmission() {
+    this.emitting = false;
+  }
+  
+  update(dt) {
+    // Emit new particles if active
+    if (this.emitting && Math.random() < 0.5) {
+      const particle = this.particles.find(p => !p.active);
+      if (particle) {
+        const spread = 0.02;
+        particle.position = [
+          this.emissionPoint[0] + (Math.random() - 0.5) * spread,
+          this.emissionPoint[1] + (Math.random() - 0.5) * spread,
+          this.emissionPoint[2] + (Math.random() - 0.5) * spread
+        ];
+        
+        // Flow upward from pin (inverted gravity)
+        const upDir = [
+          this.emissionPoint[0] * 0.8,
+          this.emissionPoint[1] * 0.8 + 0.5,
+          this.emissionPoint[2] * 0.8
+        ];
+        
+        particle.velocity = [
+          upDir[0] * (0.5 + Math.random() * 0.5),
+          upDir[1] * (0.5 + Math.random() * 0.5),
+          upDir[2] * (0.5 + Math.random() * 0.5)
+        ];
+        particle.life = 1.0;
+        particle.active = true;
+      }
+    }
+    
+    // Update active particles
+    this.activeParticles = 0;
+    for (let i = 0; i < this.particles.length; i++) {
+      const p = this.particles[i];
+      if (!p.active) continue;
+      
+      p.life -= dt * 0.8; // 1.25 second lifetime
+      if (p.life <= 0) {
+        p.active = false;
+        continue;
+      }
+      
+      // Upward flow with slight drag
+      p.velocity[0] *= 0.99;
+      p.velocity[1] *= 0.99;
+      p.velocity[2] *= 0.99;
+      
+      p.position[0] += p.velocity[0] * dt;
+      p.position[1] += p.velocity[1] * dt;
+      p.position[2] += p.velocity[2] * dt;
+      
+      // Copy to buffers
+      const idx = this.activeParticles * 3;
+      this.positionData[idx] = p.position[0];
+      this.positionData[idx + 1] = p.position[1];
+      this.positionData[idx + 2] = p.position[2];
+      this.lifeData[this.activeParticles] = p.life;
+      this.phaseData[this.activeParticles] = p.phase;
+      
+      this.activeParticles++;
+    }
+    
+    // Update GPU
+    if (this.activeParticles > 0) {
+      const gl = this.gl;
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.positionData.subarray(0, this.activeParticles * 3));
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.lifeBuffer);
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.lifeData.subarray(0, this.activeParticles));
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.phaseBuffer);
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.phaseData.subarray(0, this.activeParticles));
+    }
+  }
+  
+  render(program, projMatrix, viewMatrix, modelMatrix, time) {
+    if (this.activeParticles === 0) return;
+    
+    const gl = this.gl;
+    gl.bindVertexArray(this.vao);
+    
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, 'uProjection'), false, projMatrix);
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, 'uView'), false, viewMatrix);
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, 'uModel'), false, modelMatrix);
+    gl.uniform1f(gl.getUniformLocation(program, 'uTime'), time);
+    gl.uniform3fv(gl.getUniformLocation(program, 'uStreamColor'), this.emissionColor);
+    
+    gl.drawArrays(gl.POINTS, 0, this.activeParticles);
+    gl.bindVertexArray(null);
+  }
+}
+
 // ━━━ SHADER UTILITIES ━━━
 function createShader(gl, type, source) {
   const shader = gl.createShader(type);
@@ -1326,17 +1879,39 @@ export function initWorkGlobe() {
     size: 3,
     phase: 4
   });
+  
+  pinProgram = createProgram(gl, pinVertexShader, pinFragmentShader, {
+    position: 0,
+    normal: 1,
+    instancePos: 2,
+    instanceColor: 3,
+    instanceHeight: 4,
+    instancePhase: 5
+  });
+  
+  dataStreamProgram = createProgram(gl, dataStreamVertexShader, dataStreamFragmentShader, {
+    position: 0,
+    life: 1,
+    phase: 2
+  });
 
   // Create sphere geometry
   const sphere = createSphereGeometry(1.0, 40, 40);
   sphereVertexCount = sphere.indices.length;
   
   // Create mycelium hyphae network
-  // Convert degrees to radians: lat in [-π/2, π/2], lon in [-π, π]
-  const toRad = deg => deg * Math.PI / 180;
+  // Use image coordinates directly for accurate positioning
+  const imageToSpherical = (x, y) => {
+    const u = 1.0 - (x / 1536.0); // Flip U to match sphere UV
+    const v = y / 1024.0;
+    const lon = u * Math.PI * 2.0 - Math.PI;  // -π to π
+    const lat = (0.5 - v) * Math.PI;          // -π/2 to π/2
+    return { lat, lon };
+  };
+  
   const myceliumSeeds = [
-    { lat: toRad(39.6), lon: toRad(22.4) },   // Larissa, Greece
-    { lat: toRad(41.4), lon: toRad(2.2) }     // Barcelona, Spain
+    imageToSpherical(777, 330),  // Greece (Pin A)
+    imageToSpherical(689, 310)   // Barcelona (Pin B)
   ];
   
   // Add fewer random land seeds for cleaner look
@@ -1437,6 +2012,15 @@ export function initWorkGlobe() {
   // Initialize spore particle system (increased capacity for more particles)
   sporeSystem = new SporeSystem(gl, 4000);
   console.log('[Work Globe] Spore particle system initialized');
+  
+  // Create pin geometry and initialize work location pins
+  const pinGeometry = createPinGeometry(0.02, 1.0, 6);
+  workPinSystem = new WorkPinSystem(gl, WORK_LOCATIONS, pinGeometry);
+  console.log(`[Work Globe] Created ${workPinSystem.pins.length} work location pins`);
+  
+  // Initialize data stream particle system
+  dataStreamSystem = new DataStreamSystem(gl, 500);
+  console.log('[Work Globe] Data stream system initialized');
 
   // Setup matrices
   projectionMatrix = mat4.perspective(
@@ -1958,6 +2542,63 @@ function render() {
     }
   }
   
+  // ━━━ Update Work Pin System ━━━
+  if (workPinSystem) {
+    workPinSystem.update(0.016);
+  }
+  
+  // ━━━ Draw Work Location Pins (alpha-blended crystals) ━━━
+  if (pinProgram && workPinSystem) {
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.depthMask(true);
+    gl.enable(gl.DEPTH_TEST);
+    
+    gl.useProgram(pinProgram);
+    
+    const cameraPos = [0, 0, 3]; // Camera position (from viewMatrix)
+    workPinSystem.render(pinProgram, projectionMatrix, viewMatrix, modelMatrix, time, cameraPos);
+    
+    if (!firstRenderLogged && texturesReady) {
+      console.log('📍 [Work Pins] Glowing crystal pins at work locations');
+    }
+  }
+  
+  // ━━━ Update Data Stream System ━━━
+  if (dataStreamSystem) {
+    dataStreamSystem.update(0.016);
+    
+    // Emit streams from hovered pins
+    if (workPinSystem && workPinSystem.hoveredPin) {
+      const pin = workPinSystem.pins.find(p => p.key === workPinSystem.hoveredPin);
+      if (pin) {
+        const emitPoint = [
+          pin.basePos[0] * 1.15,
+          pin.basePos[1] * 1.15,
+          pin.basePos[2] * 1.15
+        ];
+        dataStreamSystem.startEmission(emitPoint, pin.color);
+      }
+    } else {
+      dataStreamSystem.stopEmission();
+    }
+  }
+  
+  // ━━━ Draw Data Streams (additive particles) ━━━
+  if (dataStreamProgram && dataStreamSystem && dataStreamSystem.activeParticles > 0) {
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE);
+    gl.depthMask(false);
+    gl.enable(gl.PROGRAM_POINT_SIZE);
+    
+    gl.useProgram(dataStreamProgram);
+    dataStreamSystem.render(dataStreamProgram, projectionMatrix, viewMatrix, modelMatrix, time);
+    
+    if (!firstRenderLogged && texturesReady) {
+      console.log('📊 [Data Streams] Particle streams from hovered pins');
+    }
+  }
+  
   // ━━━ RESTORE STATE FOR NEXT FRAME ━━━
   // Critical: Reset all state so next frame's globe base pass starts clean
   gl.depthMask(true);
@@ -1993,6 +2634,11 @@ function onPointerDown(e) {
 }
 
 function onPointerMove(e) {
+  // Check pin hover (even when not dragging)
+  if (workPinSystem && !isDragging) {
+    checkPinHover(e.clientX, e.clientY);
+  }
+  
   if (!isDragging) return;
 
   const deltaX = e.clientX - lastPointerPos.x;
@@ -2005,6 +2651,58 @@ function onPointerMove(e) {
   rotation.x += rotationVelocity.y;
 
   lastPointerPos = { x: e.clientX, y: e.clientY };
+}
+
+function checkPinHover(mouseX, mouseY) {
+  if (!workPinSystem) return;
+  
+  // Convert mouse to NDC
+  const rect = canvas.getBoundingClientRect();
+  const x = ((mouseX - rect.left) / rect.width) * 2 - 1;
+  const y = -((mouseY - rect.top) / rect.height) * 2 + 1;
+  
+  // Simple 2D screen-space distance check
+  let closestPin = null;
+  let closestDist = 0.15; // Hover radius in NDC space
+  
+  workPinSystem.pins.forEach(pin => {
+    // Project pin position to screen space
+    const worldPos = [
+      pin.basePos[0] * 1.1, // Slightly above surface
+      pin.basePos[1] * 1.1,
+      pin.basePos[2] * 1.1
+    ];
+    
+    // Manual MVP transform
+    const modelPos = mat4.transformPoint(modelMatrix, worldPos);
+    const viewPos = mat4.transformPoint(viewMatrix, modelPos);
+    const clipPos = mat4.transformPoint(projectionMatrix, viewPos);
+    
+    // Perspective divide
+    const ndcX = clipPos[0] / clipPos[3];
+    const ndcY = clipPos[1] / clipPos[3];
+    
+    // Check if behind camera
+    if (clipPos[3] < 0) return;
+    
+    // Distance to mouse
+    const dist = Math.sqrt((ndcX - x) ** 2 + (ndcY - y) ** 2);
+    
+    if (dist < closestDist) {
+      closestDist = dist;
+      closestPin = pin;
+    }
+  });
+  
+  // Update hover state
+  workPinSystem.pins.forEach(pin => {
+    pin.hovered = (pin === closestPin);
+  });
+  
+  workPinSystem.hoveredPin = closestPin ? closestPin.key : null;
+  
+  // Change cursor
+  canvas.style.cursor = closestPin ? 'pointer' : 'grab';
 }
 
 function onPointerUp() {
