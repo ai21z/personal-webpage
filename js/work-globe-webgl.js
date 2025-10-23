@@ -169,6 +169,17 @@ const mat4 = {
       s, 0, c, 0,
       0, 0, 0, 1
     ]);
+  },
+
+  transformPoint(mat, point) {
+    const x = point[0], y = point[1], z = point[2];
+    const w = mat[3] * x + mat[7] * y + mat[11] * z + mat[15] || 1.0;
+    return [
+      (mat[0] * x + mat[4] * y + mat[8] * z + mat[12]) / w,
+      (mat[1] * x + mat[5] * y + mat[9] * z + mat[13]) / w,
+      (mat[2] * x + mat[6] * y + mat[10] * z + mat[14]) / w,
+      w
+    ];
   }
 };
 
@@ -194,11 +205,6 @@ let earthTexture = null;
 let fogTexture = null;
 let lightningTexture = null;
 let texturesReady = false;
-
-// ━━━ DEBUG TOGGLES (change these to isolate issues) ━━━
-const DEBUG_DISABLE_FOG_LIGHTNING = false; // ✅ Enabled - state management is fixed!
-const DEBUG_DISABLE_CULLING = false;       // Set to true to test if culling is the issue
-const DEBUG_FORCE_SOLID_COLOR = false;     // Set to true to test without textures
 
 // ━━━ SHADER SOURCES ━━━
 const globeVertexShader = `#version 300 es
@@ -1815,11 +1821,6 @@ export function initWorkGlobe() {
   }
 
   console.log('[Work Globe] Initializing WebGL2...');
-  console.log('[Work Globe] Debug flags:', {
-    'Fog/Lightning disabled': DEBUG_DISABLE_FOG_LIGHTNING,
-    'Culling disabled': DEBUG_DISABLE_CULLING,
-    'Force solid color': DEBUG_FORCE_SOLID_COLOR
-  });
 
   // Get WebGL2 context
   gl = canvas.getContext('webgl2', {
@@ -2132,11 +2133,6 @@ function render() {
   gl.depthMask(true);
   gl.disable(gl.BLEND);
   
-  // Debug toggle: disable culling if testing
-  if (DEBUG_DISABLE_CULLING) {
-    gl.disable(gl.CULL_FACE);
-  }
-  
   gl.useProgram(globeProgram);
   gl.bindVertexArray(globeVAO);
 
@@ -2159,15 +2155,8 @@ function render() {
   gl.uniformMatrix4fv(uModel, false, modelMatrix);
   gl.uniform1f(uTime, time);
   
-  // Debug toggle: force solid color mode
-  if (DEBUG_FORCE_SOLID_COLOR) {
-    gl.uniform1i(uUseDaymap, 0); // Use procedural fallback (solid colors)
-    if (!firstRenderLogged && texturesReady) {
-      console.log('⚠️ [DEBUG] FORCING SOLID COLOR MODE - textures disabled');
-    }
-  }
   // Bind Earth texture if ready
-  else if (texturesReady && earthTexture) {
+  if (texturesReady && earthTexture) {
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, earthTexture);
     gl.uniform1i(uDaymap, 0);
@@ -2271,39 +2260,34 @@ function render() {
   }
 
   // ━━━ Draw Atmosphere (back-face) ━━━
-  if (!DEBUG_DISABLE_FOG_LIGHTNING) {
-    // Atmosphere needs blending for glow effect
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-    gl.depthMask(false); // Don't write depth for atmosphere glow
-    
-    gl.useProgram(atmosphereProgram);
-    gl.cullFace(gl.FRONT); // Render back faces
-    gl.enable(gl.CULL_FACE);
+  // Atmosphere needs blending for glow effect
+  gl.enable(gl.BLEND);
+  gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+  gl.depthMask(false); // Don't write depth for atmosphere glow
+  
+  gl.useProgram(atmosphereProgram);
+  gl.cullFace(gl.FRONT); // Render back faces
+  gl.enable(gl.CULL_FACE);
 
-    const uProjectionAtm = gl.getUniformLocation(atmosphereProgram, 'uProjection');
-    const uViewAtm = gl.getUniformLocation(atmosphereProgram, 'uView');
-    const uModelAtm = gl.getUniformLocation(atmosphereProgram, 'uModel');
+  const uProjectionAtm = gl.getUniformLocation(atmosphereProgram, 'uProjection');
+  const uViewAtm = gl.getUniformLocation(atmosphereProgram, 'uView');
+  const uModelAtm = gl.getUniformLocation(atmosphereProgram, 'uModel');
 
-    gl.uniformMatrix4fv(uProjectionAtm, false, projectionMatrix);
-    gl.uniformMatrix4fv(uViewAtm, false, viewMatrix);
-    gl.uniformMatrix4fv(uModelAtm, false, modelMatrix);
+  gl.uniformMatrix4fv(uProjectionAtm, false, projectionMatrix);
+  gl.uniformMatrix4fv(uViewAtm, false, viewMatrix);
+  gl.uniformMatrix4fv(uModelAtm, false, modelMatrix);
 
-    gl.drawElements(gl.TRIANGLES, sphereVertexCount, gl.UNSIGNED_SHORT, 0);
+  gl.drawElements(gl.TRIANGLES, sphereVertexCount, gl.UNSIGNED_SHORT, 0);
 
-    gl.disable(gl.CULL_FACE);
-    
-    // Log atmosphere state
-    if (!firstRenderLogged && texturesReady) {
-      console.log('🌫️ [Atmosphere Pass] State:', {
-        BLEND: gl.getParameter(gl.BLEND),
-        BLEND_FUNC: [gl.getParameter(gl.BLEND_SRC_ALPHA), gl.getParameter(gl.BLEND_DST_ALPHA)],
-        DEPTH_WRITEMASK: gl.getParameter(gl.DEPTH_WRITEMASK)
-      });
-    }
-    // State will be restored at end of render()
-  } else if (!firstRenderLogged && texturesReady) {
-    console.log('⚠️ [DEBUG] FOG/LIGHTNING/ATMOSPHERE DISABLED for isolation test');
+  gl.disable(gl.CULL_FACE);
+  
+  // Log atmosphere state
+  if (!firstRenderLogged && texturesReady) {
+    console.log('🌫️ [Atmosphere Pass] State:', {
+      BLEND: gl.getParameter(gl.BLEND),
+      BLEND_FUNC: [gl.getParameter(gl.BLEND_SRC_ALPHA), gl.getParameter(gl.BLEND_DST_ALPHA)],
+      DEPTH_WRITEMASK: gl.getParameter(gl.DEPTH_WRITEMASK)
+    });
   }
   
   // ━━━ Draw Mycelium Hyphae - Body Pass (alpha-blended, dark fibrous) ━━━
@@ -2381,7 +2365,7 @@ function render() {
   }
   
   // ━━━ Draw Fog Layer (alpha-blended, scaled sphere) ━━━
-  if (!DEBUG_DISABLE_FOG_LIGHTNING && texturesReady && fogTexture) {
+  if (texturesReady && fogTexture) {
     gl.depthMask(false); // Don't write depth
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -2440,7 +2424,7 @@ function render() {
   }
   
   // ━━━ Draw Lightning Layer (additive, scaled sphere) ━━━
-  if (!DEBUG_DISABLE_FOG_LIGHTNING && texturesReady && lightningTexture) {
+  if (texturesReady && lightningTexture) {
     gl.depthMask(false); // Don't write depth
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE); // Additive blending
