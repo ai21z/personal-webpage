@@ -95,68 +95,162 @@
   }
 }
 
-/* Location info bubble (parchment style) */
+/* ━━━ Necrographic Work Info Card (Aged Notebook Paper) ━━━ */
 .work-location-info {
   position: fixed;
-  background: rgba(14,16,19,0.96);
-  border: 1px solid rgba(122,174,138,0.4);
-  border-radius: 6px;
-  padding: 16px 20px;
-  font-family: 'Special Elite', monospace;
-  color: var(--bone);
-  pointer-events: none;
-  opacity: 0;
-  transform: translate(-50%, calc(-100% - 20px)) scale(0.92);
-  transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  z-index: 1000;
-  max-width: 380px;
+  max-width: 500px;
+  min-width: 380px;
+  padding: 2rem 2rem 1.5rem 3.5rem; /* Extra left padding for spiral holes */
+  color: #2A251F;
+  
+  /* Aged paper texture - matches contact form & altar slabs */
+  background: 
+    /* Subtle horizontal lines */
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 31px,
+      rgba(139, 125, 107, 0.12) 31px,
+      rgba(139, 125, 107, 0.12) 32px
+    ),
+    /* Heavy coffee stain top */
+    radial-gradient(
+      ellipse 800px 400px at 50% -10%,
+      rgba(101, 67, 33, 0.35) 0%,
+      rgba(139, 125, 107, 0.25) 30%,
+      transparent 60%
+    ),
+    /* Coffee stain bottom right */
+    radial-gradient(
+      ellipse 600px 500px at 90% 110%,
+      rgba(101, 67, 33, 0.4) 0%,
+      rgba(139, 125, 107, 0.2) 35%,
+      transparent 65%
+    ),
+    /* Coffee stain bottom left */
+    radial-gradient(
+      ellipse 500px 450px at -5% 95%,
+      rgba(101, 67, 33, 0.3) 0%,
+      rgba(120, 100, 70, 0.15) 40%,
+      transparent 70%
+    ),
+    /* Vertical center stain */
+    radial-gradient(
+      ellipse 200px 800px at 45% 50%,
+      rgba(139, 125, 107, 0.15) 0%,
+      transparent 60%
+    ),
+    /* Base aged paper color */
+    linear-gradient(
+      to bottom,
+      #F0E8D0 0%,
+      #E8DFC5 20%,
+      #E5DBBD 50%,
+      #DFD5B5 80%,
+      #D5CBB0 100%
+    );
+  
+  border: none;
+  /* Wrinkled, worn edges */
+  border-radius: 
+    8px 3px 12px 5px / 5px 10px 7px 15px;
+  
   box-shadow: 
-    0 8px 24px rgba(0,0,0,0.5),
-    0 0 0 1px rgba(122,174,138,0.15) inset;
-  backdrop-filter: blur(8px);
+    0 12px 48px rgba(0, 0, 0, 0.6),
+    inset 0 0 120px rgba(101, 67, 33, 0.25),
+    inset -20px 0 40px rgba(101, 67, 33, 0.15);
+  
+  /* Irregular paper edges */
+  clip-path: polygon(
+    0% 2%, 1% 0%, 3% 1%, 5% 0.5%, 8% 1%, 12% 0.8%, 15% 1.5%, 18% 0.5%, 22% 1%, 
+    25% 0.8%, 30% 1.2%, 35% 0.5%, 40% 1%, 45% 0.8%, 50% 1.2%, 55% 0.5%, 60% 1%, 
+    65% 0.8%, 70% 1.5%, 75% 0.5%, 80% 1.2%, 85% 0.8%, 90% 1%, 95% 0.5%, 98% 1%, 100% 2%,
+    100% 98%, 99% 100%, 97% 99%, 95% 99.5%, 92% 99%, 88% 99.5%, 85% 98.5%, 82% 99.5%, 78% 99%,
+    75% 99.2%, 70% 98.8%, 65% 99.5%, 60% 99%, 55% 99.2%, 50% 98.8%, 45% 99.5%, 40% 99%,
+    35% 99.5%, 30% 98.8%, 25% 99.2%, 20% 99.5%, 15% 99%, 10% 99.5%, 5% 99%, 2% 99.5%, 0% 98%
+  );
+  
+  font-family: 'Special Elite', monospace;
+  pointer-events: none; /* Don't block clicks when hidden */
+  cursor: default;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.92);
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 1000;
+  transform-origin: center center;
+}
+
+/* Spiral binding holes (left edge) */
+.work-location-info::before {
+  content: '';
+  position: absolute;
+  left: 18px;
+  top: 30px;
+  bottom: 30px;
+  width: 2px;
+  background: 
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0px,
+      transparent 18px,
+      rgba(101, 67, 33, 0.6) 18px,
+      rgba(101, 67, 33, 0.6) 20px,
+      transparent 20px,
+      transparent 38px
+    );
+  box-shadow: 
+    -1px 0 0 rgba(101, 67, 33, 0.2),
+    1px 0 0 rgba(101, 67, 33, 0.2);
+  pointer-events: none;
 }
 
 .work-location-info.visible {
   opacity: 1;
-  transform: translate(-50%, calc(-100% - 20px)) scale(1);
+  transform: translate(-50%, -50%) scale(1);
+  pointer-events: auto; /* Enable clicks when visible */
 }
 
-/* Info bubble arrow pointing to pin */
+/* Small torn corner accent (top right) */
 .work-location-info::after {
   content: '';
   position: absolute;
-  bottom: -8px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 0;
-  height: 0;
-  border-left: 8px solid transparent;
-  border-right: 8px solid transparent;
-  border-top: 8px solid rgba(14,16,19,0.96);
+  top: -2px;
+  right: 25px;
+  width: 30px;
+  height: 30px;
+  background: 
+    linear-gradient(135deg, transparent 0%, transparent 40%, #D5CBB0 40%, #D5CBB0 100%);
+  clip-path: polygon(100% 0%, 0% 0%, 100% 100%);
+  opacity: 0.4;
+  pointer-events: none;
 }
 
 /* Location header */
 .work-location-header {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
-  color: var(--decay-green);
-  margin-bottom: 12px;
+  color: #2A251F;
+  margin-bottom: 18px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid rgba(101, 67, 33, 0.25);
   letter-spacing: 0.05em;
   text-transform: uppercase;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.3);
 }
 
 .work-location-icon {
-  font-size: 16px;
+  font-size: 18px;
+  filter: drop-shadow(0 1px 2px rgba(101, 67, 33, 0.3));
 }
 
 /* Work entries in bubble */
 .work-entry {
-  margin-bottom: 12px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid rgba(122,174,138,0.15);
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(101, 67, 33, 0.15);
 }
 
 .work-entry:last-child {
@@ -166,37 +260,43 @@
 }
 
 .work-company {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
-  color: rgba(230,227,216,0.95);
-  margin-bottom: 4px;
+  color: #2A251F;
+  margin-bottom: 6px;
+  letter-spacing: 0.3px;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.3);
 }
 
 .work-position {
-  font-size: 11px;
-  color: rgba(230,227,216,0.8);
-  margin-bottom: 3px;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(101, 67, 33, 0.9);
+  margin-bottom: 4px;
 }
 
 .work-period {
-  font-size: 10px;
-  color: rgba(122,174,138,0.7);
+  font-size: 11px;
+  color: rgba(42, 37, 31, 0.6);
   font-style: italic;
-  margin-bottom: 6px;
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px dashed rgba(101, 67, 33, 0.2);
 }
 
+/* Work responsibilities list */
 .work-responsibilities {
-  font-size: 10px;
-  line-height: 1.5;
-  color: rgba(230,227,216,0.7);
+  font-size: 12px;
+  line-height: 1.6;
+  color: rgba(42, 37, 31, 0.75);
   margin: 0;
   padding-left: 0;
   list-style: none;
 }
 
 .work-responsibilities li {
-  margin-bottom: 3px;
-  padding-left: 12px;
+  margin-bottom: 4px;
+  padding-left: 14px;
   position: relative;
 }
 
@@ -204,7 +304,8 @@
   content: '•';
   position: absolute;
   left: 0;
-  color: var(--decay-green);
+  color: rgba(101, 67, 33, 0.7);
+  font-weight: bold;
 }
 
 /* Close button (matches altar-close) */
@@ -294,16 +395,29 @@
   }
   
   .work-location-info {
-    max-width: calc(100vw - 40px);
-    font-size: 11px;
+    max-width: calc(100vw - 60px);
+    min-width: 280px;
+    padding: 1.75rem 1.75rem 1.25rem 3rem;
   }
   
   .work-location-header {
-    font-size: 12px;
+    font-size: 14px;
   }
   
   .work-company {
+    font-size: 14px;
+  }
+  
+  .work-position {
     font-size: 12px;
+  }
+  
+  .work-period {
+    font-size: 10px;
+  }
+  
+  .work-responsibilities {
+    font-size: 11px;
   }
 }
 
@@ -311,6 +425,20 @@
   .work-globe-container {
     width: 95vmin;
     height: 95vmin;
+  }
+  
+  .work-location-info {
+    max-width: calc(100vw - 40px);
+    min-width: 260px;
+    padding: 1.5rem 1.5rem 1rem 2.75rem;
+  }
+  
+  .work-location-header {
+    font-size: 13px;
+  }
+  
+  .work-company {
+    font-size: 13px;
   }
   
   .work-helper-text {
@@ -333,110 +461,4 @@
 
 .work-globe-screen.active-section {
   animation: work-fade-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-/* ━━━ Location Info Bubbles (shown on hover) ━━━ */
-.work-location-info {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  max-width: 400px;
-  background: rgba(230,227,216,0.98);
-  color: rgba(8,9,10,0.95);
-  padding: 24px;
-  border-radius: 12px;
-  box-shadow: 
-    0 0 40px rgba(122,174,138,0.4),
-    0 10px 30px rgba(8,9,10,0.3),
-    inset 0 0 20px rgba(230,227,216,0.5);
-  border: 1px solid rgba(122,174,138,0.3);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.3s ease, transform 0.3s ease;
-  transform-origin: center;
-  z-index: 100;
-  backdrop-filter: blur(8px);
-}
-
-.work-location-info.visible {
-  opacity: 1;
-  pointer-events: auto;
-  transform: translate(-50%, -50%) scale(1);
-}
-
-.work-location-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-family: 'Playfair Display', serif;
-  font-size: 1.5rem;
-  font-weight: 700;
-  margin-bottom: 20px;
-  padding-bottom: 12px;
-  border-bottom: 2px solid rgba(122,174,138,0.3);
-  color: rgba(8,9,10,0.95);
-}
-
-.work-location-icon {
-  font-size: 1.75rem;
-  filter: drop-shadow(0 0 8px rgba(122,174,138,0.4));
-}
-
-.work-entry {
-  margin-bottom: 20px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid rgba(8,9,10,0.1);
-}
-
-.work-entry:last-child {
-  margin-bottom: 0;
-  padding-bottom: 0;
-  border-bottom: none;
-}
-
-.work-company {
-  font-family: 'Playfair Display', serif;
-  font-size: 1.125rem;
-  font-weight: 700;
-  margin-bottom: 6px;
-  color: rgba(8,9,10,0.95);
-}
-
-.work-position {
-  font-size: 0.9375rem;
-  font-weight: 600;
-  margin-bottom: 4px;
-  color: rgba(122,174,138,1);
-}
-
-.work-period {
-  font-size: 0.8125rem;
-  font-style: italic;
-  margin-bottom: 12px;
-  color: rgba(8,9,10,0.6);
-  font-family: Georgia, 'Times New Roman', serif;
-}
-
-.work-responsibilities {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.work-responsibilities li {
-  position: relative;
-  padding-left: 20px;
-  margin-bottom: 6px;
-  font-size: 0.875rem;
-  line-height: 1.5;
-  color: rgba(8,9,10,0.85);
-}
-
-.work-responsibilities li::before {
-  content: '•';
-  position: absolute;
-  left: 6px;
-  color: rgba(122,174,138,0.8);
-  font-weight: bold;
 }

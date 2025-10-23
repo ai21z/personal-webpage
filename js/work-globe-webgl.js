@@ -177,7 +177,7 @@ const mat4 = {
 
 // ━━━ GLOBE STATE ━━━
 let gl, canvas;
-let globeProgram, atmosphereProgram, fogProgram, lightningProgram, myceliumProgram, myceliumCoreProgram, sporeProgram, pinProgram, dataStreamProgram;
+let globeProgram, atmosphereProgram, fogProgram, lightningProgram, myceliumProgram, myceliumCoreProgram, sporeProgram, pinProgram, dataStreamProgram, textBillboardProgram;
 let globeVAO, sphereVertexCount;
 let myceliumVAO, myceliumVertexCount, myceliumGrowthTime = 0;
 let sporeSystem = null;
@@ -188,6 +188,8 @@ let rotation = { x: 0, y: 0 };
 let rotationVelocity = { x: 0, y: 0 };
 let isDragging = false;
 let lastPointerPos = { x: 0, y: 0 };
+let clickStartPos = { x: 0, y: 0 };
+let clickStartTime = 0;
 let animationFrameId = null;
 let autoRotate = true;
 let time = 0;
@@ -565,9 +567,12 @@ layout(location = 1) in vec3 velocity;  // Particle velocity
 layout(location = 2) in float life;     // Particle life (0-1)
 layout(location = 3) in float size;     // Particle size
 layout(location = 4) in float phase;    // Random phase for variation
+layout(location = 5) in vec3 color;     // Per-particle color
 
 out float vLife;
 out float vPhase;
+out float vIsOrbital; // Flag for orbital particles (larger/brighter)
+out vec3 vColor; // Pass color to fragment shader
 
 uniform mat4 uProjection;
 uniform mat4 uView;
@@ -577,15 +582,27 @@ uniform float uTime;
 void main() {
   vLife = life;
   vPhase = phase;
+  vColor = color;
+  
+  // Detect orbital particles: they have zero velocity AND larger size
+  float velMag = length(velocity);
+  vIsOrbital = (velMag < 0.001 && size > 1.0) ? 1.0 : 0.0;
   
   // Cloud particles: no additional gravity (handled in CPU physics)
   vec3 pos = position;
   
   vec4 viewPos = uView * uModel * vec4(pos, 1.0);
   
-  // Size-based rendering: tiny particles (dust) vs regular spores
+  // Size-based rendering with special handling for orbital particles
   float baseSize = size < 0.2 ? 2.0 : 4.0; // Tiny particles get smaller base
   float pulseMult = size < 0.2 ? 0.5 : 2.0; // Less pulse on tiny particles
+  
+  // Orbital particles: MUCH MUCH bigger and stronger pulse
+  if (vIsOrbital > 0.5) {
+    baseSize = 40.0; // Massive base size
+    pulseMult = 10.0; // Very strong pulse
+  }
+  
   float pulse = sin(uTime * 3.0 + phase * 6.28) * 0.3 + 0.7;
   gl_PointSize = size * (baseSize + pulseMult * pulse) * life * life;
   
@@ -598,11 +615,13 @@ precision highp float;
 
 in float vLife;
 in float vPhase;
+in float vIsOrbital; // Flag for orbital particles
+in vec3 vColor; // Per-particle color
 
 out vec4 fragColor;
 
 uniform float uTime;
-uniform vec3 uSporeColor;    // Decay-green color
+uniform vec3 uSporeColor;    // Decay-green color (fallback)
 uniform vec3 uEmberColor;    // Bright ember color for core
 
 void main() {
@@ -615,12 +634,30 @@ void main() {
   
   float alpha = smoothstep(0.5, 0.0, dist) * vLife;
   
-  // Pulsing glow
-  float pulse = sin(uTime * 4.0 + vPhase * 6.28) * 0.3 + 0.7;
+  // Pulsing glow - stronger for orbital particles
+  float pulseSpeed = vIsOrbital > 0.5 ? 6.0 : 4.0;
+  float pulseAmount = vIsOrbital > 0.5 ? 0.5 : 0.3;
+  float pulse = sin(uTime * pulseSpeed + vPhase * 6.28) * pulseAmount + (1.0 - pulseAmount);
   
-  // Two-tone: dark edge, bright core (like your spore rendering)
-  vec3 edgeColor = uSporeColor * 0.6;
-  vec3 coreColor = mix(uSporeColor, uEmberColor, 0.3);
+  // Use per-particle color if available (non-zero), otherwise use uniform color
+  vec3 baseColor = length(vColor) > 0.01 ? vColor : uSporeColor;
+  
+  // Orbital particles: much brighter with stronger core
+  vec3 edgeColor, coreColor;
+  float brightness;
+  
+  if (vIsOrbital > 0.5) {
+    // Orbital particles: brighter, more ember-like, using particle color
+    brightness = 2.5; // Much brighter
+    edgeColor = mix(baseColor, uEmberColor, 0.4) * brightness;
+    coreColor = mix(baseColor, uEmberColor, 0.7) * brightness; // More color in core
+  } else {
+    // Regular spores: normal brightness
+    brightness = 1.0;
+    edgeColor = baseColor * 0.6;
+    coreColor = mix(baseColor, uEmberColor, 0.3);
+  }
+  
   vec3 color = mix(edgeColor, coreColor, 1.0 - dist * 2.0);
   
   // Additive blending will be enabled
@@ -638,12 +675,14 @@ layout(location = 2) in vec3 instancePos;    // Pin base position
 layout(location = 3) in vec3 instanceColor;  // Pin color
 layout(location = 4) in float instanceHeight; // Animated height
 layout(location = 5) in float instancePhase;  // Pulse phase
+layout(location = 6) in float instanceScale;  // Hover scale
 
 out vec3 vNormal;
 out vec3 vWorldPos;
 out vec3 vColor;
 out float vHeight;
 out float vPhase;
+out float vScale;
 
 uniform mat4 uProjection;
 uniform mat4 uView;
@@ -654,6 +693,7 @@ void main() {
   vColor = instanceColor;
   vHeight = instanceHeight;
   vPhase = instancePhase;
+  vScale = instanceScale;
   
   // Calculate orientation vector (pin points outward from globe center)
   vec3 upVector = normalize(instancePos);
@@ -664,7 +704,7 @@ void main() {
   mat3 orientation = mat3(tangent, upVector, bitangent);
   
   // Scale and orient geometry
-  vec3 localPos = position;
+  vec3 localPos = position * instanceScale; // Apply scale
   localPos.y *= instanceHeight; // Stretch along pin axis
   vec3 rotatedPos = orientation * localPos;
   
@@ -686,6 +726,7 @@ in vec3 vWorldPos;
 in vec3 vColor;
 in float vHeight;
 in float vPhase;
+in float vScale;
 
 out vec4 fragColor;
 
@@ -696,8 +737,13 @@ void main() {
   vec3 normal = normalize(vNormal);
   vec3 viewDir = normalize(uCameraPos - vWorldPos);
   
-  // Pulsing energy effect
-  float pulse = sin(uTime * 2.0 + vPhase) * 0.3 + 0.7;
+  // IDLE PULSING GLOW - slow, subtle breathing effect
+  float idlePulse = sin(uTime * 1.5 + vPhase) * 0.15 + 0.85; // Range: 0.7 - 1.0
+  
+  // HOVER BOOST - when scaled up, pulse faster and brighter
+  float hoverBoost = smoothstep(1.0, 1.4, vScale); // 0 when idle, 1 when fully hovered
+  float hoverPulse = sin(uTime * 3.0 + vPhase) * 0.2 + 0.8;
+  float finalPulse = mix(idlePulse, hoverPulse, hoverBoost);
   
   // Rim lighting (edges glow more)
   float rim = 1.0 - max(0.0, dot(normal, viewDir));
@@ -708,14 +754,14 @@ void main() {
   heightGradient = smoothstep(0.0, vHeight, heightGradient);
   
   // Combine effects
-  vec3 baseColor = vColor * 0.5;
-  vec3 glowColor = vColor * 2.0;
+  vec3 baseColor = vColor * 0.4;
+  vec3 glowColor = vColor * 2.2;
   vec3 finalColor = mix(baseColor, glowColor, rim * 0.5 + heightGradient * 0.5);
-  finalColor *= pulse;
+  finalColor *= finalPulse;
   
-  // Add core glow
-  float coreBrightness = heightGradient * rim;
-  finalColor += vColor * coreBrightness * pulse;
+  // Add core glow (boosted on hover)
+  float coreBrightness = heightGradient * rim * (1.0 + hoverBoost * 0.5);
+  finalColor += vColor * coreBrightness * finalPulse;
   
   fragColor = vec4(finalColor, 0.8 + rim * 0.2);
 }
@@ -769,6 +815,56 @@ void main() {
   
   float alpha = smoothstep(0.5, 0.0, dist) * vLife;
   fragColor = vec4(uStreamColor, alpha);
+}
+`;
+
+// Text Billboard Shaders
+const textBillboardVertexShader = `#version 300 es
+precision highp float;
+
+in vec2 aPosition;
+in vec2 aUv;
+
+out vec2 vUv;
+
+uniform mat4 uProjection;
+uniform mat4 uView;
+uniform vec3 uWorldPos;
+uniform vec2 uSize;
+uniform float uHoverProgress;
+
+void main() {
+  vUv = aUv;
+  
+  // Extract camera right and up vectors from view matrix
+  vec3 right = vec3(uView[0][0], uView[1][0], uView[2][0]);
+  vec3 up = vec3(uView[0][1], uView[1][1], uView[2][1]);
+  
+  // Offset above pin with hover animation
+  vec3 worldPos = uWorldPos + vec3(0.0, 0.2 + uHoverProgress * 0.1, 0.0);
+  
+  // Billboard calculation
+  vec3 billboardPos = worldPos + 
+    right * aPosition.x * uSize.x * 0.5 + 
+    up * aPosition.y * uSize.y * 0.5;
+  
+  gl_Position = uProjection * uView * vec4(billboardPos, 1.0);
+}
+`;
+
+const textBillboardFragmentShader = `#version 300 es
+precision highp float;
+
+in vec2 vUv;
+out vec4 fragColor;
+
+uniform sampler2D uTextTexture;
+uniform float uAlpha;
+
+void main() {
+  vec4 texColor = texture(uTextTexture, vUv);
+  // Simple pass-through with alpha multiplication
+  fragColor = vec4(texColor.rgb, texColor.a * uAlpha);
 }
 `;
 
@@ -1168,6 +1264,7 @@ class SporeSystem {
     this.lifeBuffer = gl.createBuffer();
     this.sizeBuffer = gl.createBuffer();
     this.phaseBuffer = gl.createBuffer();
+    this.colorBuffer = gl.createBuffer(); // Per-particle color
     
     // Pre-allocate typed arrays
     this.positionData = new Float32Array(maxParticles * 3);
@@ -1175,6 +1272,7 @@ class SporeSystem {
     this.lifeData = new Float32Array(maxParticles);
     this.sizeData = new Float32Array(maxParticles);
     this.phaseData = new Float32Array(maxParticles);
+    this.colorData = new Float32Array(maxParticles * 3); // RGB per particle
     
     // Create VAO
     this.vao = gl.createVertexArray();
@@ -1186,6 +1284,7 @@ class SporeSystem {
     this.setupAttribute(this.lifeBuffer, 2, 1, this.lifeData);
     this.setupAttribute(this.sizeBuffer, 3, 1, this.sizeData);
     this.setupAttribute(this.phaseBuffer, 4, 1, this.phaseData);
+    this.setupAttribute(this.colorBuffer, 5, 3, this.colorData); // Color attribute
     
     gl.bindVertexArray(null);
   }
@@ -1323,6 +1422,7 @@ class SporeSystem {
     
     // Update physics for all particles
     this.activeParticles = 0;
+    this.orbitalInjectionPoint = 0; // Mark where burst particles end
     for (let i = 0; i < this.particles.length; i++) {
       const p = this.particles[i];
       if (!p.active) continue;
@@ -1372,10 +1472,45 @@ class SporeSystem {
       this.sizeData[this.activeParticles] = p.size;
       this.phaseData[this.activeParticles] = p.phase;
       
+      // Default color (0,0,0) means use uniform color
+      this.colorData[idx] = 0;
+      this.colorData[idx + 1] = 0;
+      this.colorData[idx + 2] = 0;
+      
       this.activeParticles++;
     }
     
-    // Update GPU buffers
+    // Mark end of burst particles (orbitals will be injected after)
+    this.orbitalInjectionPoint = this.activeParticles;
+  }
+  
+  injectOrbitalParticles(orbitals) {
+    // Add orbital particles after burst particles
+    orbitals.forEach(orbital => {
+      if (this.activeParticles >= this.maxParticles) return;
+      
+      const idx = this.activeParticles * 3;
+      this.positionData[idx] = orbital.position[0];
+      this.positionData[idx + 1] = orbital.position[1];
+      this.positionData[idx + 2] = orbital.position[2];
+      
+      this.velocityData[idx] = 0;
+      this.velocityData[idx + 1] = 0;
+      this.velocityData[idx + 2] = 0;
+      
+      this.lifeData[this.activeParticles] = orbital.life;
+      this.sizeData[this.activeParticles] = orbital.size * 8.0; // MUCH MUCH bigger than regular spores
+      this.phaseData[this.activeParticles] = orbital.phase;
+      
+      // Use pin color for orbital particles
+      this.colorData[idx] = orbital.color[0];
+      this.colorData[idx + 1] = orbital.color[1];
+      this.colorData[idx + 2] = orbital.color[2];
+      
+      this.activeParticles++;
+    });
+    
+    // Update GPU buffers after orbital injection
     if (this.activeParticles > 0) {
       this.updateBuffers();
     }
@@ -1398,6 +1533,9 @@ class SporeSystem {
     
     gl.bindBuffer(gl.ARRAY_BUFFER, this.phaseBuffer);
     gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.phaseData.subarray(0, this.activeParticles));
+    
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.colorBuffer);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.colorData.subarray(0, this.activeParticles * 3));
   }
   
   getMyceliumTips() {
@@ -1432,7 +1570,69 @@ class SporeSystem {
   }
 }
 
-// ━━━ WORK PIN SYSTEM ━━━
+// Text Renderer
+class TextRenderer {
+  constructor(gl) {
+    this.gl = gl;
+    this.canvas = document.createElement('canvas');
+    this.ctx = this.canvas.getContext('2d');
+    this.textureCache = new Map();
+  }
+  
+  createTextTexture(company, role, period, color = '#3FFF9F') {
+    const key = `${company}_${role}_${period}`;
+    if (this.textureCache.has(key)) return this.textureCache.get(key);
+    
+    const width = 512;
+    const height = 128;
+    this.canvas.width = width;
+    this.canvas.height = height;
+    
+    const ctx = this.ctx;
+    ctx.clearRect(0, 0, width, height);
+    
+    // Dark background with transparency
+    ctx.fillStyle = 'rgba(20, 30, 28, 0.9)';
+    ctx.fillRect(0, 0, width, height);
+    
+    // Border glow
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 10;
+    ctx.strokeRect(4, 4, width-8, height-8);
+    ctx.shadowBlur = 0;
+    
+    // Company name (large)
+    ctx.fillStyle = '#C8FFDC';
+    ctx.font = 'bold 32px "Courier New", monospace';
+    ctx.fillText(company, 20, 45);
+    
+    // Role (medium)
+    ctx.fillStyle = color;
+    ctx.font = '20px "Courier New", monospace';
+    ctx.fillText(role, 20, 75);
+    
+    // Period (small)
+    ctx.fillStyle = '#7AAE8A';
+    ctx.font = '16px "Courier New", monospace';
+    ctx.fillText(period, 20, 100);
+    
+    // Create WebGL texture
+    const gl = this.gl;
+    const texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.canvas);
+    gl.generateMipmap(gl.TEXTURE_2D);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    
+    this.textureCache.set(key, texture);
+    return texture;
+  }
+}
+
+// Work Pin System
 class WorkPinSystem {
   constructor(gl, locations, pinGeometry) {
     this.gl = gl;
@@ -1442,9 +1642,18 @@ class WorkPinSystem {
     this.selectedPin = null;
     this.pinGeometry = pinGeometry;
     
-    // Create instance data for all pins
+    this.textRenderer = new TextRenderer(gl);
+    this.textQuads = new Map();
+    
+    // Orbital particle system for hover effect
+    this.orbitalParticles = [];
+    this.maxOrbitalsPerPin = 8; // 8 particles orbit each hovered pin
+    
     this.initializePins();
     this.setupBuffers();
+    this.createBillboardGeometry();
+    this.generateTextTextures(); // Must be after initializePins
+    this.setupOrbitalParticles();
   }
   
   initializePins() {
@@ -1487,10 +1696,13 @@ class WorkPinSystem {
         color: color || [0.247, 1.0, 0.624],
         targetHeight: 0.12,
         currentHeight: 0.12,
+        targetScale: 1.0,      // For hover scale animation
+        currentScale: 1.0,     // Smooth interpolated scale
         pulsePhase: Math.random() * Math.PI * 2,
         hovered: false,
         selected: false,
-        imageCoords
+        imageCoords,
+        orbitals: []           // Orbital particles for this pin
       });
     }
   }
@@ -1504,6 +1716,7 @@ class WorkPinSystem {
     this.instanceColorData = new Float32Array(numInstances * 3);
     this.instanceHeightData = new Float32Array(numInstances);
     this.instancePhaseData = new Float32Array(numInstances);
+    this.instanceScaleData = new Float32Array(numInstances);
     
     // Fill initial data
     this.pins.forEach((pin, i) => {
@@ -1517,6 +1730,7 @@ class WorkPinSystem {
       
       this.instanceHeightData[i] = pin.currentHeight;
       this.instancePhaseData[i] = pin.pulsePhase;
+      this.instanceScaleData[i] = pin.currentScale;
     });
     
     // Create VAO for instanced rendering
@@ -1565,6 +1779,13 @@ class WorkPinSystem {
     gl.vertexAttribPointer(5, 1, gl.FLOAT, false, 0, 0);
     gl.vertexAttribDivisor(5, 1);
     
+    this.instanceScaleBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceScaleBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, this.instanceScaleData, gl.DYNAMIC_DRAW);
+    gl.enableVertexAttribArray(6);
+    gl.vertexAttribPointer(6, 1, gl.FLOAT, false, 0, 0);
+    gl.vertexAttribDivisor(6, 1);
+    
     // Index buffer
     const indexBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
@@ -1573,18 +1794,121 @@ class WorkPinSystem {
     gl.bindVertexArray(null);
   }
   
-  update(dt) {
-    // Animate pin heights (grow when hovered)
+  update(dt, time) {
+    // Animate pin heights and scales
     this.pins.forEach((pin, i) => {
-      const target = pin.hovered ? pin.targetHeight * 1.5 : pin.targetHeight;
-      pin.currentHeight += (target - pin.currentHeight) * 0.1;
+      // Height animation (subtle on hover)
+      const targetHeight = pin.hovered ? pin.targetHeight * 1.2 : pin.targetHeight;
+      pin.currentHeight += (targetHeight - pin.currentHeight) * 0.12;
       this.instanceHeightData[i] = pin.currentHeight;
+      
+      // Scale animation (clear hover feedback)
+      const targetScale = pin.hovered ? 1.4 : 1.0;
+      pin.currentScale += (targetScale - pin.currentScale) * 0.15;
+      this.instanceScaleData[i] = pin.currentScale;
+      
+      // Update orbital particles
+      pin.orbitals.forEach(orbital => {
+        // Fade in when hovered, fade out when not
+        orbital.targetActive = pin.hovered ? 1.0 : 0.0;
+        
+        // Fast fade-in (instant), slower fade-out (smooth)
+        if (pin.hovered && orbital.active < 1.0) {
+          orbital.active += (orbital.targetActive - orbital.active) * 0.5; // Fast fade-in
+        } else if (!pin.hovered && orbital.active > 0.0) {
+          orbital.active += (orbital.targetActive - orbital.active) * 0.08; // Slower fade-out
+        }
+        
+        // Rotate around pin
+        if (orbital.active > 0.001) {
+          orbital.angle += orbital.speed * dt;
+        }
+      });
     });
     
-    // Update GPU buffer
+    // Update GPU buffers
     const gl = this.gl;
     gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceHeightBuffer);
     gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.instanceHeightData);
+    
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceScaleBuffer);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.instanceScaleData);
+    
+    // Animate text billboards
+    this.pins.forEach((pin, i) => {
+      const quad = this.textQuads.get(pin.key);
+      if (quad) {
+        quad.targetAlpha = pin.hovered ? 1.0 : 0.0;
+        quad.alpha += (quad.targetAlpha - quad.alpha) * 0.15;
+      }
+    });
+  }
+  
+  getOrbitalParticles(time) {
+    // Return active orbital particles as world positions for rendering
+    const particles = [];
+    
+    this.pins.forEach(pin => {
+      if (pin.hovered) {
+        pin.orbitals.forEach(orbital => {
+          if (orbital.active > 0.001) { // Lower threshold for visibility
+            // Calculate orbital position in 3D space
+            // Create a local tangent plane at the pin
+            const pinPos = pin.basePos;
+            const normal = [pinPos[0], pinPos[1], pinPos[2]]; // Pin normal (outward)
+            const len = Math.sqrt(normal[0]**2 + normal[1]**2 + normal[2]**2);
+            const n = [normal[0]/len, normal[1]/len, normal[2]/len];
+            
+            // Create two perpendicular vectors in the tangent plane
+            let tangent = [0, 0, 0];
+            if (Math.abs(n[1]) < 0.9) {
+              tangent = [0, 1, 0]; // Use up vector
+            } else {
+              tangent = [1, 0, 0]; // Use right vector
+            }
+            
+            // Cross product to get first tangent basis vector
+            const t1 = [
+              tangent[1]*n[2] - tangent[2]*n[1],
+              tangent[2]*n[0] - tangent[0]*n[2],
+              tangent[0]*n[1] - tangent[1]*n[0]
+            ];
+            const t1Len = Math.sqrt(t1[0]**2 + t1[1]**2 + t1[2]**2);
+            t1[0] /= t1Len; t1[1] /= t1Len; t1[2] /= t1Len;
+            
+            // Cross product to get second tangent basis vector
+            const t2 = [
+              n[1]*t1[2] - n[2]*t1[1],
+              n[2]*t1[0] - n[0]*t1[2],
+              n[0]*t1[1] - n[1]*t1[0]
+            ];
+            
+            // Calculate orbital position
+            const angle = orbital.angle;
+            const radius = orbital.radius * 1.05; // Slightly above surface
+            const offsetX = Math.cos(angle) * radius;
+            const offsetY = Math.sin(angle) * radius;
+            
+            // World position: pin + offset in tangent plane + slight outward push
+            const worldPos = [
+              pinPos[0] * 1.15 + t1[0] * offsetX + t2[0] * offsetY + n[0] * 0.03,
+              pinPos[1] * 1.15 + t1[1] * offsetX + t2[1] * offsetY + n[1] * 0.03,
+              pinPos[2] * 1.15 + t1[2] * offsetX + t2[2] * offsetY + n[2] * 0.03
+            ];
+            
+            particles.push({
+              position: worldPos,
+              life: orbital.active,
+              size: 0.08 + Math.sin(time * 3 + orbital.phaseOffset) * 0.02,
+              phase: orbital.phaseOffset,
+              color: pin.color
+            });
+          }
+        });
+      }
+    });
+    
+    return particles;
   }
   
   render(program, projMatrix, viewMatrix, modelMatrix, time, cameraPos) {
@@ -1608,6 +1932,161 @@ class WorkPinSystem {
     );
     
     gl.bindVertexArray(null);
+  }
+  
+  createBillboardGeometry() {
+    const gl = this.gl;
+    
+    // Simple quad: 4 vertices forming 2 triangles
+    const positions = new Float32Array([
+      -1.0,  1.0,  // top-left
+       1.0,  1.0,  // top-right
+       1.0, -1.0,  // bottom-right
+      -1.0, -1.0   // bottom-left
+    ]);
+    
+    const uvs = new Float32Array([
+      0.0, 1.0,  // top-left
+      1.0, 1.0,  // top-right
+      1.0, 0.0,  // bottom-right
+      0.0, 0.0   // bottom-left
+    ]);
+    
+    const indices = new Uint16Array([
+      0, 1, 2,  // first triangle
+      0, 2, 3   // second triangle
+    ]);
+    
+    // Create VAO for billboard quad
+    this.billboardVAO = gl.createVertexArray();
+    gl.bindVertexArray(this.billboardVAO);
+    
+    // Position buffer (aPosition = location 0)
+    const posBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    
+    // UV buffer (aUv = location 1)
+    const uvBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, uvBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, uvs, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(1);
+    gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 0, 0);
+    
+    // Index buffer
+    const indexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
+    
+    gl.bindVertexArray(null);
+  }
+  
+  setupOrbitalParticles() {
+    // Create orbital particles for each pin
+    this.pins.forEach(pin => {
+      for (let i = 0; i < this.maxOrbitalsPerPin; i++) {
+        const orbital = {
+          angle: (i / this.maxOrbitalsPerPin) * Math.PI * 2, // Evenly spaced
+          speed: 1.5 + Math.random() * 0.5, // Rotation speed (radians/sec)
+          radius: 0.15 + Math.random() * 0.05, // Distance from pin
+          phaseOffset: Math.random() * Math.PI * 2,
+          active: 0.0, // Fade in/out (0-1)
+          targetActive: 0.0
+        };
+        pin.orbitals.push(orbital);
+      }
+    });
+  }
+  
+  generateTextTextures() {
+    // Pre-generate textures for all work locations
+    console.log(`[WorkPinSystem] Generating text textures for ${Object.keys(this.locations).length} locations`);
+    
+    for (const [key, loc] of Object.entries(this.locations)) {
+      const entry = loc.entries[0]; // Get first/current job
+      const texture = this.textRenderer.createTextTexture(
+        entry.company,
+        entry.position,
+        entry.period,
+        loc.color
+      );
+      
+      this.textQuads.set(key, {
+        texture: texture,
+        alpha: 0.0,
+        targetAlpha: 0.0
+      });
+      
+      console.log(`  ✅ Generated texture for ${key}: ${entry.company} - ${entry.position}`);
+    }
+    
+    console.log(`[WorkPinSystem] Text textures ready: ${this.textQuads.size} quads`);
+  }
+  
+  renderText(program, projMatrix, viewMatrix) {
+    const gl = this.gl;
+    
+    if (!program) {
+      console.error('❌ Text billboard program is null!');
+      return;
+    }
+    
+    if (!this.billboardVAO) {
+      console.error('❌ Billboard VAO not created!');
+      return;
+    }
+    
+    // Enable blending for transparent text backgrounds
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.depthMask(false);
+    gl.disable(gl.DEPTH_TEST); // Render on top of everything
+    
+    gl.useProgram(program);
+    gl.bindVertexArray(this.billboardVAO);
+    
+    // Set matrices
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, 'uProjection'), false, projMatrix);
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, 'uView'), false, viewMatrix);
+    
+    // Render each visible text quad
+    let renderedCount = 0;
+    this.pins.forEach((pin, i) => {
+      const quad = this.textQuads.get(pin.key);
+      if (!quad || quad.alpha < 0.01) return;
+      
+      if (renderedCount === 0) {
+        console.log(`📝 Rendering billboard for ${pin.key}: alpha=${quad.alpha.toFixed(3)}, hovered=${pin.hovered}`);
+      }
+      renderedCount++;
+      
+      // Set uniforms for this billboard
+      gl.uniform3fv(gl.getUniformLocation(program, 'uWorldPos'), new Float32Array(pin.basePos));
+      gl.uniform2f(gl.getUniformLocation(program, 'uSize'), 5.0, 2.0); // DEBUG: 5x larger for visibility testing
+      gl.uniform1f(gl.getUniformLocation(program, 'uHoverProgress'), pin.hovered ? 1.0 : 0.0);
+      gl.uniform1f(gl.getUniformLocation(program, 'uAlpha'), quad.alpha);
+      
+      // Bind text texture
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, quad.texture);
+      gl.uniform1i(gl.getUniformLocation(program, 'uTextTexture'), 0); // FIX: Correct uniform name
+      
+      // Check for WebGL errors
+      const error = gl.getError();
+      if (error !== gl.NO_ERROR && renderedCount === 1) {
+        console.error(`❌ WebGL Error after binding texture: ${error}`);
+      }
+      
+      // Draw billboard
+      gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
+    });
+    
+    gl.bindVertexArray(null);
+    gl.depthMask(true);
+    gl.enable(gl.DEPTH_TEST); // Re-enable depth test
+    gl.disable(gl.BLEND);
   }
   
   checkHover(ray, cameraPos) {
@@ -1952,6 +2431,17 @@ export function initWorkGlobe() {
     life: 1,
     phase: 2
   });
+  
+  textBillboardProgram = createProgram(gl, textBillboardVertexShader, textBillboardFragmentShader, {
+    aPosition: 0,
+    aUv: 1
+  });
+  
+  if (!textBillboardProgram) {
+    console.error('❌ Failed to create text billboard shader program!');
+  } else {
+    console.log('✅ Text billboard shader program created successfully');
+  }
 
   // Create sphere geometry
   const sphere = createSphereGeometry(1.0, 40, 40);
@@ -2114,10 +2604,41 @@ export function initWorkGlobe() {
   canvas.addEventListener('pointermove', onPointerMove);
   canvas.addEventListener('pointerup', onPointerUp);
   canvas.addEventListener('pointerleave', onPointerUp);
+  
+  // Touch-specific handling for tap-to-show info on mobile
+  let touchStartTime = 0;
+  let touchStartPos = { x: 0, y: 0 };
+  
+  canvas.addEventListener('touchstart', (e) => {
+    touchStartTime = Date.now();
+    const touch = e.touches[0];
+    touchStartPos = { x: touch.clientX, y: touch.clientY };
+  }, { passive: true });
+  
+  canvas.addEventListener('touchend', (e) => {
+    const touchDuration = Date.now() - touchStartTime;
+    const touch = e.changedTouches[0];
+    const moveDistance = Math.sqrt(
+      Math.pow(touch.clientX - touchStartPos.x, 2) + 
+      Math.pow(touch.clientY - touchStartPos.y, 2)
+    );
+    
+    // If it's a quick tap (< 200ms) and minimal movement (< 10px), treat as tap
+    if (touchDuration < 200 && moveDistance < 10) {
+      const tappedPin = checkPinHover(touch.clientX, touch.clientY, true);
+      if (!tappedPin) {
+        // Tapped elsewhere - close info bubble
+        hideLocationInfo();
+      }
+    }
+  }, { passive: true });
+  
   window.addEventListener('resize', resizeCanvas);
 
   // Start animation
   animate();
+  
+  console.log('[Work Globe] Initialization complete');
 
 }
 
@@ -2371,12 +2892,24 @@ function render() {
     sporeSystem.update(0.016, lightningIntensity); // Assume ~60fps (16ms)
   }
   
+  // Update Work Pin System and inject orbital particles BEFORE rendering
+  if (workPinSystem) {
+    workPinSystem.update(0.016, time);
+    
+    // Get orbital particles and inject into spore system
+    if (sporeSystem) {
+      const orbitals = workPinSystem.getOrbitalParticles(time);
+      if (orbitals.length > 0) {
+        sporeSystem.injectOrbitalParticles(orbitals);
+      }
+    }
+  }
+  
   // ━━━ Draw Spore Particles (additive blend) ━━━
   if (sporeProgram && sporeSystem && sporeSystem.activeParticles > 0) {
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE); // Additive for glow
     gl.depthMask(false);
-    gl.enable(gl.PROGRAM_POINT_SIZE); // Enable point size from vertex shader
     
     gl.useProgram(sporeProgram);
     
@@ -2393,11 +2926,6 @@ function render() {
     sporeSystem.render(sporeProgram);
   }
   
-  // Update Work Pin System
-  if (workPinSystem) {
-    workPinSystem.update(0.016);
-  }
-  
   // ━━━ Draw Work Location Pins (alpha-blended crystals) ━━━
   if (pinProgram && workPinSystem) {
     gl.enable(gl.BLEND);
@@ -2409,6 +2937,9 @@ function render() {
     
     const cameraPos = [0, 0, 3];
     workPinSystem.render(pinProgram, projectionMatrix, viewMatrix, modelMatrix, time, cameraPos);
+    
+    // Render text billboards on top of pins
+    workPinSystem.renderText(textBillboardProgram, projectionMatrix, viewMatrix);
   }
   
   // Update Data Stream System
@@ -2436,7 +2967,6 @@ function render() {
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE);
     gl.depthMask(false);
-    gl.enable(gl.PROGRAM_POINT_SIZE);
     
     gl.useProgram(dataStreamProgram);
     dataStreamSystem.render(dataStreamProgram, projectionMatrix, viewMatrix, modelMatrix, time);
@@ -2458,12 +2988,20 @@ function onPointerDown(e) {
   autoRotate = false;
   lastPointerPos = { x: e.clientX, y: e.clientY };
   canvas.style.cursor = 'grabbing';
+  
+  // Store click position to detect if it's a click vs drag
+  clickStartPos = { x: e.clientX, y: e.clientY };
+  clickStartTime = Date.now();
 }
 
 function onPointerMove(e) {
-  // Check pin hover (even when not dragging)
-  if (workPinSystem && !isDragging) {
-    checkPinHover(e.clientX, e.clientY);
+  // Don't do hover effects if card is visible
+  const infoBubble = document.querySelector('.work-location-info');
+  const cardIsVisible = infoBubble && infoBubble.classList.contains('visible');
+  
+  // Check pin hover (even when not dragging) - visual feedback only
+  if (workPinSystem && !isDragging && !cardIsVisible) {
+    checkPinHover(e.clientX, e.clientY, false); // Don't show info on hover
   }
   
   if (!isDragging) return;
@@ -2480,8 +3018,10 @@ function onPointerMove(e) {
   lastPointerPos = { x: e.clientX, y: e.clientY };
 }
 
-function checkPinHover(mouseX, mouseY) {
+function checkPinHover(mouseX, mouseY, showInfo = false) {
   if (!workPinSystem) return;
+  
+  console.log('[Work Globe] checkPinHover called, showInfo:', showInfo);
   
   // Convert mouse to NDC
   const rect = canvas.getBoundingClientRect();
@@ -2490,7 +3030,7 @@ function checkPinHover(mouseX, mouseY) {
   
   // Simple 2D screen-space distance check
   let closestPin = null;
-  let closestDist = 0.15; // Hover radius in NDC space
+  let closestDist = 0.25; // Hover radius in NDC space (increased for easier detection)
   
   workPinSystem.pins.forEach(pin => {
     // Project pin position to screen space
@@ -2521,21 +3061,153 @@ function checkPinHover(mouseX, mouseY) {
     }
   });
   
+  console.log('[Work Globe] Closest pin:', closestPin ? closestPin.key : 'none', 'distance:', closestDist);
+  
   // Update hover state
+  const previousHoveredKey = workPinSystem.hoveredPin;
   workPinSystem.pins.forEach(pin => {
     pin.hovered = (pin === closestPin);
   });
   
   workPinSystem.hoveredPin = closestPin ? closestPin.key : null;
   
+  // Only show info if explicitly requested (on click)
+  if (showInfo && closestPin) {
+    console.log('[Work Globe] Showing info for:', closestPin.key);
+    showLocationInfo(closestPin);
+  }
+  
   // Change cursor
   canvas.style.cursor = closestPin ? 'pointer' : 'grab';
+  
+  return closestPin;
 }
 
-function onPointerUp() {
+// ━━━ INFO BUBBLE MANAGEMENT ━━━
+function projectToScreen(worldPos) {
+  // Transform world position through matrices
+  const modelPos = mat4.transformPoint(modelMatrix, worldPos);
+  const viewPos = mat4.transformPoint(viewMatrix, modelPos);
+  const clipPos = mat4.transformPoint(projectionMatrix, viewPos);
+  
+  // Perspective divide
+  const ndcX = clipPos[0] / clipPos[3];
+  const ndcY = clipPos[1] / clipPos[3];
+  
+  // Convert from clip space (-1 to 1) to screen space
+  const rect = canvas.getBoundingClientRect();
+  const x = (ndcX * 0.5 + 0.5) * rect.width + rect.left;
+  const y = (1 - (ndcY * 0.5 + 0.5)) * rect.height + rect.top;
+  
+  return { x, y };
+}
+
+function showLocationInfo(pin) {
+  console.log('[Work Globe] showLocationInfo called for:', pin.key);
+  
+  let infoBubble = document.querySelector('.work-location-info');
+  if (!infoBubble) {
+    console.log('[Work Globe] Creating new info bubble element');
+    infoBubble = document.createElement('div');
+    infoBubble.className = 'work-location-info';
+    document.body.appendChild(infoBubble);
+    
+    // Add click handler to close when clicking outside
+    document.addEventListener('click', (e) => {
+      const bubble = document.querySelector('.work-location-info');
+      if (bubble && bubble.classList.contains('visible')) {
+        // Check if click is outside the bubble
+        if (!bubble.contains(e.target)) {
+          hideLocationInfo();
+        }
+      }
+    });
+  }
+
+  const location = WORK_LOCATIONS[pin.key];
+  const icon = pin.key === 'barcelona' ? '📍' : '🏛️';
+  
+  console.log('[Work Globe] Building content for:', location.name);
+  
+  // Build content
+  let html = `
+    <div class="work-location-header">
+      <span class="work-location-icon">${icon}</span>
+      ${location.name}
+    </div>
+  `;
+
+  location.entries.forEach(entry => {
+    html += `
+      <div class="work-entry">
+        <div class="work-company">${entry.company}</div>
+        <div class="work-position">${entry.position}</div>
+        <div class="work-period">${entry.period}</div>
+        <ul class="work-responsibilities">
+          ${entry.responsibilities.map(resp => `<li>${resp}</li>`).join('')}
+        </ul>
+      </div>
+    `;
+  });
+
+  infoBubble.innerHTML = html;
+
+  // Position centered on screen like about/skills sections
+  infoBubble.style.left = '50%';
+  infoBubble.style.top = '50%';
+  console.log('[Work Globe] Positioned at screen center');
+  
+  // Show with animation
+  requestAnimationFrame(() => {
+    infoBubble.classList.add('visible');
+    console.log('[Work Globe] Info bubble visible class added');
+  });
+}
+
+function hideLocationInfo() {
+  console.log('[Work Globe] hideLocationInfo called');
+  const infoBubble = document.querySelector('.work-location-info');
+  if (infoBubble) {
+    infoBubble.classList.remove('visible');
+    console.log('[Work Globe] Info bubble hidden');
+  }
+}
+
+function onPointerUp(e) {
+  const wasDragging = isDragging;
   isDragging = false;
   canvas.style.cursor = 'grab';
-
+  
+  console.log('[Work Globe] Pointer up - was dragging:', wasDragging);
+  
+  // Calculate if this was a click or a drag
+  if (clickStartTime) {
+    const clickDuration = Date.now() - clickStartTime;
+    const moveDistance = Math.sqrt(
+      Math.pow(e.clientX - clickStartPos.x, 2) + 
+      Math.pow(e.clientY - clickStartPos.y, 2)
+    );
+    
+    console.log('[Work Globe] Click metrics:', { clickDuration, moveDistance });
+    
+    // If it's a quick click (< 200ms) and minimal movement (< 10px), treat as click
+    const isClick = clickDuration < 200 && moveDistance < 10;
+    
+    if (isClick) {
+      console.log('[Work Globe] Valid click detected, checking for pin');
+      
+      // Don't check for pins if card is visible - let the card's click handler deal with it
+      const infoBubble = document.querySelector('.work-location-info');
+      const cardIsVisible = infoBubble && infoBubble.classList.contains('visible');
+      
+      if (!cardIsVisible) {
+        checkPinHover(e.clientX, e.clientY, true);
+      }
+    }
+  }
+  
+  clickStartTime = 0;
+  
   // Re-enable auto-rotate after 3 seconds of no interaction
   setTimeout(() => {
     if (!isDragging && Math.abs(rotationVelocity.x) < 0.001) {
@@ -2594,6 +3266,13 @@ export function cleanupWorkGlobe() {
   canvas.removeEventListener('pointerup', onPointerUp);
   canvas.removeEventListener('pointerleave', onPointerUp);
   window.removeEventListener('resize', resizeCanvas);
+  
+  // Hide and remove info bubble
+  hideLocationInfo();
+  const infoBubble = document.querySelector('.work-location-info');
+  if (infoBubble) {
+    infoBubble.remove();
+  }
 
   console.log('[Work Globe] Cleanup complete');
 }

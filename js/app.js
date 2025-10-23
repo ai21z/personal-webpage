@@ -1087,7 +1087,7 @@ function initPaperHoverRing(){
 }
 
 // ───────────────────────── Ritual Background (panel mode) ─────────────────────────
-let SIGNALS = {
+var SIGNALS = {
   canvas: null,
   ctx: null,
   raf: 0,
