@@ -179,19 +179,19 @@ export class MoonOrbitSystem {
       const worldPos = this.getWorldPosition(moon);
       
       // Create model matrix for this moon
-      // IMPORTANT: Don't inherit globe's rotation - moon should stay spherical
       const scale = moon.moonRadius * moon.scale;
       
-      // Build fresh model matrix (identity + scale + translation)
-      const baseModel = new Float32Array([
+      // Rotate the orbital position into world space so rendering matches hit-testing
+      const rotatedPos = modelMatrix
+        ? mat4.transformPoint(modelMatrix, worldPos)
+        : [...worldPos, 1];
+      
+      const moonModel = new Float32Array([
         scale, 0, 0, 0,
         0, scale, 0, 0,
         0, 0, scale, 0,
-        worldPos[0], worldPos[1], worldPos[2], 1
+        rotatedPos[0], rotatedPos[1], rotatedPos[2], 1
       ]);
-
-      // Apply globe rotation so moon click tests and rendering stay in sync
-      const moonModel = modelMatrix ? mat4.multiply(modelMatrix, baseModel) : baseModel;
       
       // Set per-moon uniforms
       const uModel = gl.getUniformLocation(program, 'uModel');
@@ -204,7 +204,7 @@ export class MoonOrbitSystem {
       const uEyeDilation = gl.getUniformLocation(program, 'uEyeDilation');
       const uShimmerPhase = gl.getUniformLocation(program, 'uShimmerPhase');
       
-  gl.uniformMatrix4fv(uModel, false, moonModel);
+      gl.uniformMatrix4fv(uModel, false, moonModel);
       gl.uniform3fv(uMoonColor, moon.color);
       
       // Rim color (lighter version of base color)
@@ -239,16 +239,16 @@ export class MoonOrbitSystem {
     this.moons.forEach(moon => {
       const worldPos = this.getWorldPosition(moon);
       
-    // Project to screen space
-    const modelPos = mat4.transformPoint(modelMatrix, worldPos);
-    const viewPos = mat4.transformPoint(viewMatrix, modelPos);
-    const clipPos = mat4.transformPoint(projMatrix, viewPos); // Returns NDC xyz and clip w
+      // Project to screen space
+      const modelPos = mat4.transformPoint(modelMatrix, worldPos);
+      const viewPos = mat4.transformPoint(viewMatrix, modelPos);
+      const clipPos = mat4.transformPoint(projMatrix, viewPos); // Returns NDC xyz and clip w
       
-    // Check if behind camera
-    if (clipPos[3] < 0) return;
+      // Check if behind camera
+      if (clipPos[3] < 0) return;
       
-    const screenX = clipPos[0];
-    const screenY = clipPos[1];
+      const screenX = clipPos[0];
+      const screenY = clipPos[1];
       
       // Distance to mouse
       const dist = Math.sqrt((screenX - ndcX) ** 2 + (screenY - ndcY) ** 2);
