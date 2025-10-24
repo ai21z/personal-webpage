@@ -6,11 +6,13 @@ import { createSphereGeometry, createPinGeometry, createMyceliumHyphae } from '.
 
 // Data
 import { WORK_LOCATIONS } from './work-globe/data/work-locations.js';
+import { PROJECTS } from './work-globe/data/projects.js';
 
 // Systems
 import { SporeSystem } from './work-globe/systems/spore-system.js';
 import { WorkPinSystem } from './work-globe/systems/work-pin-system.js';
 import { DataStreamSystem } from './work-globe/systems/data-stream-system.js';
+import { MoonOrbitSystem } from './work-globe/systems/moon-orbit-system.js';
 
 // Shaders
 import { GLOBE_VERTEX_SHADER, GLOBE_FRAGMENT_SHADER } from './work-globe/shaders/globe-shaders.js';
@@ -20,6 +22,7 @@ import { MYCELIUM_VERTEX_SHADER, MYCELIUM_FRAGMENT_SHADER, MYCELIUM_CORE_FRAGMEN
 import { PARTICLE_VERTEX_SHADER, PARTICLE_FRAGMENT_SHADER } from './work-globe/shaders/particle-shaders.js';
 import { PIN_VERTEX_SHADER, PIN_FRAGMENT_SHADER } from './work-globe/shaders/pin-shaders.js';
 import { DATA_STREAM_VERTEX_SHADER, DATA_STREAM_FRAGMENT_SHADER, TEXT_BILLBOARD_VERTEX_SHADER, TEXT_BILLBOARD_FRAGMENT_SHADER } from './work-globe/shaders/misc-shaders.js';
+import { MOON_VERTEX_SHADER, MOON_FRAGMENT_SHADER } from './work-globe/shaders/moon-shaders.js';
 
 /**
  * Mycelial globe visualization with WebGL2.
@@ -30,12 +33,13 @@ import { DATA_STREAM_VERTEX_SHADER, DATA_STREAM_FRAGMENT_SHADER, TEXT_BILLBOARD_
 
 // ━━━ GLOBE STATE ━━━
 let gl, canvas;
-let globeProgram, atmosphereProgram, fogProgram, lightningProgram, myceliumProgram, myceliumCoreProgram, sporeProgram, pinProgram, dataStreamProgram, textBillboardProgram;
+let globeProgram, atmosphereProgram, fogProgram, lightningProgram, myceliumProgram, myceliumCoreProgram, sporeProgram, pinProgram, dataStreamProgram, textBillboardProgram, moonProgram;
 let globeVAO, sphereVertexCount;
 let myceliumVAO, myceliumVertexCount, myceliumGrowthTime = 0;
 let sporeSystem = null;
 let workPinSystem = null;
 let dataStreamSystem = null;
+let moonOrbitSystem = null;
 let projectionMatrix, viewMatrix, modelMatrix;
 let rotation = { x: 0, y: 0 };
 let rotationVelocity = { x: 0, y: 0 };
@@ -46,6 +50,7 @@ let clickStartTime = 0;
 let animationFrameId = null;
 let autoRotate = true;
 let time = 0;
+let lastFrameTime = 0; // Track time for delta calculation
 
 // Textures
 let earthTexture = null;
@@ -146,6 +151,12 @@ export function initWorkGlobe() {
     position: 0,
     life: 1,
     phase: 2
+  });
+  
+  moonProgram = createProgram(gl, MOON_VERTEX_SHADER, MOON_FRAGMENT_SHADER, {
+    position: 0,
+    normal: 1,
+    uv: 2
   });
   
   textBillboardProgram = createProgram(gl, TEXT_BILLBOARD_VERTEX_SHADER, TEXT_BILLBOARD_FRAGMENT_SHADER, {
@@ -277,6 +288,8 @@ export function initWorkGlobe() {
   workPinSystem = new WorkPinSystem(gl, WORK_LOCATIONS, pinGeometry);
   
   dataStreamSystem = new DataStreamSystem(gl, 500);
+  
+  moonOrbitSystem = new MoonOrbitSystem(gl, PROJECTS);
 
   projectionMatrix = mat4.perspective(
     Math.PI / 4,
@@ -284,7 +297,7 @@ export function initWorkGlobe() {
     0.1,
     100.0
   );
-  viewMatrix = mat4.lookAt([0, 0, 3], [0, 0, 0], [0, 1, 0]);
+  viewMatrix = mat4.lookAt([0, 0, 3.5], [0, 0, 0], [0, 1, 0]); // Moved back from 3 to 3.5 (+17% farther)
   modelMatrix = mat4.create();
 
   gl.enable(gl.DEPTH_TEST);
@@ -358,11 +371,22 @@ export function initWorkGlobe() {
 
 }
 
-function render() {
+function render(deltaTime) {
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-  // Update time
-  time += 0.01;
+  // Safeguard against NaN
+  if (isNaN(deltaTime) || deltaTime === undefined || deltaTime === null) {
+    deltaTime = 0.016; // Default to 60fps
+  }
+
+  // Update time (scale to match original speed: 0.01 per frame at 60fps = 0.6/sec)
+  time += deltaTime * 0.6;
+  
+  // Additional safeguard - if time becomes NaN, reset it
+  if (isNaN(time)) {
+    console.warn('[Work Globe] Time became NaN, resetting to 0');
+    time = 0;
+  }
 
   // Update rotation with velocity (inertia)
   if (!isDragging) {
@@ -390,6 +414,11 @@ function render() {
   // ━━━ Draw Globe ━━━
   gl.depthMask(true);
   gl.disable(gl.BLEND);
+  
+  if (!globeProgram || !globeVAO) {
+    console.error('[Render Error] Missing globe resources:', { globeProgram: !!globeProgram, globeVAO: !!globeVAO });
+    return;
+  }
   
   gl.useProgram(globeProgram);
   gl.bindVertexArray(globeVAO);
@@ -440,7 +469,7 @@ function render() {
   
   // Mycelium Hyphae - Body Pass
   if (myceliumProgram && myceliumVAO && myceliumVertexCount > 0) {
-    myceliumGrowthTime += 0.5; // Slower growth speed (~5-6 seconds to fully reveal)
+    myceliumGrowthTime += deltaTime * 50; // Growth speed in units/second (~5-6 seconds to fully reveal)
     
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -605,12 +634,12 @@ function render() {
     const strobe = strobePhase < 0.04 ? 1.0 : 0.0; // 4% duty cycle
     const lightningIntensity = slowPulse * (0.3 + strobe * 0.7);
     
-    sporeSystem.update(0.016, lightningIntensity); // Assume ~60fps (16ms)
+    sporeSystem.update(deltaTime, lightningIntensity); // Use actual delta time
   }
   
   // Update Work Pin System and inject orbital particles BEFORE rendering
   if (workPinSystem) {
-    workPinSystem.update(0.016, time);
+    workPinSystem.update(deltaTime, time); // Use actual delta time
     
     // Get orbital particles and inject into spore system
     if (sporeSystem) {
@@ -619,6 +648,11 @@ function render() {
         sporeSystem.injectOrbitalParticles(orbitals);
       }
     }
+  }
+  
+  // Update Moon Orbit System
+  if (moonOrbitSystem) {
+    moonOrbitSystem.update(deltaTime); // Use actual delta time
   }
   
   // ━━━ Draw Spore Particles (additive blend) ━━━
@@ -651,16 +685,27 @@ function render() {
     
     gl.useProgram(pinProgram);
     
-    const cameraPos = [0, 0, 3];
+    const cameraPos = [0, 0, 3.5];
     workPinSystem.render(pinProgram, projectionMatrix, viewMatrix, modelMatrix, time, cameraPos);
     
     // Render text billboards on top of pins
     workPinSystem.renderText(textBillboardProgram, projectionMatrix, viewMatrix);
   }
   
+  // ━━━ Draw Orbital Moons (after pins, with transparency) ━━━
+  if (moonProgram && moonOrbitSystem) {
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.enable(gl.DEPTH_TEST);
+    gl.depthMask(false); // Don't write depth - allow particles to show through
+    
+    const cameraPos = [0, 0, 3.5];
+    moonOrbitSystem.render(moonProgram, projectionMatrix, viewMatrix, modelMatrix, time, cameraPos);
+  }
+  
   // Update Data Stream System
   if (dataStreamSystem) {
-    dataStreamSystem.update(0.016);
+    dataStreamSystem.update(deltaTime); // Use actual delta time
     
     // Emit streams from hovered pins
     if (workPinSystem && workPinSystem.hoveredPin) {
@@ -693,9 +738,19 @@ function render() {
   gl.bindVertexArray(null);
 }
 
-function animate() {
+function animate(timestamp) {
   animationFrameId = requestAnimationFrame(animate);
-  render();
+  
+  // Calculate delta time in seconds
+  if (lastFrameTime === 0) {
+    lastFrameTime = timestamp;
+    render(0.016); // First frame uses assumed 60fps
+    return;
+  }
+  const deltaTime = Math.min((timestamp - lastFrameTime) / 1000, 0.1); // Cap at 100ms to prevent huge jumps
+  lastFrameTime = timestamp;
+  
+  render(deltaTime);
 }
 
 // Input handling
@@ -713,7 +768,24 @@ function onPointerDown(e) {
 function onPointerMove(e) {
   // Don't do hover effects if card is visible
   const infoBubble = document.querySelector('.work-location-info');
-  const cardIsVisible = infoBubble && infoBubble.classList.contains('visible');
+  const projectPanel = document.querySelector('.project-panel');
+  const cardIsVisible = (infoBubble && infoBubble.classList.contains('visible')) ||
+                       (projectPanel && projectPanel.classList.contains('visible'));
+  
+  // Check moon hover (even when not dragging) - visual feedback only
+  if (moonOrbitSystem && !isDragging && !cardIsVisible && projectionMatrix && viewMatrix && modelMatrix) {
+    const rect = canvas.getBoundingClientRect();
+    const ndcX = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    const ndcY = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    
+    const hoveredMoon = moonOrbitSystem.getMoonAtPosition(ndcX, ndcY, projectionMatrix, viewMatrix, modelMatrix);
+    moonOrbitSystem.setHoveredMoon(hoveredMoon);
+    
+    // Update cursor
+    if (hoveredMoon) {
+      canvas.style.cursor = 'pointer';
+    }
+  }
   
   // Check pin hover (even when not dragging) - visual feedback only
   if (workPinSystem && !isDragging && !cardIsVisible) {
@@ -734,19 +806,128 @@ function onPointerMove(e) {
   lastPointerPos = { x: e.clientX, y: e.clientY };
 }
 
+// ━━━ CLICK DETECTION WITH PROPER DEPTH ORDERING ━━━
+function checkClickWithDepth(mouseX, mouseY) {
+  if (!projectionMatrix || !viewMatrix || !modelMatrix) return null;
+  
+  // Convert mouse to NDC
+  const rect = canvas.getBoundingClientRect();
+  const ndcX = ((mouseX - rect.left) / rect.width) * 2 - 1;
+  const ndcY = -((mouseY - rect.top) / rect.height) * 2 + 1;
+  
+  console.log('[Click Detection] Mouse NDC:', { ndcX: ndcX.toFixed(3), ndcY: ndcY.toFixed(3) });
+  
+  const clickableCandidates = [];
+  
+  // Check moon(s)
+  if (moonOrbitSystem) {
+    const moon = moonOrbitSystem.getMoonAtPosition(ndcX, ndcY, projectionMatrix, viewMatrix, modelMatrix);
+    if (moon) {
+      // Get moon's world position
+      const moonWorldPos = moonOrbitSystem.getMoonWorldPosition(moon);
+      if (moonWorldPos) {
+        // Transform to view space to get depth (Z coordinate)
+        const modelPos = mat4.transformPoint(modelMatrix, moonWorldPos);
+        const viewPos = mat4.transformPoint(viewMatrix, modelPos);
+        const clipPos = mat4.transformPoint(projectionMatrix, viewPos);
+        
+        // Use clip space Z for depth (closer = more negative in view space, but positive after projection)
+        const depth = clipPos[2] / clipPos[3]; // Normalized device coordinate Z (-1 to 1)
+        
+        clickableCandidates.push({
+          type: 'moon',
+          object: moon,
+          depth: depth,
+          screenDist: 0 // Moon detection already handles distance
+        });
+        
+        console.log('[Click Detection] Found moon candidate:', { depth: depth.toFixed(3) });
+      }
+    }
+  }
+  
+  // Check pins with TIGHT click radius
+  if (workPinSystem) {
+    const CLICK_RADIUS = 0.15; // Increased from 0.08 to make clicking easier
+    
+    console.log('[Click Detection] Checking', workPinSystem.pins.length, 'pins with radius', CLICK_RADIUS);
+    
+    workPinSystem.pins.forEach(pin => {
+      // Project pin position to screen space
+      const worldPos = [
+        pin.basePos[0] * 1.1, // Slightly above surface
+        pin.basePos[1] * 1.1,
+        pin.basePos[2] * 1.1
+      ];
+      
+      // Manual MVP transform
+      const modelPos = mat4.transformPoint(modelMatrix, worldPos);
+      const viewPos = mat4.transformPoint(viewMatrix, modelPos);
+      const clipPos = mat4.transformPoint(projectionMatrix, viewPos);
+      
+      // Perspective divide
+      const pinNdcX = clipPos[0] / clipPos[3];
+      const pinNdcY = clipPos[1] / clipPos[3];
+      const depth = clipPos[2] / clipPos[3];
+      
+      // Check if behind camera
+      if (clipPos[3] < 0) {
+        console.log('[Click Detection] Pin', pin.key, 'is behind camera');
+        return;
+      }
+      
+      // Distance to mouse in screen space
+      const screenDist = Math.sqrt((pinNdcX - ndcX) ** 2 + (pinNdcY - ndcY) ** 2);
+      
+      console.log('[Click Detection] Pin', pin.key, ':', {
+        ndcPos: `(${pinNdcX.toFixed(3)}, ${pinNdcY.toFixed(3)})`,
+        screenDist: screenDist.toFixed(3),
+        depth: depth.toFixed(3),
+        withinRadius: screenDist < CLICK_RADIUS
+      });
+      
+      if (screenDist < CLICK_RADIUS) {
+        clickableCandidates.push({
+          type: 'pin',
+          object: pin,
+          depth: depth,
+          screenDist: screenDist
+        });
+      }
+    });
+  }
+  
+  console.log('[Click Detection] Total candidates:', clickableCandidates.length);
+  
+  // Sort by depth (closest first) - LOWER depth = closer to camera
+  clickableCandidates.sort((a, b) => a.depth - b.depth);
+  
+  // Return the closest object in 3D space
+  if (clickableCandidates.length > 0) {
+    const winner = clickableCandidates[0];
+    console.log(`[Click Detection] Winner: ${winner.type}`, {
+      depth: winner.depth.toFixed(3),
+      screenDist: winner.screenDist.toFixed(3),
+      totalCandidates: clickableCandidates.length
+    });
+    return winner;
+  }
+  
+  console.log('[Click Detection] No candidates found');
+  return null;
+}
+
 function checkPinHover(mouseX, mouseY, showInfo = false) {
   if (!workPinSystem) return;
-  
-  console.log('[Work Globe] checkPinHover called, showInfo:', showInfo);
   
   // Convert mouse to NDC
   const rect = canvas.getBoundingClientRect();
   const x = ((mouseX - rect.left) / rect.width) * 2 - 1;
   const y = -((mouseY - rect.top) / rect.height) * 2 + 1;
   
-  // Simple 2D screen-space distance check
+  // HOVER radius - more generous than click radius
   let closestPin = null;
-  let closestDist = 0.25; // Hover radius in NDC space (increased for easier detection)
+  let closestDist = 0.15; // Hover radius in NDC space (15% of screen width)
   
   workPinSystem.pins.forEach(pin => {
     // Project pin position to screen space
@@ -776,8 +957,6 @@ function checkPinHover(mouseX, mouseY, showInfo = false) {
       closestPin = pin;
     }
   });
-  
-  console.log('[Work Globe] Closest pin:', closestPin ? closestPin.key : 'none', 'distance:', closestDist);
   
   // Update hover state
   const previousHoveredKey = workPinSystem.hoveredPin;
@@ -889,12 +1068,106 @@ function hideLocationInfo() {
   }
 }
 
+function checkMoonClick(mouseX, mouseY) {
+  if (!moonOrbitSystem || !projectionMatrix || !viewMatrix || !modelMatrix) return null;
+  
+  // Convert mouse to NDC
+  const rect = canvas.getBoundingClientRect();
+  const ndcX = ((mouseX - rect.left) / rect.width) * 2 - 1;
+  const ndcY = -((mouseY - rect.top) / rect.height) * 2 + 1;
+  
+  // Check if moon was clicked
+  const clickedMoon = moonOrbitSystem.getMoonAtPosition(ndcX, ndcY, projectionMatrix, viewMatrix, modelMatrix);
+  
+  if (clickedMoon) {
+    console.log('[Work Globe] Moon clicked:', clickedMoon.project.name);
+    showProjectPanel(clickedMoon);
+    return clickedMoon;
+  }
+  
+  return null;
+}
+
+function showProjectPanel(moon) {
+  console.log('[Work Globe] showProjectPanel called for:', moon.project.name);
+  
+  // Hide any existing work location info
+  hideLocationInfo();
+  
+  let projectPanel = document.querySelector('.project-panel');
+  if (!projectPanel) {
+    console.log('[Work Globe] Creating new project panel element');
+    projectPanel = document.createElement('div');
+    projectPanel.className = 'project-panel necrographic-card';
+    document.body.appendChild(projectPanel);
+    
+    // Add click handler to close when clicking outside
+    document.addEventListener('click', (e) => {
+      const panel = document.querySelector('.project-panel');
+      if (panel && panel.classList.contains('visible')) {
+        if (!panel.contains(e.target)) {
+          hideProjectPanel();
+        }
+      }
+    });
+  }
+  
+  const project = moon.project;
+  
+  // Build content
+  let html = `
+    <div class="project-header">
+      <h3>${project.name}</h3>
+      <button class="close-btn" onclick="window.hideProjectPanel()">✕</button>
+    </div>
+    <p class="project-description">${project.description}</p>
+    <div class="tech-badges">
+      ${project.tech.map(t => `<span class="tech-badge">${t}</span>`).join('')}
+    </div>
+    <a href="${project.github}" class="github-link" target="_blank" rel="noopener noreferrer">
+      View on GitHub →
+    </a>
+  `;
+  
+  projectPanel.innerHTML = html;
+  
+  // Pause moon orbit
+  moonOrbitSystem.pauseMoon(moon, true);
+  
+  // Position at center
+  projectPanel.style.position = 'fixed';
+  projectPanel.style.left = '50%';
+  projectPanel.style.top = '50%';
+  projectPanel.style.transform = 'translate(-50%, -50%)';
+  
+  // Show with animation
+  requestAnimationFrame(() => {
+    projectPanel.classList.add('visible');
+    console.log('[Work Globe] Project panel visible');
+  });
+}
+
+function hideProjectPanel() {
+  console.log('[Work Globe] hideProjectPanel called');
+  const projectPanel = document.querySelector('.project-panel');
+  if (projectPanel) {
+    projectPanel.classList.remove('visible');
+    console.log('[Work Globe] Project panel hidden');
+    
+    // Resume moon orbit
+    if (moonOrbitSystem) {
+      moonOrbitSystem.pauseAll(false);
+    }
+  }
+}
+
+// Make hideProjectPanel available globally for the close button
+window.hideProjectPanel = hideProjectPanel;
+
 function onPointerUp(e) {
   const wasDragging = isDragging;
   isDragging = false;
   canvas.style.cursor = 'grab';
-  
-  console.log('[Work Globe] Pointer up - was dragging:', wasDragging);
   
   // Calculate if this was a click or a drag
   if (clickStartTime) {
@@ -904,20 +1177,27 @@ function onPointerUp(e) {
       Math.pow(e.clientY - clickStartPos.y, 2)
     );
     
-    console.log('[Work Globe] Click metrics:', { clickDuration, moveDistance });
-    
     // If it's a quick click (< 200ms) and minimal movement (< 10px), treat as click
     const isClick = clickDuration < 200 && moveDistance < 10;
     
     if (isClick) {
-      console.log('[Work Globe] Valid click detected, checking for pin');
-      
-      // Don't check for pins if card is visible - let the card's click handler deal with it
+      // Don't check if any card/panel is visible
       const infoBubble = document.querySelector('.work-location-info');
-      const cardIsVisible = infoBubble && infoBubble.classList.contains('visible');
+      const projectPanel = document.querySelector('.project-panel');
+      const cardIsVisible = (infoBubble && infoBubble.classList.contains('visible')) || 
+                           (projectPanel && projectPanel.classList.contains('visible'));
       
       if (!cardIsVisible) {
-        checkPinHover(e.clientX, e.clientY, true);
+        // Check ALL clickable objects and select the closest one in 3D space
+        const clickResult = checkClickWithDepth(e.clientX, e.clientY);
+        
+        if (clickResult) {
+          if (clickResult.type === 'moon') {
+            showProjectPanel(clickResult.object);
+          } else if (clickResult.type === 'pin') {
+            showLocationInfo(clickResult.object);
+          }
+        }
       }
     }
   }

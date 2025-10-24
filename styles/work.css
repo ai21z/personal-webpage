@@ -24,14 +24,12 @@
   justify-content: center;
 }
 
-/* Globe container - FORCE PERFECT SQUARE */
+/* Globe container - Fully responsive to screen size */
 .work-globe-container {
   position: relative;
-  width: min(85vh, 85vw);
-  height: min(85vh, 85vw);
-  max-width: 900px;
-  max-height: 900px;
-  aspect-ratio: 1 / 1; /* Force square aspect ratio */
+  width: 100vw;   /* Full viewport width */
+  height: 100vh;  /* Full viewport height */
+  aspect-ratio: auto; /* Let it use full screen, don't force square */
 }
 
 /* Three.js canvas for the globe */
@@ -462,3 +460,201 @@
 .work-globe-screen.active-section {
   animation: work-fade-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+/* ━━━ PROJECT PANEL (Orbital Moon Details) ━━━ */
+.project-panel {
+  position: fixed;
+  max-width: 520px;
+  min-width: 400px;
+  padding: 2.5rem 2.5rem 2rem 4rem;
+  color: #2A251F;
+  
+  /* Aged paper texture - same as work-location-info */
+  background: 
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 31px,
+      rgba(139, 125, 107, 0.12) 31px,
+      rgba(139, 125, 107, 0.12) 32px
+    ),
+    radial-gradient(
+      ellipse 800px 400px at 50% -10%,
+      rgba(101, 67, 33, 0.35) 0%,
+      rgba(139, 125, 107, 0.25) 30%,
+      transparent 60%
+    ),
+    radial-gradient(
+      ellipse 600px 500px at 90% 110%,
+      rgba(101, 67, 33, 0.4) 0%,
+      rgba(139, 125, 107, 0.2) 35%,
+      transparent 65%
+    ),
+    radial-gradient(
+      ellipse 500px 450px at -5% 95%,
+      rgba(101, 67, 33, 0.3) 0%,
+      rgba(120, 100, 70, 0.15) 40%,
+      transparent 70%
+    ),
+    linear-gradient(
+      to bottom,
+      #F0E8D0 0%,
+      #E8DFC5 20%,
+      #E5DBBD 50%,
+      #DFD5B5 80%,
+      #D5CBB0 100%
+    );
+  
+  border: none;
+  border-radius: 8px 3px 12px 5px / 5px 10px 7px 15px;
+  
+  box-shadow: 
+    0 16px 64px rgba(0, 0, 0, 0.7),
+    inset 0 0 120px rgba(101, 67, 33, 0.25),
+    inset -20px 0 40px rgba(101, 67, 33, 0.15);
+  
+  clip-path: polygon(
+    0% 2%, 1% 0%, 3% 1%, 5% 0.5%, 8% 1%, 12% 0.8%, 15% 1.5%, 18% 0.5%, 22% 1%, 
+    25% 0.8%, 30% 1.2%, 35% 0.5%, 40% 1%, 45% 0.8%, 50% 1.2%, 55% 0.5%, 60% 1%, 
+    65% 0.8%, 70% 1.5%, 75% 0.5%, 80% 1.2%, 85% 0.8%, 90% 1%, 95% 0.5%, 98% 1%, 100% 2%,
+    100% 98%, 99% 100%, 97% 99%, 95% 99.5%, 92% 99%, 88% 99.5%, 85% 98.5%, 82% 99.5%, 78% 99%,
+    75% 99.2%, 70% 98.8%, 65% 99.5%, 60% 99%, 55% 99.2%, 50% 98.8%, 45% 99.5%, 40% 99%,
+    35% 99.5%, 30% 98.8%, 25% 99.2%, 20% 99.5%, 15% 99%, 10% 99.5%, 5% 99%, 2% 99.5%, 0% 98%
+  );
+  
+  font-family: 'Special Elite', monospace;
+  pointer-events: none;
+  cursor: default;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.92);
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 1001; /* Above work-location-info */
+  transform-origin: center center;
+}
+
+/* Spiral binding holes */
+.project-panel::before {
+  content: '';
+  position: absolute;
+  left: 20px;
+  top: 40px;
+  bottom: 40px;
+  width: 2px;
+  background: 
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0px,
+      transparent 18px,
+      rgba(101, 67, 33, 0.6) 18px,
+      rgba(101, 67, 33, 0.6) 20px,
+      transparent 20px,
+      transparent 38px
+    );
+  box-shadow: 
+    -1px 0 0 rgba(101, 67, 33, 0.2),
+    1px 0 0 rgba(101, 67, 33, 0.2);
+  pointer-events: none;
+}
+
+.project-panel.visible {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+  pointer-events: auto;
+}
+
+.project-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid rgba(101, 67, 33, 0.3);
+}
+
+.project-header h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #2A251F;
+  margin: 0;
+  letter-spacing: 0.03em;
+  line-height: 1.3;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.3);
+  flex: 1;
+  padding-right: 1rem;
+}
+
+.close-btn {
+  background: rgba(101, 67, 33, 0.15);
+  border: 1px solid rgba(101, 67, 33, 0.3);
+  color: #2A251F;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: bold;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  pointer-events: auto;
+}
+
+.close-btn:hover {
+  background: rgba(101, 67, 33, 0.25);
+  transform: scale(1.1);
+}
+
+.project-description {
+  font-size: 14px;
+  line-height: 1.7;
+  color: #3A342E;
+  margin-bottom: 1.5rem;
+  text-align: justify;
+}
+
+.tech-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 1.5rem;
+}
+
+.tech-badge {
+  background: rgba(168, 85, 247, 0.12);
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  color: #5B3A8C;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.5);
+  box-shadow: 0 2px 4px rgba(101, 67, 33, 0.15);
+}
+
+.github-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: rgba(168, 85, 247, 0.15);
+  border: 2px solid rgba(168, 85, 247, 0.4);
+  border-radius: 8px;
+  color: #5B3A8C;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 14px;
+  transition: all 0.25s;
+  box-shadow: 0 4px 8px rgba(101, 67, 33, 0.2);
+  pointer-events: auto;
+}
+
+.github-link:hover {
+  background: rgba(168, 85, 247, 0.25);
+  border-color: rgba(168, 85, 247, 0.6);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(101, 67, 33, 0.3);
+}
+

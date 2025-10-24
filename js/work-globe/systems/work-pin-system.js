@@ -227,34 +227,46 @@ export class WorkPinSystem {
   }
   
   update(dt, time) {
-    // Animate pin heights and scales
+    // Animation strategy:
+    // - Pin spikes (height/scale): Respond to hover (pin.hovered)
+    // - Orbital particles: Always active, continuously rotating
+    // - Text billboards: Always visible at full opacity
+    // This ensures ambient effects are always visible; hover only affects pin visual feedback
+    
+    // Animate pin heights and scales (hover-responsive)
     this.pins.forEach((pin, i) => {
       // Height animation (subtle on hover)
       const targetHeight = pin.hovered ? pin.targetHeight * 1.2 : pin.targetHeight;
-      pin.currentHeight += (targetHeight - pin.currentHeight) * 0.12;
+      const heightDiff = targetHeight - pin.currentHeight;
+      
+      // Snap to target if very close
+      if (Math.abs(heightDiff) < 0.001) {
+        pin.currentHeight = targetHeight;
+      } else {
+        pin.currentHeight += heightDiff * 0.12;
+      }
       this.instanceHeightData[i] = pin.currentHeight;
       
       // Scale animation (clear hover feedback)
       const targetScale = pin.hovered ? 1.4 : 1.0;
-      pin.currentScale += (targetScale - pin.currentScale) * 0.15;
+      const scaleDiff = targetScale - pin.currentScale;
+      
+      // Snap to target if very close
+      if (Math.abs(scaleDiff) < 0.001) {
+        pin.currentScale = targetScale;
+      } else {
+        pin.currentScale += scaleDiff * 0.15;
+      }
       this.instanceScaleData[i] = pin.currentScale;
       
-      // Update orbital particles
+      // Update orbital particles - always active, continuously rotating
       pin.orbitals.forEach(orbital => {
-        // Fade in when hovered, fade out when not
-        orbital.targetActive = pin.hovered ? 1.0 : 0.0;
+        // Always active (not dependent on hover)
+        orbital.targetActive = 1.0;
+        orbital.active = 1.0; // Keep at full opacity
         
-        // Fast fade-in (instant), slower fade-out (smooth)
-        if (pin.hovered && orbital.active < 1.0) {
-          orbital.active += (orbital.targetActive - orbital.active) * 0.5; // Fast fade-in
-        } else if (!pin.hovered && orbital.active > 0.0) {
-          orbital.active += (orbital.targetActive - orbital.active) * 0.08; // Slower fade-out
-        }
-        
-        // Rotate around pin
-        if (orbital.active > 0.001) {
-          orbital.angle += orbital.speed * dt;
-        }
+        // Continuously rotate around pin
+        orbital.angle += orbital.speed * dt;
       });
     });
     
@@ -266,12 +278,13 @@ export class WorkPinSystem {
     gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceScaleBuffer);
     gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.instanceScaleData);
     
-    // Animate text billboards
+    // Animate text billboards - always visible, hover only affects pins
     this.pins.forEach((pin, i) => {
       const quad = this.textQuads.get(pin.key);
       if (quad) {
-        quad.targetAlpha = pin.hovered ? 1.0 : 0.0;
-        quad.alpha += (quad.targetAlpha - quad.alpha) * 0.15;
+        // Always fully visible (not dependent on hover)
+        quad.targetAlpha = 1.0;
+        quad.alpha = 1.0;
       }
     });
   }
@@ -281,15 +294,15 @@ export class WorkPinSystem {
     const particles = [];
     
     this.pins.forEach(pin => {
-      if (pin.hovered) {
-        pin.orbitals.forEach(orbital => {
-          if (orbital.active > 0.001) { // Lower threshold for visibility
-            // Calculate orbital position in 3D space
-            // Create a local tangent plane at the pin
-            const pinPos = pin.basePos;
-            const normal = [pinPos[0], pinPos[1], pinPos[2]]; // Pin normal (outward)
-            const len = Math.sqrt(normal[0]**2 + normal[1]**2 + normal[2]**2);
-            const n = [normal[0]/len, normal[1]/len, normal[2]/len];
+      // Always render orbitals, not dependent on hover
+      pin.orbitals.forEach(orbital => {
+        if (orbital.active > 0.001) { // Lower threshold for visibility
+          // Calculate orbital position in 3D space
+          // Create a local tangent plane at the pin
+          const pinPos = pin.basePos;
+          const normal = [pinPos[0], pinPos[1], pinPos[2]]; // Pin normal (outward)
+          const len = Math.sqrt(normal[0]**2 + normal[1]**2 + normal[2]**2);
+          const n = [normal[0]/len, normal[1]/len, normal[2]/len];
             
             // Create two perpendicular vectors in the tangent plane
             let tangent = [0, 0, 0];
@@ -335,9 +348,8 @@ export class WorkPinSystem {
               phase: orbital.phaseOffset,
               color: pin.color
             });
-          }
-        });
-      }
+        }
+      });
     });
     
     return particles;
@@ -484,15 +496,9 @@ export class WorkPinSystem {
     gl.uniformMatrix4fv(gl.getUniformLocation(program, 'uView'), false, viewMatrix);
     
     // Render each visible text quad
-    let renderedCount = 0;
     this.pins.forEach((pin, i) => {
       const quad = this.textQuads.get(pin.key);
       if (!quad || quad.alpha < 0.01) return;
-      
-      if (renderedCount === 0) {
-        console.log(`📝 Rendering billboard for ${pin.key}: alpha=${quad.alpha.toFixed(3)}, hovered=${pin.hovered}`);
-      }
-      renderedCount++;
       
       // Set uniforms for this billboard
       gl.uniform3fv(gl.getUniformLocation(program, 'uWorldPos'), new Float32Array(pin.basePos));
@@ -503,13 +509,7 @@ export class WorkPinSystem {
       // Bind text texture
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, quad.texture);
-      gl.uniform1i(gl.getUniformLocation(program, 'uTextTexture'), 0); // FIX: Correct uniform name
-      
-      // Check for WebGL errors
-      const error = gl.getError();
-      if (error !== gl.NO_ERROR && renderedCount === 1) {
-        console.error(`❌ WebGL Error after binding texture: ${error}`);
-      }
+      gl.uniform1i(gl.getUniformLocation(program, 'uTextTexture'), 0);
       
       // Draw billboard
       gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
