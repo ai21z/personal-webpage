@@ -692,12 +692,11 @@ function render(deltaTime) {
     workPinSystem.renderText(textBillboardProgram, projectionMatrix, viewMatrix);
   }
   
-  // ━━━ Draw Orbital Moons (after pins, with transparency) ━━━
+  // ━━━ Draw Orbital Moons (solid rocky moon) ━━━
   if (moonProgram && moonOrbitSystem) {
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.disable(gl.BLEND); // Solid object, no blending needed
     gl.enable(gl.DEPTH_TEST);
-    gl.depthMask(false); // Don't write depth - allow particles to show through
+    gl.depthMask(true);
     
     const cameraPos = [0, 0, 3.5];
     moonOrbitSystem.render(moonProgram, projectionMatrix, viewMatrix, modelMatrix, time, cameraPos);
@@ -772,24 +771,33 @@ function onPointerMove(e) {
   const cardIsVisible = (infoBubble && infoBubble.classList.contains('visible')) ||
                        (projectPanel && projectPanel.classList.contains('visible'));
   
+  let cursorState = 'grab';
+
   // Check moon hover (even when not dragging) - visual feedback only
   if (moonOrbitSystem && !isDragging && !cardIsVisible && projectionMatrix && viewMatrix && modelMatrix) {
     const rect = canvas.getBoundingClientRect();
     const ndcX = ((e.clientX - rect.left) / rect.width) * 2 - 1;
     const ndcY = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-    
+
     const hoveredMoon = moonOrbitSystem.getMoonAtPosition(ndcX, ndcY, projectionMatrix, viewMatrix, modelMatrix);
     moonOrbitSystem.setHoveredMoon(hoveredMoon);
-    
-    // Update cursor
     if (hoveredMoon) {
-      canvas.style.cursor = 'pointer';
+      cursorState = 'pointer';
     }
+  } else if (moonOrbitSystem) {
+    moonOrbitSystem.setHoveredMoon(null);
   }
-  
+
   // Check pin hover (even when not dragging) - visual feedback only
   if (workPinSystem && !isDragging && !cardIsVisible) {
-    checkPinHover(e.clientX, e.clientY, false); // Don't show info on hover
+    const hoveredPin = checkPinHover(e.clientX, e.clientY, false); // Don't show info on hover
+    if (hoveredPin) {
+      cursorState = 'pointer';
+    }
+  }
+
+  if (!isDragging) {
+    canvas.style.cursor = cursorState;
   }
   
   if (!isDragging) return;
@@ -806,6 +814,57 @@ function onPointerMove(e) {
   lastPointerPos = { x: e.clientX, y: e.clientY };
 }
 
+// ━━━ GLOBE OCCLUSION TESTING ━━━
+function isOccludedByGlobe(worldPos, viewMatrix) {
+  // Transform world position to view space
+  const viewPos = mat4.transformPoint(viewMatrix, worldPos);
+  const target = [viewPos[0], viewPos[1], viewPos[2]];
+
+  const rayLength = Math.hypot(target[0], target[1], target[2]);
+  if (rayLength === 0) {
+    return false;
+  }
+
+  // Normalized ray direction from camera (0,0,0 in view space) toward target
+  const dir = [target[0] / rayLength, target[1] / rayLength, target[2] / rayLength];
+
+  // Globe centre in view space (camera is at origin)
+  const globeViewPos = mat4.transformPoint(viewMatrix, [0, 0, 0]);
+  const L = [globeViewPos[0], globeViewPos[1], globeViewPos[2]];
+
+  const radius = 1.0; // Globe radius in world units
+  const radiusSq = radius * radius;
+
+  // Project centre-to-camera vector onto ray to find closest approach
+  const tca = L[0] * dir[0] + L[1] * dir[1] + L[2] * dir[2];
+
+  // If closest point is behind camera, no occlusion
+  if (tca < 0) {
+    return false;
+  }
+
+  const Lsq = L[0] * L[0] + L[1] * L[1] + L[2] * L[2];
+  const dSq = Lsq - tca * tca;
+
+  // Ray misses the sphere
+  if (dSq > radiusSq) {
+    return false;
+  }
+
+  const thc = Math.sqrt(Math.max(radiusSq - dSq, 0));
+  const t0 = tca - thc;
+  const t1 = tca + thc;
+
+  // Ignore intersections behind the camera
+  const nearest = t0 >= 0 ? t0 : t1;
+  if (nearest < 0) {
+    return false;
+  }
+
+  const EPSILON = 0.01;
+  return nearest < (rayLength - EPSILON);
+}
+
 // ━━━ CLICK DETECTION WITH PROPER DEPTH ORDERING ━━━
 function checkClickWithDepth(mouseX, mouseY) {
   if (!projectionMatrix || !viewMatrix || !modelMatrix) return null;
@@ -815,9 +874,8 @@ function checkClickWithDepth(mouseX, mouseY) {
   const ndcX = ((mouseX - rect.left) / rect.width) * 2 - 1;
   const ndcY = -((mouseY - rect.top) / rect.height) * 2 + 1;
   
-  console.log('[Click Detection] Mouse NDC:', { ndcX: ndcX.toFixed(3), ndcY: ndcY.toFixed(3) });
-  
   const clickableCandidates = [];
+  let occludedCount = 0;
   
   // Check moon(s)
   if (moonOrbitSystem) {
@@ -826,22 +884,27 @@ function checkClickWithDepth(mouseX, mouseY) {
       // Get moon's world position
       const moonWorldPos = moonOrbitSystem.getMoonWorldPosition(moon);
       if (moonWorldPos) {
-        // Transform to view space to get depth (Z coordinate)
+        // Check if moon is occluded by globe
         const modelPos = mat4.transformPoint(modelMatrix, moonWorldPos);
-        const viewPos = mat4.transformPoint(viewMatrix, modelPos);
-        const clipPos = mat4.transformPoint(projectionMatrix, viewPos);
+        const isOccluded = isOccludedByGlobe(modelPos, viewMatrix);
         
-        // Use clip space Z for depth (closer = more negative in view space, but positive after projection)
-        const depth = clipPos[2] / clipPos[3]; // Normalized device coordinate Z (-1 to 1)
-        
-        clickableCandidates.push({
-          type: 'moon',
-          object: moon,
-          depth: depth,
-          screenDist: 0 // Moon detection already handles distance
-        });
-        
-        console.log('[Click Detection] Found moon candidate:', { depth: depth.toFixed(3) });
+        if (isOccluded) {
+          occludedCount++;
+        } else {
+          // Transform to clip space to get depth
+          const viewPos = mat4.transformPoint(viewMatrix, modelPos);
+          const clipPos = mat4.transformPoint(projectionMatrix, viewPos);
+          
+          // transformPoint already returns normalized device coordinates
+          const depth = clipPos[2];
+          
+          clickableCandidates.push({
+            type: 'moon',
+            object: moon,
+            depth: depth,
+            screenDist: 0 // Moon detection already handles distance
+          });
+        }
       }
     }
   }
@@ -849,8 +912,6 @@ function checkClickWithDepth(mouseX, mouseY) {
   // Check pins with TIGHT click radius
   if (workPinSystem) {
     const CLICK_RADIUS = 0.15; // Increased from 0.08 to make clicking easier
-    
-    console.log('[Click Detection] Checking', workPinSystem.pins.length, 'pins with radius', CLICK_RADIUS);
     
     workPinSystem.pins.forEach(pin => {
       // Project pin position to screen space
@@ -862,42 +923,37 @@ function checkClickWithDepth(mouseX, mouseY) {
       
       // Manual MVP transform
       const modelPos = mat4.transformPoint(modelMatrix, worldPos);
-      const viewPos = mat4.transformPoint(viewMatrix, modelPos);
-      const clipPos = mat4.transformPoint(projectionMatrix, viewPos);
       
-      // Perspective divide
-      const pinNdcX = clipPos[0] / clipPos[3];
-      const pinNdcY = clipPos[1] / clipPos[3];
-      const depth = clipPos[2] / clipPos[3];
+      // Check if pin is occluded by globe
+      const isOccluded = isOccludedByGlobe(modelPos, viewMatrix);
       
-      // Check if behind camera
-      if (clipPos[3] < 0) {
-        console.log('[Click Detection] Pin', pin.key, 'is behind camera');
-        return;
-      }
-      
-      // Distance to mouse in screen space
-      const screenDist = Math.sqrt((pinNdcX - ndcX) ** 2 + (pinNdcY - ndcY) ** 2);
-      
-      console.log('[Click Detection] Pin', pin.key, ':', {
-        ndcPos: `(${pinNdcX.toFixed(3)}, ${pinNdcY.toFixed(3)})`,
-        screenDist: screenDist.toFixed(3),
-        depth: depth.toFixed(3),
-        withinRadius: screenDist < CLICK_RADIUS
-      });
-      
-      if (screenDist < CLICK_RADIUS) {
-        clickableCandidates.push({
-          type: 'pin',
-          object: pin,
-          depth: depth,
-          screenDist: screenDist
-        });
+      if (isOccluded) {
+        occludedCount++;
+      } else {
+        const viewPos = mat4.transformPoint(viewMatrix, modelPos);
+        const clipPos = mat4.transformPoint(projectionMatrix, viewPos);
+        
+        const pinNdcX = clipPos[0];
+        const pinNdcY = clipPos[1];
+        const depth = clipPos[2];
+        
+        // Check if behind camera
+        if (clipPos[3] < 0) return;
+        
+        // Distance to mouse in screen space
+        const screenDist = Math.sqrt((pinNdcX - ndcX) ** 2 + (pinNdcY - ndcY) ** 2);
+        
+        if (screenDist < CLICK_RADIUS) {
+          clickableCandidates.push({
+            type: 'pin',
+            object: pin,
+            depth: depth,
+            screenDist: screenDist
+          });
+        }
       }
     });
   }
-  
-  console.log('[Click Detection] Total candidates:', clickableCandidates.length);
   
   // Sort by depth (closest first) - LOWER depth = closer to camera
   clickableCandidates.sort((a, b) => a.depth - b.depth);
@@ -905,20 +961,18 @@ function checkClickWithDepth(mouseX, mouseY) {
   // Return the closest object in 3D space
   if (clickableCandidates.length > 0) {
     const winner = clickableCandidates[0];
-    console.log(`[Click Detection] Winner: ${winner.type}`, {
-      depth: winner.depth.toFixed(3),
-      screenDist: winner.screenDist.toFixed(3),
-      totalCandidates: clickableCandidates.length
-    });
+    console.log(`[Click] ${winner.type} selected (${clickableCandidates.length} candidates, ${occludedCount} occluded)`);
     return winner;
   }
   
-  console.log('[Click Detection] No candidates found');
+  if (occludedCount > 0) {
+    console.log(`[Click] No visible targets (${occludedCount} occluded by globe)`);
+  }
   return null;
 }
 
 function checkPinHover(mouseX, mouseY, showInfo = false) {
-  if (!workPinSystem) return;
+  if (!workPinSystem) return null;
   
   // Convert mouse to NDC
   const rect = canvas.getBoundingClientRect();
@@ -942,9 +996,9 @@ function checkPinHover(mouseX, mouseY, showInfo = false) {
     const viewPos = mat4.transformPoint(viewMatrix, modelPos);
     const clipPos = mat4.transformPoint(projectionMatrix, viewPos);
     
-    // Perspective divide
-    const ndcX = clipPos[0] / clipPos[3];
-    const ndcY = clipPos[1] / clipPos[3];
+    // transformPoint already performed the perspective divide
+    const ndcX = clipPos[0];
+    const ndcY = clipPos[1];
     
     // Check if behind camera
     if (clipPos[3] < 0) return;
@@ -959,7 +1013,6 @@ function checkPinHover(mouseX, mouseY, showInfo = false) {
   });
   
   // Update hover state
-  const previousHoveredKey = workPinSystem.hoveredPin;
   workPinSystem.pins.forEach(pin => {
     pin.hovered = (pin === closestPin);
   });
@@ -971,10 +1024,7 @@ function checkPinHover(mouseX, mouseY, showInfo = false) {
     console.log('[Work Globe] Showing info for:', closestPin.key);
     showLocationInfo(closestPin);
   }
-  
-  // Change cursor
-  canvas.style.cursor = closestPin ? 'pointer' : 'grab';
-  
+
   return closestPin;
 }
 
@@ -985,9 +1035,9 @@ function projectToScreen(worldPos) {
   const viewPos = mat4.transformPoint(viewMatrix, modelPos);
   const clipPos = mat4.transformPoint(projectionMatrix, viewPos);
   
-  // Perspective divide
-  const ndcX = clipPos[0] / clipPos[3];
-  const ndcY = clipPos[1] / clipPos[3];
+  // transformPoint already returned normalized device coordinates
+  const ndcX = clipPos[0];
+  const ndcY = clipPos[1];
   
   // Convert from clip space (-1 to 1) to screen space
   const rect = canvas.getBoundingClientRect();
@@ -1081,6 +1131,7 @@ function checkMoonClick(mouseX, mouseY) {
   
   if (clickedMoon) {
     console.log('[Work Globe] Moon clicked:', clickedMoon.project.name);
+    moonOrbitSystem.triggerMoonClick(clickedMoon); // Trigger moth wing click animation
     showProjectPanel(clickedMoon);
     return clickedMoon;
   }

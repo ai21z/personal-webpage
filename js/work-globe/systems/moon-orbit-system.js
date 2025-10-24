@@ -27,7 +27,17 @@ export class MoonOrbitSystem {
         paused: false,
         hovered: false,
         scale: 1.0,
-        targetScale: 1.0
+        targetScale: 1.0,
+        // New moth wing moon interaction state
+        breathIntensity: 1.0,
+        targetBreathIntensity: 1.0,
+        hoverAmount: 0.0,
+        targetHoverAmount: 0.0,
+        eyeDilation: 0.0,
+        targetEyeDilation: 0.0,
+        shimmerPhase: -1.0, // -1 to 1 (travels across sphere)
+        shimmerActive: false,
+        shimmerStartTime: 0
       });
     });
     
@@ -89,7 +99,46 @@ export class MoonOrbitSystem {
       }
       
       // Update scale animation (for hover effect)
-      moon.scale += (moon.targetScale - moon.scale) * 0.12;
+      const scaleDiff = moon.targetScale - moon.scale;
+      if (Math.abs(scaleDiff) < 0.001) {
+        moon.scale = moon.targetScale;
+      } else {
+        moon.scale += scaleDiff * 0.12;
+      }
+      
+      // Update moth wing interaction states
+      const breathDiff = moon.targetBreathIntensity - moon.breathIntensity;
+      if (Math.abs(breathDiff) < 0.001) {
+        moon.breathIntensity = moon.targetBreathIntensity;
+      } else {
+        moon.breathIntensity += breathDiff * 0.08;
+      }
+      
+      const hoverDiff = moon.targetHoverAmount - moon.hoverAmount;
+      if (Math.abs(hoverDiff) < 0.001) {
+        moon.hoverAmount = moon.targetHoverAmount;
+      } else {
+        moon.hoverAmount += hoverDiff * 0.15;
+      }
+      
+      const eyeDiff = moon.targetEyeDilation - moon.eyeDilation;
+      if (Math.abs(eyeDiff) < 0.001) {
+        moon.eyeDilation = moon.targetEyeDilation;
+      } else {
+        moon.eyeDilation += eyeDiff * 0.12;
+      }
+      
+      // Update shimmer wave (travels from -1 to 1)
+      if (moon.shimmerActive) {
+        const shimmerDuration = 2.0; // 2 seconds to cross
+        const elapsed = (Date.now() - moon.shimmerStartTime) / 1000;
+        moon.shimmerPhase = -1.0 + (elapsed / shimmerDuration) * 2.0;
+        
+        if (moon.shimmerPhase >= 1.0) {
+          moon.shimmerActive = false;
+          moon.shimmerPhase = -1.0; // Reset off-screen
+        }
+      }
     });
   }
   
@@ -111,7 +160,6 @@ export class MoonOrbitSystem {
     if (this.moons.length === 0) return;
     
     const gl = this.gl;
-    
     gl.useProgram(program);
     gl.bindVertexArray(this.vao);
     
@@ -127,7 +175,7 @@ export class MoonOrbitSystem {
     gl.uniform3fv(uCameraPos, cameraPos);
     
     // Render each moon
-    this.moons.forEach(moon => {
+    this.moons.forEach((moon, index) => {
       const worldPos = this.getWorldPosition(moon);
       
       // Create model matrix for this moon
@@ -135,12 +183,15 @@ export class MoonOrbitSystem {
       const scale = moon.moonRadius * moon.scale;
       
       // Build fresh model matrix (identity + scale + translation)
-      const moonModel = new Float32Array([
+      const baseModel = new Float32Array([
         scale, 0, 0, 0,
         0, scale, 0, 0,
         0, 0, scale, 0,
         worldPos[0], worldPos[1], worldPos[2], 1
       ]);
+
+      // Apply globe rotation so moon click tests and rendering stay in sync
+      const moonModel = modelMatrix ? mat4.multiply(modelMatrix, baseModel) : baseModel;
       
       // Set per-moon uniforms
       const uModel = gl.getUniformLocation(program, 'uModel');
@@ -148,8 +199,12 @@ export class MoonOrbitSystem {
       const uRimColor = gl.getUniformLocation(program, 'uRimColor');
       const uGlowIntensity = gl.getUniformLocation(program, 'uGlowIntensity');
       const uPulseSpeed = gl.getUniformLocation(program, 'uPulseSpeed');
+      const uBreathIntensity = gl.getUniformLocation(program, 'uBreathIntensity');
+      const uHoverAmount = gl.getUniformLocation(program, 'uHoverAmount');
+      const uEyeDilation = gl.getUniformLocation(program, 'uEyeDilation');
+      const uShimmerPhase = gl.getUniformLocation(program, 'uShimmerPhase');
       
-      gl.uniformMatrix4fv(uModel, false, moonModel);
+  gl.uniformMatrix4fv(uModel, false, moonModel);
       gl.uniform3fv(uMoonColor, moon.color);
       
       // Rim color (lighter version of base color)
@@ -162,6 +217,12 @@ export class MoonOrbitSystem {
       
       gl.uniform1f(uGlowIntensity, moon.glowIntensity);
       gl.uniform1f(uPulseSpeed, moon.pulseSpeed);
+      
+      // New moth wing moon uniforms
+      gl.uniform1f(uBreathIntensity, moon.breathIntensity);
+      gl.uniform1f(uHoverAmount, moon.hoverAmount);
+      gl.uniform1f(uEyeDilation, moon.eyeDilation);
+      gl.uniform1f(uShimmerPhase, moon.shimmerPhase);
       
       // Draw moon
       gl.drawElements(gl.TRIANGLES, this.vertexCount, gl.UNSIGNED_SHORT, 0);
@@ -178,17 +239,16 @@ export class MoonOrbitSystem {
     this.moons.forEach(moon => {
       const worldPos = this.getWorldPosition(moon);
       
-      // Project to screen space
-      const modelPos = mat4.transformPoint(modelMatrix, worldPos);
-      const viewPos = mat4.transformPoint(viewMatrix, modelPos);
-      const clipPos = mat4.transformPoint(projMatrix, viewPos); // Fixed: was projectionMatrix, should be projMatrix
+    // Project to screen space
+    const modelPos = mat4.transformPoint(modelMatrix, worldPos);
+    const viewPos = mat4.transformPoint(viewMatrix, modelPos);
+    const clipPos = mat4.transformPoint(projMatrix, viewPos); // Returns NDC xyz and clip w
       
-      // Check if behind camera
-      if (clipPos[3] < 0) return;
+    // Check if behind camera
+    if (clipPos[3] < 0) return;
       
-      // Perspective divide to NDC
-      const screenX = clipPos[0] / clipPos[3];
-      const screenY = clipPos[1] / clipPos[3];
+    const screenX = clipPos[0];
+    const screenY = clipPos[1];
       
       // Distance to mouse
       const dist = Math.sqrt((screenX - ndcX) ** 2 + (screenY - ndcY) ** 2);
@@ -208,9 +268,35 @@ export class MoonOrbitSystem {
   // Update hover state for moon
   setHoveredMoon(moon) {
     this.moons.forEach(m => {
-      m.hovered = (m === moon);
-      m.targetScale = m.hovered ? 1.15 : 1.0;
+      const isHovered = (m === moon);
+      m.hovered = isHovered;
+      m.targetScale = isHovered ? 1.15 : 1.0;
+      
+      // Moth wing moon interaction states
+      m.targetHoverAmount = isHovered ? 1.0 : 0.0;
+      m.targetEyeDilation = isHovered ? 1.0 : 0.0;
+      m.targetBreathIntensity = isHovered ? 1.5 : 1.0; // Breathe faster on hover
+      
+      // Trigger shimmer wave on hover start
+      if (isHovered && !m.shimmerActive) {
+        m.shimmerActive = true;
+        m.shimmerStartTime = Date.now();
+        m.shimmerPhase = -1.0;
+      }
     });
+  }
+  
+  // Trigger click interaction on moon
+  triggerMoonClick(moon) {
+    if (!moon) return;
+    
+    // Trigger rapid shimmer wave
+    moon.shimmerActive = true;
+    moon.shimmerStartTime = Date.now();
+    moon.shimmerPhase = -1.0;
+    
+    // Eye flash (handled by existing click logic in main code)
+    // Wing dust burst will be added in particle system
   }
   
   // Get moon's world position (for external depth checking)
