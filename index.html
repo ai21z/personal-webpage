@@ -315,50 +315,16 @@
     <!-- Parchment Detail Panel (populated by JS) -->
   </section>
 
-  <!-- SECTION: BLOG -->
-  <section class="stage" data-section="blog" aria-label="Blog">
-    <div class="fungi-ambient" aria-hidden="true"></div>
-    <div class="content-grid">
-      <div class="section-header">
-        <span class="section-index">03</span>
-        <h2 class="section-title">Blog</h2>
-      </div>
-
-      <div class="blog-list">
-        <article class="blog-post">
-          <time class="post-date" datetime="2024-09-15">15.09.2024</time>
-          <h3 class="post-title"><a href="#" class="post-link">Designing Resilient Distributed Systems</a></h3>
-          <p class="post-excerpt">Lessons learned from building fault-tolerant architectures. How to handle cascading failures, implement circuit breakers, and design for degraded operation.</p>
-          <span class="post-read-time">8 min read</span>
-        </article>
-
-        <article class="blog-post">
-          <time class="post-date" datetime="2024-07-22">22.07.2024</time>
-          <h3 class="post-title"><a href="#" class="post-link">The Art of API Design</a></h3>
-          <p class="post-excerpt">Building RESTful APIs that developers actually want to use. Consistency, predictability, and thoughtful error handling.</p>
-          <span class="post-read-time">6 min read</span>
-        </article>
-
-        <article class="blog-post">
-          <time class="post-date" datetime="2024-05-10">10.05.2024</time>
-          <h3 class="post-title"><a href="#" class="post-link">Docker in Production: Hard-Won Insights</a></h3>
-          <p class="post-excerpt">What I wish I knew before deploying containerized applications at scale. Resource limits, health checks, and orchestration strategies.</p>
-          <span class="post-read-time">10 min read</span>
-        </article>
-
-        <article class="blog-post">
-          <time class="post-date" datetime="2024-03-05">05.03.2024</time>
-          <h3 class="post-title"><a href="#" class="post-link">Database Indexing Strategies</a></h3>
-          <p class="post-excerpt">Understanding when and how to index. Query optimization, covering indexes, and avoiding common pitfalls.</p>
-          <span class="post-read-time">7 min read</span>
-        </article>
-
-        <article class="blog-post">
-          <time class="post-date" datetime="2024-01-18">18.01.2024</time>
-          <h3 class="post-title"><a href="#" class="post-link">Monoliths vs Microservices: A Pragmatic View</a></h3>
-          <p class="post-excerpt">Beyond the hype: when microservices actually make sense and when they don't. Organizational readiness matters more than technology.</p>
-          <span class="post-read-time">9 min read</span>
-        </article>
+  <!-- SECTION: BLOG (Mycelium Network) -->
+  <section id="blog" class="stage blog-screen panel-screen" data-section="blog" aria-label="Blog" tabindex="-1">
+    <button class="blog-close" data-action="go-intro" aria-label="Close and return to intro">×</button>
+    
+    <div class="blog-container">
+      <canvas id="blog-network-canvas" class="blog-network-canvas"></canvas>
+      
+      <!-- Helper text -->
+      <div class="blog-helper-text" aria-hidden="true">
+        Explore the network • Hover hubs for details
       </div>
     </div>
   </section>

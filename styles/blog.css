@@ -1,0 +1,137 @@
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   BLOG NETWORK VISUALIZATION
+   Radial mycelium network with SOURCE→hub trunks and center fusion
+   - Full-screen panel mode (like work-globe-screen)
+   - 2D canvas visualization of space-colonization network
+   - Four hubs: craft, cosmos, codex, convergence
+   - Animated energy particles flowing through network
+   - Nav suppression + background dimming
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+/* Full-screen blog panel - ONLY the network, no gradients */
+.blog-screen {
+  background: rgba(11, 12, 13, 1); /* Pure dark background - let network be the star */
+  overflow: hidden;
+  isolation: isolate;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Blog container - Fully responsive to screen size */
+.blog-container {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+}
+
+/* Blog network canvas */
+.blog-network-canvas {
+  position: relative;
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+  opacity: 1; /* Full opacity - let the network shine */
+  mix-blend-mode: normal; /* Normal blending - network already has its own colors */
+  z-index: 10; /* Above static backgrounds and other canvases */
+}
+
+/* NO atmospheric glow - removed to keep it clean */
+/* The network visualization itself provides all the visual interest */
+
+/* Close button (matches work-close pattern) */
+.blog-close {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  width: 44px;
+  height: 44px;
+  background: rgba(15, 16, 20, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  cursor: var(--cursor-spore, pointer);
+  color: rgba(232, 232, 234, 0.7);
+  font-size: 20px;
+  line-height: 1;
+  transition: all 150ms ease;
+  z-index: 100;
+  pointer-events: auto;
+}
+
+.blog-close:hover {
+  background: rgba(25, 26, 30, 0.9);
+  border-color: var(--decay-green);
+  color: var(--decay-green);
+  box-shadow: 0 0 12px rgba(45, 212, 175, 0.3);
+}
+
+/* Helper text (matches work-helper-text pattern) */
+.blog-helper-text {
+  position: absolute;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(232, 232, 234, 0.5);
+  font-size: 13px;
+  letter-spacing: 0.05em;
+  text-align: center;
+  pointer-events: none;
+  z-index: 50;
+  opacity: 0;
+  animation: fade-in-helper 1s ease 0.5s forwards;
+}
+
+@keyframes fade-in-helper {
+  to {
+    opacity: 1;
+  }
+}
+
+/* Suppress nav when blog is active (like work/projects) */
+.blog-screen.active-section ~ .network-nav {
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 400ms ease;
+}
+
+.blog-screen.active-section ~ #spore-canvas,
+.blog-screen.active-section ~ #reveal-canvas {
+  opacity: 0;
+  transition: opacity 400ms ease;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .blog-close {
+    top: 16px;
+    right: 16px;
+    width: 40px;
+    height: 40px;
+  }
+  
+  .blog-helper-text {
+    bottom: 24px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .blog-helper-text {
+    bottom: 16px;
+    font-size: 11px;
+  }
+}
+
+/* Accessibility: Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .blog-container::before {
+    animation: none;
+  }
+  
+  .blog-helper-text {
+    animation: none;
+    opacity: 1;
+  }
+}

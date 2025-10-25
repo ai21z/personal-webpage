@@ -12,6 +12,7 @@ import { sizeCanvas, cumulativeLengths, pointAt, approach } from './utils.js';
 import { buildGraphFromPaths, aStarPath } from './graph.js';
 import { initProjectsWheel } from './projects-wheel.js';
 import { initWorkGlobe, cleanupWorkGlobe } from './work-globe-webgl.js';
+import blogNetwork from './blog-network.js';
 // Resume spirals - DISABLED FOR NOW
 // TODO: Re-enable later by uncommenting: import { initResumeSpirals } from './resume-spirals.js';
 // import { initResumeSpirals } from './resume-spirals.js';
@@ -252,7 +253,7 @@ function resizeAll() {
     hudCanvas.width = window.innerWidth;
     hudCanvas.height = window.innerHeight;
   }
-  layoutNavNodes(wireSigilToggle, renderHUD, (sectionName) => showSection(sectionName, startRitualBackground, stopRitualBackground));
+  layoutNavNodes(wireSigilToggle, renderHUD, showSectionWithEffects);
 
   setActiveAnims(ACTIVE_ANIMS.map((anim) => {
     const projPts = projectXY(anim.imgPts);
@@ -304,7 +305,7 @@ function initAfterImageLoad() {
   computeNavOffsets(); // Compute offsets with proper base dimensions
   
   // First layout now happens AFTER image loads
-  layoutNavNodes(wireSigilToggle, renderHUD, (sectionName) => showSection(sectionName, startRitualBackground, stopRitualBackground));
+  layoutNavNodes(wireSigilToggle, renderHUD, showSectionWithEffects);
   
   console.log(`✅ Initial layout complete — ritual is ${ritualActive ? 'ACTIVE' : 'OFF'}`);
   
@@ -373,7 +374,7 @@ function toggleRitualFromSigil(el){
   }
   
   // Update layout to apply/remove offsets immediately
-  layoutNavNodes(wireSigilToggle, renderHUD, (sectionName) => showSection(sectionName, startRitualBackground, stopRitualBackground));
+  layoutNavNodes(wireSigilToggle, renderHUD, showSectionWithEffects);
 }
 
 function wireSigilToggle(){
@@ -695,7 +696,19 @@ async function initNetworkAndNav() {
   // [LOCKED-ROUTE] Lock each label to a single polyline (never re-snap)
   buildLockedRoutes();
 
-  layoutNavNodes(wireSigilToggle, renderHUD, (sectionName) => showSection(sectionName, startRitualBackground, stopRitualBackground));
+  layoutNavNodes(wireSigilToggle, renderHUD, showSectionWithEffects);
+}
+
+// ━━━ Section visibility wrapper (controls blog network and other section-specific features) ━━━
+function showSectionWithEffects(sectionName) {
+  showSection(sectionName, startRitualBackground, stopRitualBackground);
+  
+  // Control blog network visibility
+  if (sectionName === 'blog') {
+    blogNetwork.show();
+  } else {
+    blogNetwork.hide();
+  }
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
@@ -718,7 +731,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   const validSections = ['intro', 'about', 'work', 'projects', 'contact', 'blog', 'resume', 'skills'];
   const initialSection = validSections.includes(hash) ? hash : 'intro';
   console.log(`🎯 Page Load: hash="${hash}", showing section="${initialSection}"`);
-  showSection(initialSection, startRitualBackground, stopRitualBackground);
+  showSectionWithEffects(initialSection);
 
   if (hudEnabled) {
     initHUD();
@@ -735,13 +748,16 @@ window.addEventListener('DOMContentLoaded', async () => {
   // Initialize contact form
   notebookContact.init();
 
+  // Initialize blog network visualization
+  blogNetwork.init();
+
   // Contact section: click background to close
   const contactSection = document.getElementById('contact');
   if (contactSection) {
     contactSection.addEventListener('click', (e) => {
       // Only close if clicking directly on the section (background), not on the notebook or its children
       if (e.target === contactSection) {
-        showSection('intro', startRitualBackground, stopRitualBackground);
+        showSectionWithEffects('intro');
       }
     });
   }
@@ -753,7 +769,7 @@ window.addEventListener('load', () => {
   if (COVER.ready) {
     computeCoverFromImage();
     computeNavOffsets();
-    layoutNavNodes(wireSigilToggle, renderHUD, (sectionName) => showSection(sectionName, startRitualBackground, stopRitualBackground));
+    layoutNavNodes(wireSigilToggle, renderHUD, showSectionWithEffects);
     if (hudEnabled) renderHUD();
   }
 });
@@ -858,9 +874,9 @@ window.addEventListener('hashchange', () => {
   const hash = window.location.hash.slice(1);
   const validSections = ['intro', 'about', 'work', 'projects', 'contact', 'blog', 'resume', 'skills'];
   if (validSections.includes(hash)) {
-    showSection(hash, startRitualBackground, stopRitualBackground);
+    showSectionWithEffects(hash);
   } else if (!hash) {
-    showSection('intro', startRitualBackground, stopRitualBackground);
+    showSectionWithEffects('intro');
   }
 });
 
@@ -869,7 +885,7 @@ document.addEventListener('click', (e) => {
   const btn = e.target.closest('[data-action="go-intro"]');
   if (!btn) return;
   e.preventDefault();
-  showSection('intro', startRitualBackground, stopRitualBackground);
+  showSectionWithEffects('intro');
 });
 
 // ━━━ About: Paper focus (zoom to center + backdrop dim) ━━━
