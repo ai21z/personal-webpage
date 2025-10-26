@@ -41,10 +41,11 @@ CENTER_FUSE_FRAC  = 0.60          # fraction of min(hub->SOURCE)
 NUM_TRUNKS_PER_HUB = 5
 TRUNK_BOW_RANGE = (0.06, 0.10)    # reduced bow (no petals)
 
-ABYSS    = (11, 12, 13)
-NECROTIC = (67, 93, 80)
-SPECTRAL = (82, 121, 111)
-EMBER    = (180, 120, 100)
+# WARM HAND-DRAWN PALETTE (exact match to intro network)
+ABYSS    = (25, 28, 30)      # Slightly lighter for visibility
+NECROTIC = (122, 174, 138)   # Necrotic green (thin branches)
+SPECTRAL = (143, 180, 255)   # Spectral blue (medium branches)  
+EMBER    = (194, 74, 46)     # Ember orange (thick trunks)
 
 HUB_COLORS = {
     "source": (200, 200, 200),
@@ -276,40 +277,76 @@ def render_pngs(paths, metas, hubs, out_base, out_glow):
             depth = min(8, int(math.hypot(first[0]-hx, first[1]-hy)/80))
             L = len(path)
             for j in range(L-1):
+                # SMALLER HAND-DRAWN GAPS: More subtle, aged look
+                # Gaps increase slightly in thinner branches (8-18% based on depth)
+                gap_chance = 0.08 + (depth * 0.02)  # Much smaller gaps
+                if random.random() < gap_chance:
+                    continue  # Skip this segment = subtle gap
+                
                 x1,y1 = path[j]; x2,y2 = path[j+1]
                 X1,Y1 = int(x1*2), int(y1*2); X2,Y2 = int(x2*2), int(y2*2)
                 t = j/max(1,L-1)
-                base_w = max(3, 15 - depth*3.0) * 2
-                if is_trunk: base_w *= 1.35
-                w = max(2, base_w*(1.0 - 0.5*t))
+                
+                # Progress along this path (0.0 = start, 1.0 = end)
+                progress = t
+                
+                # THINNER BRANCHES: Proper parent→child hierarchy
+                # Base width decreases with distance from hub (depth)
+                # Each child branch thinner than parent
+                base_w = max(2, 12 - depth*2.5) * 2  # Thinner than intro (12 vs 15)
+                if is_trunk: base_w *= 1.2  # Trunks only slightly thicker
+                
+                # Stronger taper along length for aged, wrinkled look
+                w = max(1.5, base_w*(1.0 - 0.6*progress))  # Stronger taper (0.6 vs 0.5)
+                
+                # HAND-PAINTED WRINKLE: Add slight random variation to width
+                # Creates that aged, imperfect, organic look
+                wrinkle = random.uniform(0.85, 1.15)  # ±15% width variation
+                w = w * wrinkle
+                
+                # WIDTH-BASED COLOR: More visible multi-color palette
+                width_ratio = w / (base_w * 2)  # 0.0 = thin, 1.0 = thick
+                
                 if is_glow:
+                    # Brighter spectral glow
+                    w = w + 3
                     col = SPECTRAL + (220,)
-                    draw.line([(X1,Y1),(X2,Y2)], fill=col, width=int(w+3))
+                    draw.line([(X1,Y1),(X2,Y2)], fill=col, width=int(w), joint='curve')
                 else:
-                    ratio = w / base_w
-                    if ratio > 0.60:
-                        col = (min(255,int(EMBER[0]*1.5)),
-                               min(255,int(EMBER[1]*1.3)),
-                               min(255,int(EMBER[2]*1.2)), 255)
-                    elif ratio > 0.45:
-                        col = (min(255,int(SPECTRAL[0]*1.4)),
-                               min(255,int(SPECTRAL[1]*1.4)),
-                               min(255,int(SPECTRAL[2]*1.5)), 255)
-                    elif ratio > 0.38:
-                        col = (min(255,int((SPECTRAL[0]+EMBER[0])*0.8)),
-                               min(255,int((SPECTRAL[1]+EMBER[1])*0.7)),
-                               min(255,int((SPECTRAL[2]+EMBER[2])*0.8)), 255)
-                    elif ratio > 0.2:
-                        blend = (ratio - 0.2)/0.15
-                        r = int(SPECTRAL[0]*blend + NECROTIC[0]*(1-blend)*1.3)
-                        g = int(SPECTRAL[1]*blend + NECROTIC[1]*(1-blend)*1.3)
-                        b = int(SPECTRAL[2]*blend + NECROTIC[2]*(1-blend)*1.3)
-                        col = (r,g,b,255)
+                    # VIBRANT MULTI-COLOR PALETTE for hand-drawn look
+                    if width_ratio > 0.60:  # INCREASED from 0.65 - more orange
+                        # THICKEST parts: Pure EMBER orange (hot, vibrant)
+                        r = min(255, int(EMBER[0] * 1.5))  # Bright orange-red
+                        g = min(255, int(EMBER[1] * 1.3))
+                        b = min(255, int(EMBER[2] * 1.2))
+                        col = (r, g, b, 255)
+                    elif width_ratio > 0.45:  # Adjusted from 0.5 - expanded blue zone
+                        # THICK-MEDIUM: SPECTRAL blue (cool, vibrant)
+                        r = min(255, int(SPECTRAL[0] * 1.4))  # Bright blue
+                        g = min(255, int(SPECTRAL[1] * 1.4))
+                        b = min(255, int(SPECTRAL[2] * 1.5))
+                        col = (r, g, b, 255)
+                    elif width_ratio > 0.38:  # DECREASED from 0.35 - less purple
+                        # MEDIUM: Purple blend (SPECTRAL + EMBER mixed)
+                        r = min(255, int((SPECTRAL[0] + EMBER[0]) * 0.8))
+                        g = min(255, int((SPECTRAL[1] + EMBER[1]) * 0.7))
+                        b = min(255, int((SPECTRAL[2] + EMBER[2]) * 0.8))
+                        col = (r, g, b, 255)
+                    elif width_ratio > 0.2:
+                        # MEDIUM-THIN: Transition to necrotic green
+                        blend = (width_ratio - 0.2) / 0.15
+                        r = int(SPECTRAL[0] * blend + NECROTIC[0] * (1-blend) * 1.3)
+                        g = int(SPECTRAL[1] * blend + NECROTIC[1] * (1-blend) * 1.3)
+                        b = int(SPECTRAL[2] * blend + NECROTIC[2] * (1-blend) * 1.3)
+                        col = (r, g, b, 255)
                     else:
-                        col = (min(255,int(NECROTIC[0]*1.5)),
-                               min(255,int(NECROTIC[1]*1.5)),
-                               min(255,int(NECROTIC[2]*1.5)),255)
-                    draw.line([(X1,Y1),(X2,Y2)], fill=col, width=int(w))
+                        # THINNEST parts: Pure ominous necrotic green
+                        r = min(255, int(NECROTIC[0] * 1.5))
+                        g = min(255, int(NECROTIC[1] * 1.5))
+                        b = min(255, int(NECROTIC[2] * 1.5))
+                        col = (r, g, b, 255)
+                    # Draw segment with hand-drawn pencil style (with gaps + curve joints)
+                    draw.line([(X1,Y1),(X2,Y2)], fill=col, width=int(w), joint='curve')
         # hub markers
         for hid,(hx,hy) in hubs.items():
             HX, HY = hx*2, hy*2
