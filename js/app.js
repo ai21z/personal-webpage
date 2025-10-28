@@ -12,7 +12,8 @@ import { sizeCanvas, cumulativeLengths, pointAt, approach } from './utils.js';
 import { buildGraphFromPaths, aStarPath } from './graph.js';
 import { initProjectsWheel } from './projects-wheel.js';
 import { initWorkGlobe, cleanupWorkGlobe } from './work-globe-webgl.js';
-import blogNetwork from './blog-network.js';
+// Blog network now uses WebGL version loaded directly in HTML
+// import blogNetwork from './blog-network.js';
 // Resume spirals - DISABLED FOR NOW
 // TODO: Re-enable later by uncommenting: import { initResumeSpirals } from './resume-spirals.js';
 // import { initResumeSpirals } from './resume-spirals.js';
@@ -701,14 +702,36 @@ async function initNetworkAndNav() {
 
 // ━━━ Section visibility wrapper (controls blog network and other section-specific features) ━━━
 function showSectionWithEffects(sectionName) {
+  console.log('[App] showSectionWithEffects called:', sectionName);
   showSection(sectionName, startRitualBackground, stopRitualBackground);
   
-  // Control blog network visibility
-  if (sectionName === 'blog') {
-    blogNetwork.show();
-  } else {
-    blogNetwork.hide();
-  }
+  const blog = document.getElementById('blog');
+  console.log('[App] Section visibility IMMEDIATE:', {
+    blogExists: !!blog,
+    hasActiveSection: blog?.classList.contains('active-section'),
+    allClasses: blog?.className,
+    opacity: getComputedStyle(blog || {}).opacity,
+    display: getComputedStyle(blog || {}).display,
+    pointerEvents: getComputedStyle(blog || {}).pointerEvents
+  });
+  
+  // Check again after CSS transition completes (0.8s)
+  setTimeout(() => {
+    const blogAfter = document.getElementById('blog');
+    console.log('[App] Section visibility AFTER TRANSITION (0.8s):', {
+      opacity: getComputedStyle(blogAfter || {}).opacity,
+      display: getComputedStyle(blogAfter || {}).display,
+      pointerEvents: getComputedStyle(blogAfter || {}).pointerEvents,
+      visible: getComputedStyle(blogAfter || {}).opacity === '1'
+    });
+  }, 900);
+  
+  // Blog network visibility now handled by WebGL version
+  // if (sectionName === 'blog') {
+  //   blogNetwork.show();
+  // } else {
+  //   blogNetwork.hide();
+  // }
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
@@ -748,8 +771,8 @@ window.addEventListener('DOMContentLoaded', async () => {
   // Initialize contact form
   notebookContact.init();
 
-  // Initialize blog network visualization
-  blogNetwork.init();
+  // NOTE: Blog network now uses WebGL version loaded directly in HTML
+  // blogNetwork.init();
 
   // Contact section: click background to close
   const contactSection = document.getElementById('contact');

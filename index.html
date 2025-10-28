@@ -321,6 +321,12 @@
     
     <div class="blog-container">
       <canvas id="blog-network-canvas" class="blog-network-canvas"></canvas>
+      <script>
+        console.log('[HTML] Blog network canvas found:', document.getElementById('blog-network-canvas'));
+        console.log('[HTML] Canvas display:', getComputedStyle(document.getElementById('blog-network-canvas')).display);
+        console.log('[HTML] Canvas visibility:', getComputedStyle(document.getElementById('blog-network-canvas')).visibility);
+      </script>
+      <script type="module" src="./js/blog-network-webgl.js"></script>
       
       <!-- Helper text -->
       <div class="blog-helper-text" aria-hidden="true">

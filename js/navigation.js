@@ -67,9 +67,21 @@ export function computeNavOffsets(){
  * @param {Function} stopRitualBackground - Function to stop ritual background
  */
 export function showSection(sectionName, startRitualBackground, stopRitualBackground) {
+  console.log('[Navigation] showSection called:', sectionName);
   // Update active section
   const sections = document.querySelectorAll('.stage');
-  sections.forEach(s => s.classList.toggle('active-section', s.dataset.section === sectionName));
+  console.log('[Navigation] Found stages:', sections.length, 'looking for:', sectionName);
+  sections.forEach(s => {
+    const shouldBeActive = s.dataset.section === sectionName;
+    console.log(`[Navigation] Stage ${s.dataset.section}: data-section="${s.dataset.section}", match=${shouldBeActive}`);
+    s.classList.toggle('active-section', shouldBeActive);
+  });
+  const activeSections = Array.from(sections).filter(s => s.classList.contains('active-section'));
+  console.log('[Navigation] Active sections after toggle:', activeSections.map(s => ({
+    id: s.id,
+    dataSection: s.dataset.section,
+    classes: s.className
+  })));
   
   // Update nav aria-current
   document.querySelectorAll('.network-node-label, .network-sigil-node').forEach(label =>

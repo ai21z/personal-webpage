@@ -277,11 +277,10 @@ def render_pngs(paths, metas, hubs, out_base, out_glow):
             depth = min(8, int(math.hypot(first[0]-hx, first[1]-hy)/80))
             L = len(path)
             for j in range(L-1):
-                # SMALLER HAND-DRAWN GAPS: More subtle, aged look
-                # Gaps increase slightly in thinner branches (8-18% based on depth)
-                gap_chance = 0.08 + (depth * 0.02)  # Much smaller gaps
+                # MINIMAL GAPS: Very subtle, only in thinnest branches (3-8%)
+                gap_chance = 0.03 + (depth * 0.01)  # Much less gaps
                 if random.random() < gap_chance:
-                    continue  # Skip this segment = subtle gap
+                    continue  # Skip this segment = rare gap
                 
                 x1,y1 = path[j]; x2,y2 = path[j+1]
                 X1,Y1 = int(x1*2), int(y1*2); X2,Y2 = int(x2*2), int(y2*2)
@@ -299,9 +298,9 @@ def render_pngs(paths, metas, hubs, out_base, out_glow):
                 # Stronger taper along length for aged, wrinkled look
                 w = max(1.5, base_w*(1.0 - 0.6*progress))  # Stronger taper (0.6 vs 0.5)
                 
-                # HAND-PAINTED WRINKLE: Add slight random variation to width
-                # Creates that aged, imperfect, organic look
-                wrinkle = random.uniform(0.85, 1.15)  # ±15% width variation
+                # MORE HAND-PAINTED WRINKLES: Stronger random variation
+                # Creates organic, imperfect mycelium texture
+                wrinkle = random.uniform(0.75, 1.25)  # ±25% width variation (more wrinkly!)
                 w = w * wrinkle
                 
                 # WIDTH-BASED COLOR: More visible multi-color palette
@@ -345,8 +344,17 @@ def render_pngs(paths, metas, hubs, out_base, out_glow):
                         g = min(255, int(NECROTIC[1] * 1.5))
                         b = min(255, int(NECROTIC[2] * 1.5))
                         col = (r, g, b, 255)
+                    
+                    # 3D DEPTH EFFECT: Add subtle shadow/highlight for dimensionality
+                    # Random lighting variation creates hand-painted depth
+                    lighting = random.uniform(0.85, 1.15)  # ±15% brightness variation
+                    r = min(255, max(0, int(col[0] * lighting)))
+                    g = min(255, max(0, int(col[1] * lighting)))
+                    b = min(255, max(0, int(col[2] * lighting)))
+                    col_3d = (r, g, b, 255)
+                    
                     # Draw segment with hand-drawn pencil style (with gaps + curve joints)
-                    draw.line([(X1,Y1),(X2,Y2)], fill=col, width=int(w), joint='curve')
+                    draw.line([(X1,Y1),(X2,Y2)], fill=col_3d, width=int(w), joint='curve')
         # hub markers
         for hid,(hx,hy) in hubs.items():
             HX, HY = hx*2, hy*2
