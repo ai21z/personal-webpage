@@ -28,17 +28,17 @@ HUBS = {
 }
 
 # ---------------- Parameters ----------------
-SAMPLE_STEP_PX = 22.0
-NUM_ATTRACTORS_PER_HUB = 1000     # good density + speed
+SAMPLE_STEP_PX = 18.0
+NUM_ATTRACTORS_PER_HUB = 1400     # denser canopy while keeping runtime sane
 INFLUENCE_RADIUS = 140.0
 KILL_RADIUS       = 40.0
-STEP_SIZE         = 12.0
-MAX_TIPS_PER_HUB  = 800
-MAX_OUTER_ROUNDS  = 1600          # round-robin cycles cap
+STEP_SIZE         = 10.0
+MAX_TIPS_PER_HUB  = 1100
+MAX_OUTER_ROUNDS  = 2000          # round-robin cycles cap
 FUSE_RADIUS       = 14.0
 CENTER_FUSE_FRAC  = 0.60          # fraction of min(hub->SOURCE)
 
-NUM_TRUNKS_PER_HUB = 5
+NUM_TRUNKS_PER_HUB = 6
 TRUNK_BOW_RANGE = (0.06, 0.10)    # reduced bow (no petals)
 
 # WARM HAND-DRAWN PALETTE (exact match to intro network)
@@ -124,31 +124,72 @@ def generate_attractors_per_hub(hubs, num_per_hub, inner_frac=0.50, center_frac=
             out[hid].append((x,y))
     return out
 
+def compute_trunk_fan_angles(src, dst, num, span_deg=150.0):
+    """Evenly distribute trunk tangents around the outward direction."""
+    if num <= 0:
+        return []
+    sx, sy = src
+    tx, ty = dst
+    base = math.atan2(ty - sy, tx - sx)  # direction from source -> hub (outward)
+    if num == 1:
+        return [base]
+    span = math.radians(span_deg)
+    return [base + span * (i/(num-1) - 0.5) for i in range(num)]
+
 # -------------- Trunks --------------
 def _mono_ok(p0, p1, p2, p3, dirx, diry):
     def proj(p): return (p[0]-p0[0])*dirx + (p[1]-p0[1])*diry
     a, b, c, d = 0.0, proj(p1), proj(p2), proj(p3)
     return a < b <= c < d
 
-def create_trunk_paths(src, dst, num, bow_lo, bow_hi, sample=SAMPLE_STEP_PX, bow_sign=None):
+def create_trunk_paths(src, dst, num, bow_lo, bow_hi, sample=SAMPLE_STEP_PX, bow_sign=None, fan_angles=None):
     sx, sy = src; tx, ty = dst
     dx, dy = tx-sx, ty-sy
     dist = math.hypot(dx, dy) or 1.0
     dirx, diry = dx/dist, dy/dist
     perpx, perpy = -diry, dirx
+    base_angle = math.atan2(dy, dx)
     trunks = []
     if bow_sign is None:
         bow_sign = 1 if random.random() < 0.5 else -1
-    for _ in range(num):
-        s_jx = random.uniform(-8,8); s_jy = random.uniform(-8,8)
-        t_jx = random.uniform(-8,8); t_jy = random.uniform(-8,8)
+    # ensure we have a deterministic set of fan angles if provided
+    if fan_angles and len(fan_angles) != num:
+        raise ValueError("fan_angles length must match num trunks")
+
+    for idx in range(num):
+        angle = None
+        if fan_angles:
+            angle = fan_angles[idx]
+        out_dir = None
+        if angle is not None:
+            out_dir = (math.cos(angle), math.sin(angle))
+        else:
+            out_dir = (dirx, diry)
+        out_perp = (-out_dir[1], out_dir[0])
+        jitter_mag = 4.0 if fan_angles else 8.0
+        s_jx = random.uniform(-jitter_mag, jitter_mag); s_jy = random.uniform(-jitter_mag, jitter_mag)
+        t_jx = random.uniform(-jitter_mag, jitter_mag); t_jy = random.uniform(-jitter_mag, jitter_mag)
         p0 = (sx + s_jx, sy + s_jy)
         p3 = (tx + t_jx, ty + t_jy)
         # try a few times to ensure monotone projection
         for _tries in range(6):
-            bow = dist * random.uniform(bow_lo, bow_hi) * bow_sign
-            p1 = (sx + dx*0.33 + perpx*bow, sy + dy*0.33 + perpy*bow)
-            p2 = (sx + dx*0.67 + perpx*bow, sy + dy*0.67 + perpy*bow)
+            if fan_angles:
+                offset = angle - base_angle
+                bow_sign_local = 1 if offset >= 0 else -1
+            else:
+                bow_sign_local = bow_sign
+            bow = dist * random.uniform(bow_lo, bow_hi) * bow_sign_local
+            # soften bow contribution near source, preserve old feel
+            p1 = (
+                sx + dx*0.33 + perpx*bow*0.4 + out_perp[0]*bow*0.4,
+                sy + dy*0.33 + perpy*bow*0.4 + out_perp[1]*bow*0.4,
+            )
+            taper = dist * random.uniform(0.22, 0.32)
+            jitter = dist * random.uniform(-0.02, 0.02)
+            p2 = (
+                (tx + t_jx) - out_dir[0]*taper + out_perp[0]*jitter,
+                (ty + t_jy) - out_dir[1]*taper + out_perp[1]*jitter,
+            )
             if _mono_ok(p0, p1, p2, p3, dirx, diry): break
         # sample the cubic
         length_guess = dist*1.15
@@ -379,7 +420,7 @@ def render_pngs(paths, metas, hubs, out_base, out_glow):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--seed", type=int, default=7171)
-    ap.add_argument("--segments", type=int, default=6000)
+    ap.add_argument("--segments", type=int, default=7600)
     args = ap.parse_args()
     random.seed(args.seed)
     MAX_SEGMENTS = int(args.segments)
@@ -391,14 +432,17 @@ def main():
     for hid,(hx,hy) in HUBS.items():
         if hid=="source": continue
         bow_sign_per_hub[hid] = 1 if random.random()<0.5 else -1
+        fan = compute_trunk_fan_angles(HUBS["source"], (hx,hy), NUM_TRUNKS_PER_HUB)
         segs = create_trunk_paths(
             HUBS["source"], (hx,hy),
             NUM_TRUNKS_PER_HUB, TRUNK_BOW_RANGE[0], TRUNK_BOW_RANGE[1],
-            bow_sign=bow_sign_per_hub[hid]
+            bow_sign=bow_sign_per_hub[hid], fan_angles=fan
         )
         trunks.extend(segs)
         trunk_meta.extend([{"hub":hid,"kind":"trunk"} for _ in segs])
     trunk_seg = count_segments(trunks)
+    trunk_counts = Counter(m.get("hub") for m in trunk_meta if m.get("kind") == "trunk")
+    print(f"Trunks per hub: {dict(trunk_counts)}")
     if trunk_seg >= MAX_SEGMENTS:
         # decimate uniformly
         keep_every = max(2, int(math.ceil(trunk_seg / MAX_SEGMENTS)))
@@ -410,6 +454,8 @@ def main():
                 new_t.append(t2); new_m.append(m)
         trunks, trunk_meta = new_t, new_m
         trunk_seg = count_segments(trunks)
+        trunk_counts = Counter(m.get("hub") for m in trunk_meta if m.get("kind") == "trunk")
+        print(f"Trunks per hub after decimate: {dict(trunk_counts)}")
 
     # starting tips = trunk endpoints
     endpoints_by_hub = defaultdict(list)

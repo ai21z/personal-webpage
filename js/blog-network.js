@@ -10,6 +10,7 @@
 
 class BlogNetwork {
   constructor() {
+  this.version = window.__BLOG_NETWORK_VERSION || '20251029-trunks6-fan';
     // DOM / state
     this.canvas = null;
     this.ctx = null;
@@ -141,7 +142,7 @@ class BlogNetwork {
   }
 
   async loadNetworkData() {
-    const response = await fetch('./artifacts/blog_network.json');
+  const response = await fetch(`./artifacts/blog_network.json?v=${this.version}`);
     this.networkData = await response.json();
 
     // Cyst nodes (every 12th segment)

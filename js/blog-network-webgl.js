@@ -1,4 +1,9 @@
 // blog-network-webgl.js — Hand-painted mycelium network
+const BLOG_NETWORK_VERSION = window.__BLOG_NETWORK_VERSION || '20251029-trunks6-fan';
+if (!window.__BLOG_NETWORK_VERSION) {
+  window.__BLOG_NETWORK_VERSION = BLOG_NETWORK_VERSION;
+}
+
 const PAL = {
   ABYSS: [0.05, 0.06, 0.07],        // soft charcoal background
   // Branch color variations (more diverse palette)
@@ -366,7 +371,7 @@ async function initBlogNetwork(){
 
   // Load network JSON
   console.log('[Blog Network WebGL] Fetching network data...');
-  const res = await fetch('./artifacts/blog_network.json');
+  const res = await fetch(`./artifacts/blog_network.json?v=${BLOG_NETWORK_VERSION}`);
   console.log('[Blog Network WebGL] Fetch response:', res.status, res.ok);
   const data = await res.json();
   console.log('[Blog Network WebGL] Loaded network:', {
