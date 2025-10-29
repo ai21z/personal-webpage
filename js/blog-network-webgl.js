@@ -1,5 +1,5 @@
 // blog-network-webgl.js — Hand-painted mycelium network
-const BLOG_NETWORK_VERSION = window.__BLOG_NETWORK_VERSION || '20251029-trunks6-fan';
+const BLOG_NETWORK_VERSION = window.__BLOG_NETWORK_VERSION || '20251029-trunks6-branch1p2x-rough';
 if (!window.__BLOG_NETWORK_VERSION) {
   window.__BLOG_NETWORK_VERSION = BLOG_NETWORK_VERSION;
 }
@@ -138,6 +138,7 @@ void main(){
   vec2 pix = gl_FragCoord.xy;
   vec2 worldShifted = (pix - uOffset)/uScale;      // world coords with artistic shift applied
   vec2 world = worldShifted - uShift;              // underlying network space (no shift)
+  float colorSeed = hash(vP0 * 0.1);
 
   // SDF with wrinkled edges (hand-painted feel)
   float d = sdCapsule(worldShifted, vP0, vP1, vR);
@@ -147,13 +148,19 @@ void main(){
   float wrinkle = noise(world * 0.3) * 0.8 + noise(world * 0.8) * 0.4;
   float scaleAvg = (uScale.x + uScale.y) * 0.5; // average scale
   float wrinkleAmount = min(vR * 0.12, 0.6) * max(0.3, scaleAvg);
+  float roughBranch = smoothstep(0.45, 1.35, vR);
+  float highFreq = noise(world * 1.25 + vec2(colorSeed * 13.7, colorSeed * 21.9));
+  float microFreq = noise(world * 3.8 + vec2(colorSeed * 41.3, colorSeed * 9.1));
+  wrinkleAmount *= mix(1.0, 1.85, roughBranch);
   d += (wrinkle - 0.5) * wrinkleAmount;
+  d += (highFreq - 0.5) * wrinkleAmount * 0.6 * roughBranch;
+  d += (microFreq - 0.5) * wrinkleAmount * 0.35 * roughBranch;
   
   float aa = max(fwidth(d), 1e-4);
   float alpha = 1.0 - smoothstep(-aa*2.0, aa*0.5, d); // softer falloff
 
   // Color variation based on position (hand-painted variety)
-  float colorVar = hash(vP0 * 0.1); // per-segment variation
+  float colorVar = colorSeed; // per-segment variation
   float localNoise = noise(world * 0.15); // texture within segment
   
   vec3 col;
@@ -170,11 +177,15 @@ void main(){
   
   // Add painterly texture variation
   col *= 0.85 + localNoise * 0.3; // texture modulation
+  float roughShade = noise(world * 2.6 + vec2(colorSeed * 57.1, colorSeed * 17.9));
+  col *= 0.92 + roughShade * 0.35 * roughBranch;
+  float roughMix = clamp((roughShade - 0.45) * 0.6 * roughBranch, 0.0, 1.0);
+  col = mix(col, col * 0.78, roughMix);
   
   // Color variation along the segment (brush stroke effect)
   vec2 segDir = normalize(vP1 - vP0);
   float along = dot(worldShifted - vP0, segDir) / max(0.1, length(vP1 - vP0));
-  float strokeVar = noise(vec2(along * 10.0, colorVar * 100.0)) * 0.15;
+  float strokeVar = noise(vec2(along * 10.0, colorVar * 100.0)) * (0.15 + 0.15 * roughBranch);
   col *= 1.0 + strokeVar;
 
   // Hub ember highlights (multi-color)
@@ -406,6 +417,8 @@ async function initBlogNetwork(){
     if(p.length<2) return;
     const meta = (data.paths_meta&&data.paths_meta[i])||{};
     const kind = meta.kind==='fusion'?1:0;
+    const isTrunk = meta.kind === 'trunk';
+    const tier = typeof meta.tier === 'number' ? meta.tier : null;
   // Mirror generator's radial taper when depth is absent in metadata.
   let depth = typeof meta.depth==='number' ? meta.depth : null;
     if(depth===null){
@@ -430,10 +443,12 @@ async function initBlogNetwork(){
         depth = 0;
       }
     }
-    const base = Math.max(MINW, MAXW - 0.5*depth) * WIDTH_SCALE;
+  const branchBoost = (!isTrunk && tier !== null && tier <= 1) ? 1.0 : 0.0;
+  const thicknessScale = isTrunk ? 1.0 : 1.2;
+  const base = (Math.max(MINW, MAXW - 0.5*depth) * WIDTH_SCALE + branchBoost) * thicknessScale;
     const pushEndpoint = (point, prog, shrink)=>{
       if(!point) return;
-      const w = base*(1.0 - 0.4*prog);
+  const w = base*(1.0 - 0.4*prog);
       const scale = shrink ? 0.5 : 1.0;
       const radius = Math.max(6.0*scale, w*1.4*scale);
       stashNode(point[0], point[1], radius, kind);

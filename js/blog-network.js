@@ -10,7 +10,7 @@
 
 class BlogNetwork {
   constructor() {
-  this.version = window.__BLOG_NETWORK_VERSION || '20251029-trunks6-fan';
+  this.version = window.__BLOG_NETWORK_VERSION || '20251029-trunks6-branch1p2x-rough';
     // DOM / state
     this.canvas = null;
     this.ctx = null;
@@ -284,17 +284,28 @@ class BlogNetwork {
       if (path.length < 2) return;
       const meta = paths_meta ? (paths_meta[i] || {}) : {};
       const kind = meta.kind || 'branch';
+      const tier = typeof meta.tier === 'number' ? meta.tier : null;
       const depth = meta.depth || 0;
 
-      const baseW = Math.max(baseMin, baseMax - depth * 0.5);
+      const baseCore = Math.max(baseMin, baseMax - depth * 0.5);
       const colorBase = (kind === 'fusion') ? TEAL : ASHEN;
+    const widthBoost = (kind !== 'trunk' && tier !== null && tier <= 1) ? 1.0 : 0.0;
+    const thicknessScale = (kind === 'trunk') ? 1.0 : 1.2;
+    const baseW = (baseCore + widthBoost) * thicknessScale;
+    const heaviness = Math.min(1, baseW / (baseMax * 1.6));
+    const roughPhase = Math.random() * Math.PI * 2;
+    const roughFreq = 6 + Math.random() * 4.5;
+    const roughAmp = (0.12 + Math.max(0, baseCore - baseMin) * 0.06) * heaviness;
+    const roughJitter = 0.12 + Math.random() * 0.1;
 
       for (let j = 0; j < path.length - 1; j++) {
         const [x1, y1] = path[j];
         const [x2, y2] = path[j + 1];
 
         const prog = j / (path.length - 1);
-        let w = baseW * (1 - prog * 0.4);
+        const undulation = 1 + roughAmp * Math.sin(prog * roughFreq + roughPhase);
+        const micro = 1 + (Math.random() * 2 - 1) * roughJitter * heaviness;
+        let w = baseW * (1 - prog * 0.4) * undulation * micro;
 
         // ember only for thick segments near hubs
         let rgbArr = colorBase;
@@ -316,6 +327,7 @@ class BlogNetwork {
 
   _charcoalStroke(ctx, x1, y1, x2, y2, w, rgbArr) {
     const [r, g, b] = rgbArr;
+    const rough = Math.min(1, w / 6);
 
     // main body — multiply keeps blacks rich
     ctx.save();
@@ -323,8 +335,9 @@ class BlogNetwork {
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.strokeStyle = this._rgb(r, g, b, 0.78);
-    ctx.lineWidth = w;
-    ctx.shadowBlur = Math.min(3, 1 + w * 0.35);
+    const mainWidth = Math.max(0.6, w * (0.92 + (this._nrand(x1 * 0.51, y1 * 0.73) - 0.5) * 0.4 * rough));
+    ctx.lineWidth = mainWidth;
+    ctx.shadowBlur = Math.min(3.8, 1 + w * 0.38);
     ctx.shadowColor = this._rgb(r, g, b, 0.2);
 
     // slight curvature + micro-jitter
@@ -341,13 +354,35 @@ class BlogNetwork {
     ctx.stroke();
     ctx.restore();
 
+    if (rough > 0.25) {
+      const passes = 1 + Math.floor(rough * 2);
+      for (let i = 0; i < passes; i++) {
+        const offset = (this._nrand(x1 + i * 13.7, y1 - i * 9.3) - 0.5) * w * 0.35;
+        ctx.save();
+        ctx.globalCompositeOperation = 'overlay';
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = this._rgb(r, g, b, 0.18 + 0.05 * i);
+        ctx.lineWidth = Math.max(0.5, w * (0.32 + 0.18 * i));
+        ctx.setLineDash([1.2 + i, 2.4 + this._nrand(x2 - i, y2 + i) * 2.2]);
+        ctx.beginPath();
+        ctx.moveTo(x1 + offset, y1 - offset * 0.3);
+        ctx.lineTo(x2 - offset * 0.45, y2 + offset * 0.25);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
     // frayed rim — lighter, broken dash
     ctx.save();
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.strokeStyle = this._rgb(r, g, b, 0.35);
-    ctx.lineWidth = Math.max(0.6, w * 0.55);
-    ctx.setLineDash([3, 1 + this._nrand(x1, y1) * 2]);
+    ctx.lineWidth = Math.max(0.6, w * (0.45 + 0.18 * rough));
+    ctx.setLineDash([
+      2.4 + this._nrand(x1 * 0.91, y1 * 0.77) * 1.8,
+      1.2 + this._nrand(x2 * 0.87, y2 * 0.69) * 2.6
+    ]);
     ctx.beginPath();
     ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
     ctx.stroke();

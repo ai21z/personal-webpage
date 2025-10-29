@@ -286,20 +286,22 @@ def extract_paths(nodes_by_hub, min_pts=3):
         roots = [n for n in nodes if n.parent is None]
         if not roots: continue
         for root in roots:
-            stack = [(root, [])]
+            stack = [(root, [], 0, 0)]  # node, accumulated path, depth, tier
             while stack:
-                node, cur = stack.pop()
+                node, cur, depth, tier = stack.pop()
                 cur = cur + [(node.x, node.y)]
                 if not node.children:
                     if len(cur) >= min_pts:
-                        paths.append(cur); metas.append({"hub":hid,"kind":"branch"})
+                        paths.append(cur)
+                        metas.append({"hub":hid,"kind":"branch","tier":tier})
                 elif len(node.children)==1:
-                    stack.append((node.children[0], cur))
+                    stack.append((node.children[0], cur, depth+1, tier))
                 else:
                     if len(cur) >= min_pts:
-                        paths.append(cur); metas.append({"hub":hid,"kind":"hub-branch"})
+                        paths.append(cur)
+                        metas.append({"hub":hid,"kind":"hub-branch","tier":tier})
                     for ch in node.children:
-                        stack.append((ch, [cur[-1]]))
+                        stack.append((ch, [cur[-1]], depth+1, tier+1))
     return paths, metas
 
 # -------------- Rendering --------------
@@ -313,10 +315,13 @@ def render_pngs(paths, metas, hubs, out_base, out_glow):
             meta = metas[i] if i<len(metas) else {}
             hid = meta.get("hub","craft")
             is_trunk = meta.get("kind") == "trunk"
+            tier = meta.get("tier")
             hx, hy = HUBS[hid]
             first = path[0]
             depth = min(8, int(math.hypot(first[0]-hx, first[1]-hy)/80))
             L = len(path)
+            base_wave_phase = random.uniform(0.0, math.tau)
+            base_wave_freq = random.uniform(5.5, 10.5)
             for j in range(L-1):
                 # MINIMAL GAPS: Very subtle, only in thinnest branches (3-8%)
                 gap_chance = 0.03 + (depth * 0.01)  # Much less gaps
@@ -334,14 +339,24 @@ def render_pngs(paths, metas, hubs, out_base, out_glow):
                 # Base width decreases with distance from hub (depth)
                 # Each child branch thinner than parent
                 base_w = max(2, 12 - depth*2.5) * 2  # Thinner than intro (12 vs 15)
-                if is_trunk: base_w *= 1.2  # Trunks only slightly thicker
+                if is_trunk:
+                    base_w *= 1.2  # Trunks only slightly thicker
+                else:
+                    if isinstance(tier, int) and tier <= 1:
+                        base_w += 2.0  # Slight boost for parent + first child branches
+                    base_w *= 1.2  # global 20% boost for branches
+                heavy = min(1.0, max(0.0, (base_w - 6.0) / 10.0))
+                und_amp = (0.16 + max(0.0, base_w - 6.0) * 0.015) * heavy
+                jitter_amp = (0.14 + random.uniform(0.0, 0.08)) * heavy
                 
                 # Stronger taper along length for aged, wrinkled look
-                w = max(1.5, base_w*(1.0 - 0.6*progress))  # Stronger taper (0.6 vs 0.5)
+                undulation = 1.0 + und_amp * math.sin(progress * base_wave_freq + base_wave_phase)
+                micro = 1.0 + random.uniform(-jitter_amp, jitter_amp)
+                w = max(1.5, base_w*(1.0 - 0.6*progress) * undulation * micro)  # Stronger taper (0.6 vs 0.5)
                 
                 # MORE HAND-PAINTED WRINKLES: Stronger random variation
                 # Creates organic, imperfect mycelium texture
-                wrinkle = random.uniform(0.75, 1.25)  # ±25% width variation (more wrinkly!)
+                wrinkle = random.uniform(0.7, 1.3)  # ±30% width variation (more wrinkly!)
                 w = w * wrinkle
                 
                 # WIDTH-BASED COLOR: More visible multi-color palette
@@ -439,7 +454,7 @@ def main():
             bow_sign=bow_sign_per_hub[hid], fan_angles=fan
         )
         trunks.extend(segs)
-        trunk_meta.extend([{"hub":hid,"kind":"trunk"} for _ in segs])
+        trunk_meta.extend([{"hub":hid,"kind":"trunk","tier":0} for _ in segs])
     trunk_seg = count_segments(trunks)
     trunk_counts = Counter(m.get("hub") for m in trunk_meta if m.get("kind") == "trunk")
     print(f"Trunks per hub: {dict(trunk_counts)}")

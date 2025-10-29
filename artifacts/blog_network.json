@@ -14002,1799 +14002,2248 @@
   "paths_meta": [
     {
       "hub": "craft",
-      "kind": "trunk"
+      "kind": "trunk",
+      "tier": 0
     },
     {
       "hub": "craft",
-      "kind": "trunk"
+      "kind": "trunk",
+      "tier": 0
     },
     {
       "hub": "craft",
-      "kind": "trunk"
+      "kind": "trunk",
+      "tier": 0
     },
     {
       "hub": "craft",
-      "kind": "trunk"
+      "kind": "trunk",
+      "tier": 0
     },
     {
       "hub": "craft",
-      "kind": "trunk"
+      "kind": "trunk",
+      "tier": 0
     },
     {
       "hub": "craft",
-      "kind": "trunk"
+      "kind": "trunk",
+      "tier": 0
     },
     {
       "hub": "cosmos",
-      "kind": "trunk"
+      "kind": "trunk",
+      "tier": 0
     },
     {
       "hub": "cosmos",
-      "kind": "trunk"
+      "kind": "trunk",
+      "tier": 0
     },
     {
       "hub": "cosmos",
-      "kind": "trunk"
+      "kind": "trunk",
+      "tier": 0
     },
     {
       "hub": "cosmos",
-      "kind": "trunk"
+      "kind": "trunk",
+      "tier": 0
     },
     {
       "hub": "cosmos",
-      "kind": "trunk"
+      "kind": "trunk",
+      "tier": 0
     },
     {
       "hub": "cosmos",
-      "kind": "trunk"
+      "kind": "trunk",
+      "tier": 0
     },
     {
       "hub": "codex",
-      "kind": "trunk"
+      "kind": "trunk",
+      "tier": 0
     },
     {
       "hub": "codex",
-      "kind": "trunk"
+      "kind": "trunk",
+      "tier": 0
     },
     {
       "hub": "codex",
-      "kind": "trunk"
+      "kind": "trunk",
+      "tier": 0
     },
     {
       "hub": "codex",
-      "kind": "trunk"
+      "kind": "trunk",
+      "tier": 0
     },
     {
       "hub": "codex",
-      "kind": "trunk"
+      "kind": "trunk",
+      "tier": 0
     },
     {
       "hub": "codex",
-      "kind": "trunk"
+      "kind": "trunk",
+      "tier": 0
     },
     {
       "hub": "convergence",
-      "kind": "trunk"
+      "kind": "trunk",
+      "tier": 0
     },
     {
       "hub": "convergence",
-      "kind": "trunk"
+      "kind": "trunk",
+      "tier": 0
     },
     {
       "hub": "convergence",
-      "kind": "trunk"
+      "kind": "trunk",
+      "tier": 0
     },
     {
       "hub": "convergence",
-      "kind": "trunk"
+      "kind": "trunk",
+      "tier": 0
     },
     {
       "hub": "convergence",
-      "kind": "trunk"
+      "kind": "trunk",
+      "tier": 0
     },
     {
       "hub": "convergence",
-      "kind": "trunk"
+      "kind": "trunk",
+      "tier": 0
     },
     {
       "hub": "craft",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 0
     },
     {
       "hub": "craft",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 1
     },
     {
       "hub": "craft",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 2
     },
     {
       "hub": "craft",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 3
     },
     {
       "hub": "craft",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 4
     },
     {
       "hub": "craft",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 5
     },
     {
       "hub": "craft",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 5
     },
     {
       "hub": "craft",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 4
     },
     {
       "hub": "craft",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 5
     },
     {
       "hub": "craft",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 5
     },
     {
       "hub": "craft",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 3
     },
     {
       "hub": "craft",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 2
     },
     {
       "hub": "craft",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 2
     },
     {
       "hub": "craft",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 3
     },
     {
       "hub": "craft",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 3
     },
     {
       "hub": "craft",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 0
     },
     {
       "hub": "craft",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 1
     },
     {
       "hub": "craft",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 2
     },
     {
       "hub": "craft",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 3
     },
     {
       "hub": "craft",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 3
     },
     {
       "hub": "craft",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 1
     },
     {
       "hub": "craft",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 2
     },
     {
       "hub": "craft",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 3
     },
     {
       "hub": "craft",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 2
     },
     {
       "hub": "craft",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 3
     },
     {
       "hub": "craft",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 4
     },
     {
       "hub": "craft",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 4
     },
     {
       "hub": "craft",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 3
     },
     {
       "hub": "craft",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 4
     },
     {
       "hub": "craft",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 5
     },
     {
       "hub": "craft",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 5
     },
     {
       "hub": "craft",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 6
     },
     {
       "hub": "craft",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 7
     },
     {
       "hub": "craft",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 7
     },
     {
       "hub": "craft",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 8
     },
     {
       "hub": "craft",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 8
     },
     {
       "hub": "craft",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 0
     },
     {
       "hub": "craft",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 1
     },
     {
       "hub": "craft",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 2
     },
     {
       "hub": "craft",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 2
     },
     {
       "hub": "craft",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 1
     },
     {
       "hub": "craft",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 2
     },
     {
       "hub": "craft",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 2
     },
     {
       "hub": "craft",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 3
     },
     {
       "hub": "craft",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 3
     },
     {
       "hub": "craft",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 4
     },
     {
       "hub": "craft",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 4
     },
     {
       "hub": "craft",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 5
     },
     {
       "hub": "craft",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 0
     },
     {
       "hub": "craft",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 1
     },
     {
       "hub": "craft",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 2
     },
     {
       "hub": "craft",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 2
     },
     {
       "hub": "craft",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 1
     },
     {
       "hub": "craft",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 0
     },
     {
       "hub": "craft",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 1
     },
     {
       "hub": "craft",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 2
     },
     {
       "hub": "craft",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 3
     },
     {
       "hub": "craft",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 4
     },
     {
       "hub": "craft",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 5
     },
     {
       "hub": "craft",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 5
     },
     {
       "hub": "craft",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 6
     },
     {
       "hub": "craft",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 6
     },
     {
       "hub": "craft",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 7
     },
     {
       "hub": "craft",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 1
     },
     {
       "hub": "craft",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 2
     },
     {
       "hub": "craft",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 3
     },
     {
       "hub": "craft",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 3
     },
     {
       "hub": "craft",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 2
     },
     {
       "hub": "craft",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 3
     },
     {
       "hub": "craft",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 4
     },
     {
       "hub": "craft",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 4
     },
     {
       "hub": "craft",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 5
     },
     {
       "hub": "craft",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 6
     },
     {
       "hub": "craft",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 3
     },
     {
       "hub": "craft",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 4
     },
     {
       "hub": "craft",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 5
     },
     {
       "hub": "craft",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 5
     },
     {
       "hub": "craft",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 6
     },
     {
       "hub": "craft",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 6
     },
     {
       "hub": "craft",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 7
     },
     {
       "hub": "craft",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 7
     },
     {
       "hub": "craft",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 8
     },
     {
       "hub": "craft",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 8
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 0
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 1
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 1
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 2
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 3
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 4
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 2
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 3
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 4
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 4
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 5
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 5
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 6
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 6
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 3
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 4
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 4
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 5
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 6
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 6
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 5
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 6
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 6
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 7
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 8
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 9
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 9
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 10
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 11
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 11
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 12
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 12
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 13
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 14
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 15
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 15
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 16
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 16
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 14
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 13
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 14
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 14
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 15
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 16
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 17
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 17
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 18
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 19
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 20
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 20
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 21
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 21
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 22
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 22
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 23
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 0
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 1
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 2
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 3
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 3
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 1
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 2
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 2
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 3
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 3
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 4
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 4
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 2
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 3
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 3
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 4
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 5
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 6
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 6
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 3
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 4
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 4
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 5
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 6
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 7
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 7
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 8
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 8
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 9
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 9
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 0
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 1
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 2
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 3
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 3
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 4
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 1
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 2
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 3
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 4
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 5
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 6
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 2
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 3
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 3
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 4
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 5
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 5
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 6
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 6
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 7
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 7
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 8
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 8
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 4
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 5
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 5
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 6
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 6
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 7
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 7
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 8
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 0
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 1
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 2
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 3
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 4
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 4
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 1
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 2
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 4
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 4
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 5
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 6
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 7
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 2
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 3
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 4
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 4
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 5
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 5
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 6
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 6
     },
     {
       "hub": "cosmos",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 7
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 8
     },
     {
       "hub": "cosmos",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 8
     },
     {
       "hub": "codex",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 0
     },
     {
       "hub": "codex",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 1
     },
     {
       "hub": "codex",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 2
     },
     {
       "hub": "codex",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 3
     },
     {
       "hub": "codex",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 3
     },
     {
       "hub": "codex",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 4
     },
     {
       "hub": "codex",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 4
     },
     {
       "hub": "codex",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 5
     },
     {
       "hub": "codex",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 7
     },
     {
       "hub": "codex",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 1
     },
     {
       "hub": "codex",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 2
     },
     {
       "hub": "codex",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 2
     },
     {
       "hub": "codex",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 3
     },
     {
       "hub": "codex",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 3
     },
     {
       "hub": "codex",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 4
     },
     {
       "hub": "codex",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 4
     },
     {
       "hub": "codex",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 5
     },
     {
       "hub": "codex",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 5
     },
     {
       "hub": "codex",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 0
     },
     {
       "hub": "codex",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 1
     },
     {
       "hub": "codex",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 2
     },
     {
       "hub": "codex",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 3
     },
     {
       "hub": "codex",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 4
     },
     {
       "hub": "codex",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 4
     },
     {
       "hub": "codex",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 5
     },
     {
       "hub": "codex",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 6
     },
     {
       "hub": "codex",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 6
     },
     {
       "hub": "codex",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 3
     },
     {
       "hub": "codex",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 2
     },
     {
       "hub": "codex",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 3
     },
     {
       "hub": "codex",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 3
     },
     {
       "hub": "codex",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 1
     },
     {
       "hub": "codex",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 2
     },
     {
       "hub": "codex",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 3
     },
     {
       "hub": "codex",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 3
     },
     {
       "hub": "codex",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 4
     },
     {
       "hub": "codex",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 5
     },
     {
       "hub": "codex",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 6
     },
     {
       "hub": "codex",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 7
     },
     {
       "hub": "codex",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 3
     },
     {
       "hub": "codex",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 4
     },
     {
       "hub": "codex",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 4
     },
     {
       "hub": "codex",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 5
     },
     {
       "hub": "codex",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 6
     },
     {
       "hub": "codex",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 6
     },
     {
       "hub": "codex",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 7
     },
     {
       "hub": "codex",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 8
     },
     {
       "hub": "codex",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 10
     },
     {
       "hub": "codex",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 10
     },
     {
       "hub": "codex",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 5
     },
     {
       "hub": "codex",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 6
     },
     {
       "hub": "codex",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 7
     },
     {
       "hub": "codex",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 7
     },
     {
       "hub": "codex",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 8
     },
     {
       "hub": "codex",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 8
     },
     {
       "hub": "codex",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 9
     },
     {
       "hub": "codex",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 10
     },
     {
       "hub": "codex",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 0
     },
     {
       "hub": "codex",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 1
     },
     {
       "hub": "codex",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 2
     },
     {
       "hub": "codex",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 2
     },
     {
       "hub": "codex",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 3
     },
     {
       "hub": "codex",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 2
     },
     {
       "hub": "codex",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 3
     },
     {
       "hub": "codex",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 3
     },
     {
       "hub": "codex",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 4
     },
     {
       "hub": "codex",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 5
     },
     {
       "hub": "codex",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 5
     },
     {
       "hub": "codex",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 6
     },
     {
       "hub": "codex",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 6
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 0
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 1
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 2
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 3
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 4
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 4
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 5
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 5
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 6
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 2
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 3
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 3
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 4
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 4
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 5
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 5
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 6
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 6
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 7
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 7
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 0
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 1
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 2
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 3
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 4
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 4
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 5
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 5
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 3
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 4
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 4
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 5
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 6
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 7
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 7
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 8
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 8
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 1
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 2
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 3
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 3
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 4
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 4
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 5
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 5
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 6
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 6
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 8
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 8
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 2
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 3
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 4
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 5
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 3
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 4
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 4
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 5
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 5
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 6
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 6
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 3
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 4
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 4
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 5
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 5
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 6
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 7
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 7
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 8
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 9
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 9
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 10
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 10
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 11
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 11
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 12
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 12
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 0
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 1
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 2
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 3
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 4
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 3
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 4
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 5
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 6
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 7
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 8
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 9
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 9
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 2
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 3
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 4
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 5
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 6
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 7
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 7
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 8
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 8
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 6
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 7
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 7
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 8
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 8
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 0
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 1
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 2
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 2
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 3
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 3
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 4
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 5
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 5
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 6
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 4
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 5
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 5
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 6
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 6
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 1
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 2
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 3
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 4
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 2
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 3
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 3
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 4
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 4
     },
     {
       "hub": "convergence",
-      "kind": "hub-branch"
+      "kind": "hub-branch",
+      "tier": 4
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 5
     },
     {
       "hub": "convergence",
-      "kind": "branch"
+      "kind": "branch",
+      "tier": 5
     },
     {
       "hub": "cosmos",
