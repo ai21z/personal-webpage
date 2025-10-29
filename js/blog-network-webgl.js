@@ -17,6 +17,9 @@ const PAL = {
   GLOW1:  [0.50, 0.60, 0.45],       // soft green
   GLOW2:  [0.45, 0.55, 0.60],       // cyan
   GLOW3:  [0.60, 0.50, 0.40],       // amber
+  MOSS_DARK: [0.20, 0.27, 0.22],    // damp moss shadow
+  MOSS_LIGHT: [0.46, 0.63, 0.50],   // lichen highlight
+  NECROTIC: [0.48, 0.66, 0.58],     // necrographic node tint
   BONE:   [0.788, 0.761, 0.702],    // #C9C2B3
 };
 
@@ -242,6 +245,91 @@ void main(){
   o = vec4(col, a*0.7);
 }`;
 
+const VS_NODE = `#version 300 es
+precision highp float;
+layout(location=0) in vec2 aQuad;
+layout(location=1) in vec2 aPos;
+layout(location=2) in float aSize;
+layout(location=3) in float aKind;
+uniform vec2 uScale, uOffset, uShift;
+uniform vec2 uRes;
+out vec2 vUv;
+out vec2 vCenter;
+out float vSize;
+flat out float vKind;
+void main(){
+  vec2 center = aPos + uShift;
+  vec2 world = center + aQuad * aSize;
+  vec2 screen = world*uScale + uOffset;
+  vec2 clip = (screen/uRes)*2.0 - 1.0;
+  gl_Position = vec4(clip,0.0,1.0);
+  vUv = aQuad*0.5 + 0.5;
+  vCenter = center;
+  vSize = aSize;
+  vKind = aKind;
+}`;
+
+const FS_NODE = `#version 300 es
+precision highp float;
+in vec2 vUv;
+in vec2 vCenter;
+in float vSize;
+flat in float vKind;
+out vec4 o;
+uniform vec3 uDotBranch;
+uniform vec3 uDotFusion;
+uniform vec3 uMossDark;
+uniform vec3 uMossLight;
+uniform float uTime;
+
+float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+float noise(vec2 p){
+  vec2 i=floor(p), f=fract(p);
+  float a=hash(i);
+  float b=hash(i+vec2(1.0,0.0));
+  float c=hash(i+vec2(0.0,1.0));
+  float d=hash(i+vec2(1.0,1.0));
+  vec2 u=f*f*(3.0-2.0*f);
+  return mix(mix(a,b,u.x), mix(c,d,u.x), u.y);
+}
+
+void main(){
+  vec2 c = vUv*2.0 - 1.0;
+  float r = length(c);
+  float edge = fwidth(r);
+  float alpha = 1.0 - smoothstep(1.0 - edge*1.5, 1.0, r);
+  if(alpha <= 0.001){ discard; }
+
+  float mossVar = noise(vCenter*0.08 + uTime*0.02);
+  vec3 moss = mix(uMossDark, uMossLight, mossVar);
+  vec3 baseCol = mix(moss, uDotBranch, 0.35);
+  vec3 col = mix(baseCol, uDotFusion, step(0.5, vKind));
+
+  float grain = noise(vCenter*0.6 + c*4.0);
+  float ring = sin((r*7.5 + mossVar*2.2 + noise(vCenter*0.25))*3.14159);
+  float crack = smoothstep(0.4, 1.0, abs(ring));
+  col *= 0.82 + grain*0.24;
+  col *= 1.0 - crack*0.18;
+
+  float core = smoothstep(0.55, 0.0, r);
+  col *= 0.85 + 0.23*core;
+
+  float patina = noise(vCenter*1.3 + vec2(vSize*0.05)) * 0.35;
+  col = mix(col, col*0.55, patina);
+
+  float phase = hash(vCenter*0.17);
+  float freq = mix(0.35, 0.95, hash(vCenter*0.41));
+  float breathe = 0.5 + 0.5*sin(uTime*freq + phase*6.28318);
+  float spark = smoothstep(0.25, 0.95, breathe);
+  vec3 sporeTint = mix(uMossLight, uDotFusion, 0.35);
+  col = mix(col, sporeTint, 0.22 * spark);
+  float haze = smoothstep(0.0, 0.7, 1.0 - r);
+  col += haze * 0.18 * spark;
+  alpha *= clamp(0.85 + 0.15 * spark, 0.0, 1.0);
+
+  o = vec4(clamp(col, 0.0, 1.0), alpha * 0.92);
+}`;
+
 // ---------- utils ----------
 const q = (sel)=>document.querySelector(sel);
 function compile(gl, type, src){
@@ -290,25 +378,81 @@ async function initBlogNetwork(){
   // Build geometry buffers (segments)
   const segs = [];
   const MAXW = 4.5, MINW = 0.9;
+  const WIDTH_SCALE = 1.4; // global thickness boost (30% thinner than previous double width)
+  const hubLookup = new Map();
+  (data.hubs||[]).forEach((hub)=>{
+    if(hub && hub.id!==undefined && typeof hub.x==='number' && typeof hub.y==='number'){
+      hubLookup.set(hub.id, [hub.x, hub.y]);
+    }
+  });
+  const nodeMap = new Map();
+  const nodes = [];
+  const stashNode = (x, y, radius, kind)=>{
+    const key = `${Math.round(x)}:${Math.round(y)}`;
+    const existing = nodeMap.get(key);
+    if(existing){
+      existing.radius = Math.max(existing.radius, radius);
+      existing.kind = Math.max(existing.kind, kind);
+    }else{
+      nodeMap.set(key, { x, y, radius, kind });
+    }
+  };
   (data.paths||[]).forEach((p, i)=>{
     if(p.length<2) return;
     const meta = (data.paths_meta&&data.paths_meta[i])||{};
     const kind = meta.kind==='fusion'?1:0;
-    const depth = meta.depth||0;
-    const base = Math.max(MINW, MAXW - 0.5*depth);
+  // Mirror generator's radial taper when depth is absent in metadata.
+  let depth = typeof meta.depth==='number' ? meta.depth : null;
+    if(depth===null){
+      const ref = p[0];
+      let origin = null;
+      if(meta.hub && hubLookup.has(meta.hub)){
+        origin = hubLookup.get(meta.hub);
+      }else if(hubLookup.size){
+        let minDist = Infinity;
+        hubLookup.forEach(([hx, hy])=>{
+          const d = Math.hypot(ref[0]-hx, ref[1]-hy);
+          if(d<minDist){
+            minDist = d;
+            origin = [hx, hy];
+          }
+        });
+      }
+      if(origin){
+        const dist = Math.hypot(ref[0]-origin[0], ref[1]-origin[1]);
+        depth = Math.min(8, Math.floor(dist/80));
+      }else{
+        depth = 0;
+      }
+    }
+    const base = Math.max(MINW, MAXW - 0.5*depth) * WIDTH_SCALE;
+    const pushEndpoint = (point, prog, shrink)=>{
+      if(!point) return;
+      const w = base*(1.0 - 0.4*prog);
+      const scale = shrink ? 0.5 : 1.0;
+      const radius = Math.max(6.0*scale, w*1.4*scale);
+      stashNode(point[0], point[1], radius, kind);
+    };
+    pushEndpoint(p[0], 0, false);
+    pushEndpoint(p[p.length-1], p.length>1 ? 1 : 0, true);
     for(let j=0;j<p.length-1;j++){
       const [x1,y1] = p[j], [x2,y2] = p[j+1];
       const prog = j/(p.length-1);
       const w = base*(1.0 - 0.4*prog);
-      const thickRatio = Math.min(1.0, w/MAXW);
+      const thickRatio = Math.min(1.0, w/(MAXW * WIDTH_SCALE));
       segs.push(x1,y1,x2,y2,w, kind, thickRatio);
     }
   });
+  nodeMap.forEach((n)=>{
+    nodes.push(n.x, n.y, n.radius, n.kind);
+  });
   const segCount = segs.length/7;
+  const nodeCount = nodes.length/4;
   console.log('[Blog Network WebGL] Built geometry:', {
     segments: segCount,
     firstSeg: segs.slice(0, 7),
-    totalFloats: segs.length
+    totalFloats: segs.length,
+    nodes: nodeCount
   });
 
   // infected/cyst nodes (every 12th)
@@ -378,15 +522,34 @@ async function initBlogNetwork(){
     gl.bindVertexArray(null);
     return { vao, count: cystCount, buf: bInst, data: inst };
   }
+  function makeVAOforNodes(){
+    const vao = gl.createVertexArray(); gl.bindVertexArray(vao);
+    const quad = new Float32Array([-1,-1, -1,1, 1,-1, 1,1]);
+    const bQuad = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, bQuad);
+    gl.bufferData(gl.ARRAY_BUFFER, quad, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    const inst = new Float32Array(nodes);
+    const bInst = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, bInst);
+    gl.bufferData(gl.ARRAY_BUFFER, inst, gl.STATIC_DRAW);
+    const STR = 4*4; // x,y,size,kind
+    gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1,2,gl.FLOAT,false,STR,0); gl.vertexAttribDivisor(1,1);
+    gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2,1,gl.FLOAT,false,STR,8); gl.vertexAttribDivisor(2,1);
+    gl.enableVertexAttribArray(3); gl.vertexAttribPointer(3,1,gl.FLOAT,false,STR,12); gl.vertexAttribDivisor(3,1);
+    gl.bindVertexArray(null);
+    return { vao, count: nodeCount };
+  }
 
   const progPaper = program(gl, VS_FSQ, FS_PAPER);
   const progSeg   = program(gl, VS_SEG, FS_SEG);
   const progCyst  = program(gl, VS_CYST, FS_CYST);
-  console.log('[Blog Network WebGL] Shaders compiled:', { progPaper, progSeg, progCyst });
+  const progNode  = program(gl, VS_NODE, FS_NODE);
+  console.log('[Blog Network WebGL] Shaders compiled:', { progPaper, progSeg, progCyst, progNode });
 
   const vaoSeg  = makeVAOforSegments();
   const vaoCyst = makeVAOforCysts();
-  console.log('[Blog Network WebGL] VAOs created:', { vaoSeg, vaoCyst });
+  const vaoNode = makeVAOforNodes();
+  console.log('[Blog Network WebGL] VAOs created:', { vaoSeg, vaoCyst, vaoNode });
 
   gl.enable(gl.BLEND);
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -492,6 +655,7 @@ async function initBlogNetwork(){
         viewport: `${fit.cssW}x${fit.cssH}`,
         scale: fit.scale,
         segmentCount: vaoSeg.count,
+        nodeCount: vaoNode.count,
         cystCount: vaoCyst.count
       });
     }
@@ -541,6 +705,23 @@ async function initBlogNetwork(){
     
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, vaoSeg.count);
     gl.bindVertexArray(null);
+
+    // NODE DOTS
+    if(vaoNode.count){
+      gl.useProgram(progNode);
+      set2(progNode,'uScale', fit.scale, fit.scale);
+      set2(progNode,'uOffset', fit.offX, fit.offY);
+      set2(progNode,'uShift', shift[0], shift[1]);
+      set2(progNode,'uRes', fit.cssW, fit.cssH);
+      gl.uniform1f(gl.getUniformLocation(progNode,'uTime'), now*0.001);
+      set3(progNode,'uMossDark', PAL.MOSS_DARK);
+      set3(progNode,'uMossLight', PAL.MOSS_LIGHT);
+      set3(progNode,'uDotBranch', PAL.NECROTIC);
+      set3(progNode,'uDotFusion', PAL.FUSION2);
+      gl.bindVertexArray(vaoNode.vao);
+      gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, vaoNode.count);
+      gl.bindVertexArray(null);
+    }
 
     // CYSTS
     gl.useProgram(progCyst);
