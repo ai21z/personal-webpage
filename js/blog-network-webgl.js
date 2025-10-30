@@ -101,6 +101,7 @@ void main(){
   vec2 world = mix(p0,p1,aUS.x) + perp * (aUS.y*hw);
   vec2 screen = world*uScale + uOffset;
   vec2 clip = (screen/uRes)*2.0 - 1.0;
+  clip.y = -clip.y; // Flip Y: JSON has Y-down (top-left origin), NDC has Y-up
   gl_Position = vec4(clip, 0.0, 1.0);
   vP0=p0; vP1=p1; vR=hw; vKind=aKind; vThick=aThick;
 }`;
@@ -117,6 +118,7 @@ uniform float uTime;
 uniform vec2 uHubPos[8];
 uniform int uHubCount;
 uniform float uEmberR;
+uniform float uHighlight; // 1.0 = normal, up to 1.25 for hover lift
 flat in vec2 vP0; flat in vec2 vP1; flat in float vR;
 flat in float vKind; flat in float vThick;
 
@@ -136,6 +138,7 @@ float noise(vec2 p){
 
 void main(){
   vec2 pix = gl_FragCoord.xy;
+  pix.y = uRes.y - pix.y; // Flip Y back: gl_FragCoord has Y-up, but we need Y-down to match network space
   vec2 worldShifted = (pix - uOffset)/uScale;      // world coords with artistic shift applied
   vec2 world = worldShifted - uShift;              // underlying network space (no shift)
   float colorSeed = hash(vP0 * 0.1);
@@ -212,6 +215,9 @@ void main(){
   // Soft painted glow
   float glow = smoothstep(3.5, 0.0, d) * 0.2;
   col += col * glow;
+  
+  // Apply highlight (clamped to 1.25x max)
+  col *= min(uHighlight, 1.25);
 
   o = vec4(clamp(col, 0.0, 1.0), alpha * 0.95);
 }`;
@@ -233,6 +239,7 @@ void main(){
   vec2 world = aPos + uShift + aQuad * r * 3.0;
   vec2 screen = world*uScale + uOffset;
   vec2 clip = (screen/uRes)*2.0 - 1.0;
+  clip.y = -clip.y; // Flip Y: JSON has Y-down (top-left origin), NDC has Y-up
   gl_Position = vec4(clip,0,1);
   vUv = aQuad*0.5 + 0.5;
   vPulsePhase = aPulse; // pass to fragment for color variation
@@ -278,6 +285,7 @@ void main(){
   vec2 world = center + aQuad * aSize;
   vec2 screen = world*uScale + uOffset;
   vec2 clip = (screen/uRes)*2.0 - 1.0;
+  clip.y = -clip.y; // Flip Y: JSON has Y-down (top-left origin), NDC has Y-up
   gl_Position = vec4(clip,0.0,1.0);
   vUv = aQuad*0.5 + 0.5;
   vCenter = center;
@@ -401,6 +409,11 @@ async function initBlogNetwork(){
       hubLookup.set(hub.id, [hub.x, hub.y]);
     }
   });
+  
+  // Per-hub segment buffers for selective rendering
+  const hubIds = ['craft', 'cosmos', 'codex', 'convergence'];
+  const perHub = Object.fromEntries(hubIds.map(h => [h, []]));
+  
   const nodeMap = new Map();
   const nodes = [];
   const stashNode = (x, y, radius, kind)=>{
@@ -419,6 +432,7 @@ async function initBlogNetwork(){
     const kind = meta.kind==='fusion'?1:0;
     const isTrunk = meta.kind === 'trunk';
     const tier = typeof meta.tier === 'number' ? meta.tier : null;
+    const hub = meta.hub || 'craft'; // default to craft if no hub specified
   // Mirror generator's radial taper when depth is absent in metadata.
   let depth = typeof meta.depth==='number' ? meta.depth : null;
     if(depth===null){
@@ -460,7 +474,33 @@ async function initBlogNetwork(){
       const prog = j/(p.length-1);
       const w = base*(1.0 - 0.4*prog);
       const thickRatio = Math.min(1.0, w/(MAXW * WIDTH_SCALE));
+      // Push to global buffer
       segs.push(x1,y1,x2,y2,w, kind, thickRatio);
+      
+      // Assign segment to hub based on SPATIAL PROXIMITY (segment midpoint)
+      // rather than path metadata destination tag
+      const midX = (x1 + x2) / 2;
+      const midY = (y1 + y2) / 2;
+      let closestHub = null;
+      let minDist = Infinity;
+      
+      // Check distance to each interactive hub
+      hubIds.forEach(hubId => {
+        const hubData = hubLookup.get(hubId);
+        if(hubData) {
+          const [hx, hy] = hubData;
+          const dist = Math.hypot(midX - hx, midY - hy);
+          if(dist < minDist) {
+            minDist = dist;
+            closestHub = hubId;
+          }
+        }
+      });
+      
+      // Push segment to the spatially-closest hub buffer
+      if(closestHub && perHub[closestHub]) {
+        perHub[closestHub].push(x1,y1,x2,y2,w, kind, thickRatio);
+      }
     }
   });
   nodeMap.forEach((n)=>{
@@ -566,10 +606,60 @@ async function initBlogNetwork(){
   const progNode  = program(gl, VS_NODE, FS_NODE);
   console.log('[Blog Network WebGL] Shaders compiled:', { progPaper, progSeg, progCyst, progNode });
 
+  // Create main VAO
   const vaoSeg  = makeVAOforSegments();
   const vaoCyst = makeVAOforCysts();
   const vaoNode = makeVAOforNodes();
-  console.log('[Blog Network WebGL] VAOs created:', { vaoSeg, vaoCyst, vaoNode });
+  
+  // Create per-hub VAOs for highlighting
+  const vaoByHub = {};
+  for (const hubId of hubIds) {
+    const hubSegs = perHub[hubId];
+    const hubSegCount = hubSegs.length / 7;
+    
+    const vao = gl.createVertexArray(); 
+    gl.bindVertexArray(vao);
+    
+    // quad (same as main)
+    const quad = new Float32Array([0,-1, 0,1, 1,-1, 1,1]);
+    const bQuad = gl.createBuffer(); 
+    gl.bindBuffer(gl.ARRAY_BUFFER, bQuad);
+    gl.bufferData(gl.ARRAY_BUFFER, quad, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    
+    // instances for this hub
+    const inst = new Float32Array(hubSegs);
+    const bInst = gl.createBuffer(); 
+    gl.bindBuffer(gl.ARRAY_BUFFER, bInst);
+    gl.bufferData(gl.ARRAY_BUFFER, inst, gl.STATIC_DRAW);
+    const STRIDE = 7*4;
+    gl.enableVertexAttribArray(1);
+    gl.vertexAttribPointer(1, 2, gl.FLOAT, false, STRIDE, 0);
+    gl.vertexAttribDivisor(1, 1);
+    gl.enableVertexAttribArray(2);
+    gl.vertexAttribPointer(2, 2, gl.FLOAT, false, STRIDE, 8);
+    gl.vertexAttribDivisor(2, 1);
+    gl.enableVertexAttribArray(3);
+    gl.vertexAttribPointer(3, 1, gl.FLOAT, false, STRIDE, 16);
+    gl.vertexAttribDivisor(3, 1);
+    gl.enableVertexAttribArray(4);
+    gl.vertexAttribPointer(4, 1, gl.FLOAT, false, STRIDE, 20);
+    gl.vertexAttribDivisor(4, 1);
+    gl.enableVertexAttribArray(5);
+    gl.vertexAttribPointer(5, 1, gl.FLOAT, false, STRIDE, 24);
+    gl.vertexAttribDivisor(5, 1);
+    gl.bindVertexArray(null);
+    
+    vaoByHub[hubId] = { vao, count: hubSegCount };
+  }
+  
+  console.log('[Blog Network WebGL] VAOs created:', { 
+    vaoSeg, 
+    vaoCyst, 
+    vaoNode,
+    perHubCounts: Object.fromEntries(Object.entries(vaoByHub).map(([k,v]) => [k, v.count]))
+  });
 
   gl.enable(gl.BLEND);
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -644,20 +734,117 @@ async function initBlogNetwork(){
   });
 
   let hoveredHubId = null;
-  // simple hover picking in data space (same as your canvas version)
+  let activeHub = null;
+  
+  // Pan state (for right-mouse drag)
+  let isPanning = false;
+  let panStartX = 0, panStartY = 0;
+  let panOffsetX = 0, panOffsetY = 0;
+  
+  // simple hover picking in data space (36 world-px hover radius)
   canvas.addEventListener('mousemove', (e)=>{
+    // Handle panning first
+    if (isPanning) {
+      const dx = e.clientX - panStartX;
+      const dy = e.clientY - panStartY;
+      panOffsetX = dx;
+      panOffsetY = dy;
+      fit.offX = (fit.cssW - VIEW.W * fit.scale) / 2 + panOffsetX;
+      fit.offY = (fit.cssH - VIEW.H * fit.scale) / 2 + panOffsetY;
+      return;
+    }
+    
     const rect = canvas.getBoundingClientRect();
     const mx = (e.clientX-rect.left - fit.offX)/fit.scale - shift[0];
     const my = (e.clientY-rect.top  - fit.offY)/fit.scale - shift[1];
+    const prevHovered = hoveredHubId;
     hoveredHubId = null;
     let minD = 99999, idx=-1;
+    const HOVER_RADIUS = 36; // world-space pixels
     for(let i=0;i<hubPos.length;i++){
       const dx = mx-hubPos[i][0], dy = my-hubPos[i][1];
       const d = Math.hypot(dx,dy);
-      if(d<50 && d<minD){ minD=d; idx=i; }
+      if(d<HOVER_RADIUS && d<minD){ minD=d; idx=i; }
     }
     hoveredHubId = idx>=0 ? (data.hubs[idx].id) : null;
     canvas.style.cursor = hoveredHubId ? 'pointer' : 'default';
+    
+    // Dispatch hover event when hub changes
+    if (hoveredHubId !== prevHovered) {
+      document.dispatchEvent(new CustomEvent('blog:hoverHub', { 
+        detail: { id: hoveredHubId } 
+      }));
+    }
+  });
+  
+  // Click to enter/exit deep view
+  canvas.addEventListener('click', ()=>{
+    if (!hoveredHubId) return;
+    activeHub = (activeHub === hoveredHubId) ? null : hoveredHubId;
+    document.dispatchEvent(new CustomEvent('blog:activeHub', { 
+      detail: { id: activeHub } 
+    }));
+    // Deep link support
+    if (activeHub) {
+      history.replaceState(null, '', `#blog/${activeHub}`);
+    } else {
+      history.replaceState(null, '', '#blog');
+    }
+  });
+  
+  // ESC to exit deep view
+  window.addEventListener('keydown', (e)=>{
+    if (e.key === 'Escape' && activeHub){
+      activeHub = null;
+      document.dispatchEvent(new CustomEvent('blog:activeHub', { 
+        detail: { id: null } 
+      }));
+      history.replaceState(null, '', '#blog');
+    }
+  });
+  
+  // Restore deep link on load
+  if (location.hash.startsWith('#blog/')) {
+    const id = location.hash.split('/')[1];
+    if (hubIds.includes(id)) {
+      activeHub = id;
+      document.dispatchEvent(new CustomEvent('blog:activeHub', { 
+        detail: { id: activeHub } 
+      }));
+    }
+  }
+  
+  // Wheel zoom (clamp to 0.75x - 1.0x base scale)
+  const baseScale = fit.scale;
+  let userZoom = 1.0;
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? 0.95 : 1.05;
+    userZoom = Math.max(0.75, Math.min(1.0, userZoom * delta));
+    fit.scale = baseScale * userZoom;
+    // Recalculate offsets to keep zoom centered
+    fit.offX = (fit.cssW - VIEW.W * fit.scale) / 2;
+    fit.offY = (fit.cssH - VIEW.H * fit.scale) / 2;
+  }, { passive: false });
+  
+  // Right-mouse drag panning handlers
+  canvas.addEventListener('mousedown', (e) => {
+    if (e.button === 2) { // right mouse
+      e.preventDefault();
+      isPanning = true;
+      panStartX = e.clientX;
+      panStartY = e.clientY;
+    }
+  });
+  
+  canvas.addEventListener('mouseup', (e) => {
+    if (e.button === 2) {
+      isPanning = false;
+    }
+  });
+  
+  canvas.addEventListener('contextmenu', (e) => {
+    e.preventDefault(); // Disable context menu on right-click
   });
 
   // animate
@@ -711,7 +898,6 @@ async function initBlogNetwork(){
     set3(progSeg,'uEmber3', PAL.EMBER3);
     gl.uniform1f(gl.getUniformLocation(progSeg,'uEmberR'), 86.0);
     setHubs(progSeg);
-    gl.bindVertexArray(vaoSeg.vao);
     
     // DEBUG: Log segment draw call on first frame
     if (frameCount === 1) {
@@ -723,8 +909,45 @@ async function initBlogNetwork(){
       });
     }
     
-    gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, vaoSeg.count);
-    gl.bindVertexArray(null);
+    if (!activeHub) {
+      // OVERVIEW MODE: Draw all segments with optional hover highlight
+      gl.uniform1f(gl.getUniformLocation(progSeg,'uHighlight'), 1.0);
+      gl.bindVertexArray(vaoSeg.vao);
+      gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, vaoSeg.count);
+      gl.bindVertexArray(null);
+      
+      // HOVER HIGHLIGHT: Additive pass for hovered hub
+      if (hoveredHubId && vaoByHub[hoveredHubId]) {
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.ONE, gl.ONE); // Additive
+        
+        gl.uniform1f(gl.getUniformLocation(progSeg,'uHighlight'), 1.15);
+        gl.bindVertexArray(vaoByHub[hoveredHubId].vao);
+        gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, vaoByHub[hoveredHubId].count);
+        gl.bindVertexArray(null);
+        
+        // Reset blend
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      }
+    } else {
+      // DEEP VIEW MODE: Dim all, then draw active hub at full brightness
+      // Pass 1: Draw all dimmed
+      gl.uniform1f(gl.getUniformLocation(progSeg,'uHighlight'), 0.25);
+      gl.bindVertexArray(vaoSeg.vao);
+      gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, vaoSeg.count);
+      gl.bindVertexArray(null);
+      
+      // Pass 2: Draw active hub at higher contrast
+      if (vaoByHub[activeHub]) {
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        
+        gl.uniform1f(gl.getUniformLocation(progSeg,'uHighlight'), 1.2);
+        gl.bindVertexArray(vaoByHub[activeHub].vao);
+        gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, vaoByHub[activeHub].count);
+        gl.bindVertexArray(null);
+      }
+    }
 
     // NODE DOTS
     if(vaoNode.count){
@@ -785,15 +1008,39 @@ async function initBlogNetwork(){
       }
     }
 
-    requestAnimationFrame(loop);
+    if (running) {
+      requestAnimationFrame(loop);
+    }
   }
   
   initialized = true;
   console.log('[Blog Network WebGL] Initialization complete!');
   
+  // Pause/resume when blog section visibility changes
+  let running = false;
+  let rafId = null;
+  const blogStage = document.querySelector('.blog-screen');
+  if (blogStage) {
+    const obs = new MutationObserver(() => {
+      const isActive = blogStage.classList.contains('active-section');
+      running = isActive;
+      if (isActive && !rafId) {
+        rafId = requestAnimationFrame(loop);
+      } else if (!isActive) {
+        rafId = null;
+      }
+    });
+    obs.observe(blogStage, { attributes: true, attributeFilter: ['class'] });
+    
+    // Initial check
+    running = blogStage.classList.contains('active-section');
+  }
+  
   // Start animation loop
   animationActive = true;
-  requestAnimationFrame(loop);
+  if (running) {
+    rafId = requestAnimationFrame(loop);
+  }
 }
 
 // Wait for DOM to be ready, then init when blog section becomes visible

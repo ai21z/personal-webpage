@@ -328,11 +328,66 @@
       </script>
       <script type="module" src="./js/blog-network-webgl.js"></script>
       
+      <!-- Hover Info Panel -->
+      <div id="blog-hub-info" class="blog-hub-info" aria-live="polite"></div>
+      
+      <!-- Article List Overlay -->
+      <div id="blog-articles" class="blog-articles" hidden></div>
+      
       <!-- Helper text -->
       <div class="blog-helper-text" aria-hidden="true">
         Explore the network • Hover hubs for details
       </div>
     </div>
+    
+    <!-- Hub Info & Article Controller -->
+    <script type="module">
+      const HUB_COPY = {
+        craft:{ title:'CRAFT', blurb:'Making things by hand: code, design, tools, pipelines.' },
+        cosmos:{ title:'COSMOS', blurb:'Systems, networks, emergence, simulations, world.' },
+        codex:{ title:'CODEX', blurb:'Engineering notes, debugging journals, patterns.' },
+        convergence:{ title:'CONVERGENCE', blurb:'Where disciplines meet — synthesis & essays.' }
+      };
+
+      const ARTICLES = {
+        craft:[{id:'c1', title:'Coming soon', summary:'Draft notes'}],
+        cosmos:[{id:'o1', title:'Coming soon', summary:'Draft notes'}],
+        codex:[{id:'x1', title:'Coming soon', summary:'Draft notes'}],
+        convergence:[{id:'v1', title:'Coming soon', summary:'Draft notes'}],
+      };
+
+      const infoBox = document.getElementById('blog-hub-info');
+      const listBox = document.getElementById('blog-articles');
+      
+      document.addEventListener('blog:hoverHub', (e)=>{
+        const id = e.detail?.id || null;
+        const copy = id && HUB_COPY[id];
+        if (!copy) { infoBox.classList.remove('is-visible'); infoBox.innerHTML=''; return; }
+        infoBox.innerHTML = `<div class="t">${copy.title}</div><div class="b">${copy.blurb}</div>`;
+        infoBox.classList.add('is-visible');
+      });
+      
+      document.addEventListener('blog:activeHub', (e)=>{
+        const id = e.detail?.id || null;
+        
+        // Keep info box visible when active
+        if (!id) infoBox.classList.remove('is-visible');
+        
+        // Show/hide article list
+        if (!id){ listBox.hidden = true; listBox.innerHTML=''; return; }
+        const items = ARTICLES[id] || [];
+        listBox.innerHTML = `<h3>${id.toUpperCase()} — Articles</h3>` +
+          items.map(a=>`<div class="it" data-id="${a.id}"><div class="t">${a.title}</div><div class="s">${a.summary||''}</div></div>`).join('');
+        listBox.hidden = false;
+      });
+      
+      listBox?.addEventListener('click', (e)=>{
+        const it = e.target.closest('.it'); if (!it) return;
+        // placeholder reader
+        alert('Open article: '+ it.dataset.id);
+      });
+    </script>
+  </section>
   </section>
 
   <!-- SECTION: RESUME (Space-Time Spiral Timeline) - DISABLED FOR NOW -->
