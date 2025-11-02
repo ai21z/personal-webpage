@@ -794,6 +794,28 @@ function initBlogControls() {
     }
   });
   
+  // Listen for rim label hover (trigger WebGL hub highlight)
+  document.addEventListener('mouseover', (e) => {
+    const arcBtn = e.target.closest('.arc-btn');
+    if (arcBtn && arcBtn.dataset.hub) {
+      const hubId = arcBtn.dataset.hub;
+      console.log('[Blog Nav] Rim label hover:', hubId);
+      window.dispatchEvent(new CustomEvent('blog:hover', { 
+        detail: { hubId, source: 'rim-label' }
+      }));
+    }
+  });
+  
+  document.addEventListener('mouseout', (e) => {
+    const arcBtn = e.target.closest('.arc-btn');
+    if (arcBtn && arcBtn.dataset.hub) {
+      const hubId = arcBtn.dataset.hub;
+      window.dispatchEvent(new CustomEvent('blog:hover-off', { 
+        detail: { hubId }
+      }));
+    }
+  });
+  
   // Listen for rim label clicks (.arc-btn in dish-labels)
   document.addEventListener('click', (e) => {
     const arcBtn = e.target.closest('.arc-btn');

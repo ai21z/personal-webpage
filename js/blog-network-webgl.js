@@ -821,7 +821,7 @@ async function initBlogNetwork(){
     console.log('[Blog WebGL] Dish uniforms (CSS px):', {cxCss, cyCss, rCss, dpr});
   }
 
-  // Build curved labels around dish rim
+  // Build curved labels OUTSIDE dish rim
   function buildLabels(dish) {
     if (!dish) return;
     
@@ -839,7 +839,8 @@ async function initBlogNetwork(){
     ];
 
     const w = root.clientWidth, h = root.clientHeight;
-    const cx = dish.cx, cy = dish.cy, r = dish.r - 16; // 16px inside rim
+    const cx = dish.cx, cy = dish.cy;
+    const outerR = dish.r + 48; // Position labels 48px OUTSIDE the rim
 
     const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
     svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
@@ -849,20 +850,20 @@ async function initBlogNetwork(){
 
     for (const c of cfg) {
       const arcId = `arc-${c.id}`;
-      const span = 60 * Math.PI/180;  // ~60° arc
+      const span = 70 * Math.PI/180;  // Wider arc for bigger text
       const a0 = (c.midDeg*Math.PI/180) - span/2;
       const a1 = (c.midDeg*Math.PI/180) + span/2;
-      const x0 = cx + r*Math.cos(a0), y0 = cy + r*Math.sin(a0);
-      const x1 = cx + r*Math.cos(a1), y1 = cy + r*Math.sin(a1);
+      const x0 = cx + outerR*Math.cos(a0), y0 = cy + outerR*Math.sin(a0);
+      const x1 = cx + outerR*Math.cos(a1), y1 = cy + outerR*Math.sin(a1);
 
       // Hit zone path (thick stroke for easy clicking)
       const path = document.createElementNS(svg.namespaceURI,'path');
       path.setAttribute('id', arcId);
-      path.setAttribute('d', `M ${x0} ${y0} A ${r} ${r} 0 0 1 ${x1} ${y1}`);
+      path.setAttribute('d', `M ${x0} ${y0} A ${outerR} ${outerR} 0 0 1 ${x1} ${y1}`);
       path.setAttribute('fill','none');
       path.setAttribute('stroke','transparent');
-      path.setAttribute('stroke-width','36'); // big hit zone
-      path.style.pointerEvents='stroke'; // only the stroke catches
+      path.setAttribute('stroke-width','48'); // Larger hit zone
+      path.style.pointerEvents='stroke';
       svg.appendChild(path);
 
       // Clickable group with text
@@ -877,8 +878,8 @@ async function initBlogNetwork(){
       const text = document.createElementNS(svg.namespaceURI,'text');
       text.setAttribute('class','arc-label');
       text.setAttribute('text-anchor','middle');
-      text.setAttribute('font-size','18');
-      text.setAttribute('letter-spacing','0.3em');
+      text.setAttribute('font-size','24');  // Bigger font
+      text.setAttribute('letter-spacing','0.35em');
 
       const textPath = document.createElementNS(svg.namespaceURI,'textPath');
       textPath.setAttributeNS('http://www.w3.org/1999/xlink','xlink:href', `#${arcId}`);
@@ -890,7 +891,7 @@ async function initBlogNetwork(){
       svg.appendChild(grp);
     }
     
-    console.log('[Blog WebGL] Built curved labels:', cfg.map(c => c.id));
+    console.log('[Blog WebGL] Built curved labels outside rim:', cfg.map(c => c.id));
   }
 
   // ━━━ AUTO-CENTERING ━━━
@@ -1070,6 +1071,26 @@ async function initBlogNetwork(){
         detail: { id: null } 
       }));
       history.replaceState(null, '', '#blog');
+    }
+  });
+  
+  // Listen for external hover events (from rim labels)
+  window.addEventListener('blog:hover', (e) => {
+    const { hubId, source } = e.detail;
+    if (source === 'rim-label' && hubId && hubId !== 'source') {
+      console.log('[Blog WebGL] External hover from rim label:', hubId);
+      hoveredHubId = hubId;
+      canvas.style.cursor = 'pointer';
+    }
+  });
+  
+  window.addEventListener('blog:hover-off', (e) => {
+    const { hubId } = e.detail;
+    // Only clear if we're currently hovering this hub
+    if (hoveredHubId === hubId) {
+      console.log('[Blog WebGL] External hover-off:', hubId);
+      hoveredHubId = null;
+      canvas.style.cursor = 'default';
     }
   });
   
