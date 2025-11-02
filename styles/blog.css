@@ -245,6 +245,18 @@
   text-shadow: 0 0 12px rgba(255, 200, 120, 0.8);
 }
 
+/* Zoom arc label - smaller, dimmer, non-interactive */
+.zoom-arc-label {
+  fill: rgba(180, 160, 130, 0.5); /* Dimmer than hub labels */
+  font-family: ui-monospace, SFMono-Regular, Menlo, 'Courier New', monospace;
+  font-weight: 400;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  text-shadow: 0 0 6px rgba(0, 0, 0, 0.7);
+  pointer-events: none;
+  transition: fill 200ms ease;
+}
+
 /* Unified HUD cluster (Motion + Map buttons) - z:50 */
 .cluster-tl {
   position: fixed;
@@ -277,6 +289,30 @@
   cursor: pointer;
   transition: all 150ms ease;
   white-space: nowrap;
+}
+
+/* Zoom Indicator (read-only display) */
+.zoom-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  min-height: 36px;
+  background: rgba(15, 16, 20, 0.75);
+  border: 1px solid rgba(228, 189, 140, 0.2);
+  border-radius: 18px;
+  color: rgba(228, 189, 140, 0.85);
+  font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.05em;
+  pointer-events: none;
+  user-select: none;
+  transition: opacity 200ms ease;
+}
+
+#zoom-percent {
+  font-weight: 600;
+  color: rgba(255, 200, 120, 0.95);
+  margin: 0 2px;
 }
 
 #btn-motion:hover,

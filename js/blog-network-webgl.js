@@ -751,7 +751,7 @@ async function initBlogNetwork(){
     console.log('[Blog WebGL] Motion:', motionEnabled ? 'ON' : 'OFF');
   });
 
-  // Build Petri dish SVG overlay
+  // Build Petri dish SVG overlay (realistic top-down view)
   function buildDish({wCss, hCss}) {
     const svg = document.getElementById('dish');
     if (!svg) return null;
@@ -762,38 +762,101 @@ async function initBlogNetwork(){
     const cx = wCss/2, cy = hCss/2;
     const r  = Math.floor(Math.min(wCss,hCss) * PETRI_K); // inner radius for crop (uses PETRI_K constant)
 
-    // Meniscus (inner circle)
+    // Create defs for gradients
+    const defs = document.createElementNS('http://www.w3.org/2000/svg','defs');
+    
+    // Glass rim gradient (top-down lighting)
+    const rimGrad = document.createElementNS('http://www.w3.org/2000/svg','radialGradient');
+    rimGrad.setAttribute('id','rimGrad');
+    rimGrad.innerHTML = `
+      <stop offset="0%" stop-color="rgba(255,255,255,0.08)" />
+      <stop offset="70%" stop-color="rgba(228,189,140,0.15)" />
+      <stop offset="85%" stop-color="rgba(255,255,255,0.25)" />
+      <stop offset="100%" stop-color="rgba(180,160,130,0.3)" />
+    `;
+    
+    // Agar medium gradient (subtle depth)
+    const agarGrad = document.createElementNS('http://www.w3.org/2000/svg','radialGradient');
+    agarGrad.setAttribute('id','agarGrad');
+    agarGrad.innerHTML = `
+      <stop offset="0%" stop-color="rgba(160,140,120,0.04)" />
+      <stop offset="50%" stop-color="rgba(140,120,100,0.02)" />
+      <stop offset="100%" stop-color="rgba(120,100,80,0.01)" />
+    `;
+    
+    defs.append(rimGrad, agarGrad);
+    svg.appendChild(defs);
+
+    // Outer shadow (dish sitting on surface)
+    const shadow = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    shadow.setAttribute('cx', cx); 
+    shadow.setAttribute('cy', cy);
+    shadow.setAttribute('r', r+16);
+    shadow.setAttribute('fill','none');
+    shadow.setAttribute('stroke','rgba(0,0,0,0.15)');
+    shadow.setAttribute('stroke-width','6');
+    shadow.setAttribute('opacity','0.6');
+
+    // Glass rim (thick wall with gradient)
+    const rimOuter = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    rimOuter.setAttribute('cx', cx); 
+    rimOuter.setAttribute('cy', cy);
+    rimOuter.setAttribute('r', r+14);
+    rimOuter.setAttribute('fill','none');
+    rimOuter.setAttribute('stroke','url(#rimGrad)');
+    rimOuter.setAttribute('stroke-width','12');
+
+    // Inner glass edge (where medium meets wall)
+    const rimInner = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    rimInner.setAttribute('cx', cx); 
+    rimInner.setAttribute('cy', cy);
+    rimInner.setAttribute('r', r+2);
+    rimInner.setAttribute('fill','none');
+    rimInner.setAttribute('stroke','rgba(200,180,150,0.2)');
+    rimInner.setAttribute('stroke-width','1.5');
+
+    // Agar medium (subtle gel texture)
+    const agar = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    agar.setAttribute('cx', cx); 
+    agar.setAttribute('cy', cy);
+    agar.setAttribute('r', r);
+    agar.setAttribute('fill','url(#agarGrad)');
+    agar.setAttribute('stroke','none');
+
+    // Meniscus line (liquid surface tension)
     const meniscus = document.createElementNS('http://www.w3.org/2000/svg','circle');
     meniscus.setAttribute('cx', cx); 
     meniscus.setAttribute('cy', cy);
-    meniscus.setAttribute('r', r);
-    meniscus.setAttribute('fill','rgba(255,255,255,0.015)');
-    meniscus.setAttribute('stroke','rgba(228,189,140,0.12)'); // warm brass
-    meniscus.setAttribute('stroke-width','1');
+    meniscus.setAttribute('r', r-1);
+    meniscus.setAttribute('fill','none');
+    meniscus.setAttribute('stroke','rgba(228,189,140,0.08)');
+    meniscus.setAttribute('stroke-width','0.5');
 
-    // Rim (outer glass edge)
-    const rim = document.createElementNS('http://www.w3.org/2000/svg','circle');
-    rim.setAttribute('cx', cx); 
-    rim.setAttribute('cy', cy);
-    rim.setAttribute('r', r+12); // outer glass rim
-    rim.setAttribute('fill','none');
-    rim.setAttribute('stroke','rgba(228,189,140,0.25)');
-    rim.setAttribute('stroke-width','2');
-
-    // Specular highlight (glass reflection)
-    const spec = document.createElementNS('http://www.w3.org/2000/svg','path');
-    const a0 = -20*Math.PI/180, a1 = 35*Math.PI/180, rs = r+10;
+    // Top-left specular highlight (overhead light reflection)
+    const spec1 = document.createElementNS('http://www.w3.org/2000/svg','path');
+    const a0 = -160*Math.PI/180, a1 = -115*Math.PI/180, rs = r+8;
     const x0 = cx + rs*Math.cos(a0), y0 = cy + rs*Math.sin(a0);
     const x1 = cx + rs*Math.cos(a1), y1 = cy + rs*Math.sin(a1);
-    spec.setAttribute('d', `M ${x0} ${y0} A ${rs} ${rs} 0 0 1 ${x1} ${y1}`);
-    spec.setAttribute('stroke','rgba(255,255,255,0.06)');
-    spec.setAttribute('stroke-width','4');
-    spec.setAttribute('fill','none');
-    spec.setAttribute('stroke-linecap','round');
+    spec1.setAttribute('d', `M ${x0} ${y0} A ${rs} ${rs} 0 0 1 ${x1} ${y1}`);
+    spec1.setAttribute('stroke','rgba(255,255,255,0.25)');
+    spec1.setAttribute('stroke-width','3');
+    spec1.setAttribute('fill','none');
+    spec1.setAttribute('stroke-linecap','round');
 
-    svg.append(meniscus, rim, spec);
+    // Bottom-right subtle reflection
+    const spec2 = document.createElementNS('http://www.w3.org/2000/svg','path');
+    const a2 = 25*Math.PI/180, a3 = 70*Math.PI/180;
+    const x2 = cx + rs*Math.cos(a2), y2 = cy + rs*Math.sin(a2);
+    const x3 = cx + rs*Math.cos(a3), y3 = cy + rs*Math.sin(a3);
+    spec2.setAttribute('d', `M ${x2} ${y2} A ${rs} ${rs} 0 0 1 ${x3} ${y3}`);
+    spec2.setAttribute('stroke','rgba(255,255,255,0.12)');
+    spec2.setAttribute('stroke-width','2');
+    spec2.setAttribute('fill','none');
+    spec2.setAttribute('stroke-linecap','round');
+
+    svg.append(shadow, agar, meniscus, rimInner, rimOuter, spec1, spec2);
     
-    console.log('[Blog WebGL] Built Petri dish:', {cx, cy, r});
+    console.log('[Blog WebGL] Built realistic Petri dish:', {cx, cy, r});
     return {cx, cy, r};
   }
 
@@ -890,6 +953,41 @@ async function initBlogNetwork(){
       grp.appendChild(text);
       svg.appendChild(grp);
     }
+    
+    // Add zoom indicator arc between COSMOS (0°) and CODEX (90°) at ~45°
+    const zoomArcId = 'arc-zoom';
+    const zoomMidDeg = 45; // Bottom-right, between COSMOS and CODEX
+    const zoomSpan = 50 * Math.PI/180; // Smaller arc for zoom text
+    const zoomA0 = (zoomMidDeg*Math.PI/180) - zoomSpan/2;
+    const zoomA1 = (zoomMidDeg*Math.PI/180) + zoomSpan/2;
+    const zoomX0 = cx + outerR*Math.cos(zoomA0), zoomY0 = cy + outerR*Math.sin(zoomA0);
+    const zoomX1 = cx + outerR*Math.cos(zoomA1), zoomY1 = cy + outerR*Math.sin(zoomA1);
+    
+    // Zoom arc path (non-interactive)
+    const zoomPath = document.createElementNS(svg.namespaceURI,'path');
+    zoomPath.setAttribute('id', zoomArcId);
+    zoomPath.setAttribute('d', `M ${zoomX0} ${zoomY0} A ${outerR} ${outerR} 0 0 1 ${zoomX1} ${zoomY1}`);
+    zoomPath.setAttribute('fill','none');
+    zoomPath.setAttribute('stroke','transparent');
+    svg.appendChild(zoomPath);
+    
+    // Zoom text (read-only, non-clickable)
+    const zoomText = document.createElementNS(svg.namespaceURI,'text');
+    zoomText.setAttribute('id','zoom-arc-label');
+    zoomText.setAttribute('class','zoom-arc-label');
+    zoomText.setAttribute('text-anchor','middle');
+    zoomText.setAttribute('font-size','16');  // Smaller than hub labels
+    zoomText.setAttribute('letter-spacing','0.2em');
+    zoomText.style.pointerEvents='none';
+    
+    const zoomTextPath = document.createElementNS(svg.namespaceURI,'textPath');
+    zoomTextPath.setAttributeNS('http://www.w3.org/1999/xlink','xlink:href', `#${zoomArcId}`);
+    zoomTextPath.setAttribute('startOffset','50%');
+    zoomTextPath.setAttribute('id','zoom-text-content');
+    zoomTextPath.textContent = '• ZOOM 100% •';
+    
+    zoomText.appendChild(zoomTextPath);
+    svg.appendChild(zoomText);
     
     console.log('[Blog WebGL] Built curved labels outside rim:', cfg.map(c => c.id));
   }
@@ -1108,6 +1206,15 @@ async function initBlogNetwork(){
   // Wheel zoom (clamp to 0.75x - 1.0x base scale)
   const baseScale = fit.scale;
   let userZoom = 1.0;
+  
+  function updateZoomIndicator() {
+    const zoomTextContent = document.getElementById('zoom-text-content');
+    if (zoomTextContent) {
+      const zoomPercent = Math.round(userZoom * 100);
+      zoomTextContent.textContent = `• ZOOM ${zoomPercent}% •`;
+    }
+  }
+  
   canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
     const delta = e.deltaY > 0 ? 0.95 : 1.05;
@@ -1116,6 +1223,7 @@ async function initBlogNetwork(){
     // Recalculate offsets to keep zoom centered
     fit.offX = (fit.cssW - VIEW.W * fit.scale) / 2;
     fit.offY = (fit.cssH - VIEW.H * fit.scale) / 2;
+    updateZoomIndicator();
   }, { passive: false });
   
   // Right-mouse drag panning handlers
