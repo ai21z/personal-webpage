@@ -700,44 +700,11 @@ async function initNetworkAndNav() {
   layoutNavNodes(wireSigilToggle, renderHUD, showSectionWithEffects);
 }
 
-// ━━━ Blog: Motion toggle + Hub menu controls ━━━
+// ━━━ Blog: Hub menu controls ━━━
 function initBlogControls() {
   console.log('[Blog Nav] Initializing blog controls...');
   
-  const motionToggle = document.getElementById('btn-motion') || document.querySelector('.blog-motion-toggle');
   const hubButtons = document.querySelectorAll('.hub-btn');
-  
-  if (!motionToggle) {
-    console.warn('[Blog Nav] Motion toggle not found!');
-    return;
-  }
-  
-  // Motion defaults to OFF (user spec requirement)
-  // Check aria-pressed attribute from HTML (defaults to 'false')
-  const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const storedPref = localStorage.getItem('blog.motion');
-  const initialPressed = motionToggle.getAttribute('aria-pressed') === 'true';
-  let motionEnabled = storedPref !== null ? storedPref === 'on' : (prefersReduced ? false : initialPressed);
-  
-  // Update UI
-  function updateMotionUI(enabled) {
-    motionToggle.setAttribute('aria-pressed', enabled ? 'true' : 'false');
-    motionToggle.style.opacity = enabled ? '1' : '0.6';
-  }
-  
-  updateMotionUI(motionEnabled);
-  
-  // Dispatch initial state to WebGL
-  window.dispatchEvent(new CustomEvent('blog:motion', { detail: { enabled: motionEnabled } }));
-  
-  // Toggle handler
-  motionToggle.addEventListener('click', () => {
-    motionEnabled = !motionEnabled;
-    localStorage.setItem('blog.motion', motionEnabled ? 'on' : 'off');
-    window.dispatchEvent(new CustomEvent('blog:motion', { detail: { enabled: motionEnabled } }));
-    updateMotionUI(motionEnabled);
-    console.log('[Blog Nav] Motion toggled:', motionEnabled);
-  });
   
   // Hub button wiring for navigation
   let lastButtonClickTime = 0;
@@ -915,12 +882,6 @@ function enterHub(hubId) {
     console.error('[Blog Nav] Category view element not found!');
   }
   
-  // Show Map button, hide Motion button (in category view)
-  const btnMotion = document.getElementById('btn-motion');
-  const btnMap = document.getElementById('btn-map');
-  if (btnMotion) btnMotion.setAttribute('hidden', '');
-  if (btnMap) btnMap.removeAttribute('hidden');
-  
   // Update URL
   history.pushState({ view: 'category', hubId }, '', `#blog/${hubId}`);
 }
@@ -948,12 +909,6 @@ function exitToMap() {
   if (categoryView) categoryView.setAttribute('hidden', '');
   if (articleView) articleView.setAttribute('hidden', '');
   
-  // Show Motion button, hide Map button
-  const btnMotion = document.getElementById('btn-motion');
-  const btnMap = document.getElementById('btn-map');
-  if (btnMotion) btnMotion.removeAttribute('hidden');
-  if (btnMap) btnMap.setAttribute('hidden', '');
-  
   console.log('[Blog Nav] Returned to map view');
   
   // Update URL
@@ -971,6 +926,7 @@ function showMapRoot() {
 
 function loadCategoryContent(hubId) {
   const content = document.getElementById('blog-category-content');
+  const titleEl = document.getElementById('blog-category-title');
   if (!content) return;
   
   // Hardcoded sample articles for now
@@ -988,9 +944,11 @@ function loadCategoryContent(hubId) {
   const articles = ARTICLES[hubId] || [];
   const hubTitle = hubId.toUpperCase();
   
+  // Update header title
+  if (titleEl) titleEl.textContent = hubTitle;
+  
   content.innerHTML = `
-    <h2>${hubTitle}</h2>
-    ${articles.length === 0 ? '<p style="color: var(--bone-dim); font-style: italic;">No articles yet. Check back soon!</p>' : ''}
+    ${articles.length === 0 ? '<p class="blog-empty-state">No articles yet. Check back soon!</p>' : ''}
     <div class="blog-article-list">
       ${articles.map(a => `
         <div class="blog-article-item" data-article="${a.id}" tabindex="0" role="button" aria-label="Read ${a.title}">
@@ -1055,6 +1013,7 @@ function exitBlogArticle() {
 
 function loadArticleContent(hubId, articleId) {
   const content = document.getElementById('blog-article-content');
+  const titleEl = document.getElementById('blog-article-title');
   if (!content) return;
   
   // Load from existing HTML files
@@ -1067,14 +1026,53 @@ function loadArticleContent(hubId, articleId) {
       const article = doc.querySelector('.article-container');
       if (article) {
         content.innerHTML = article.innerHTML;
+        // Update header title from article's h1
+        const articleTitle = article.querySelector('h1');
+        if (titleEl && articleTitle) {
+          titleEl.textContent = articleTitle.textContent;
+        }
+        
+        // Wire up breadcrumb and back button navigation
+        setupArticleNavigation(content, hubId);
       } else {
         content.innerHTML = '<p>Article not found.</p>';
+        if (titleEl) titleEl.textContent = 'Article Not Found';
       }
     })
     .catch(err => {
       console.error('[Blog Nav] Failed to load article:', err);
       content.innerHTML = '<p>Failed to load article.</p>';
+      if (titleEl) titleEl.textContent = 'Error';
     });
+}
+
+// Set up navigation for article breadcrumbs and back button
+function setupArticleNavigation(container, hubId) {
+  // Handle breadcrumb clicks
+  const breadcrumbLinks = container.querySelectorAll('.breadcrumb a');
+  breadcrumbLinks.forEach(link => {
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      const href = link.getAttribute('href');
+      
+      if (href.includes('#blog?hub=') || href.includes('#blog/')) {
+        // Category breadcrumb - go back to category view
+        exitBlogArticle();
+      } else if (href.includes('#blog')) {
+        // Blog root breadcrumb - go back to map
+        exitToMap();
+      }
+    });
+  });
+  
+  // Handle back button clicks
+  const backButton = container.querySelector('.back-button');
+  if (backButton) {
+    backButton.addEventListener('click', (e) => {
+      e.preventDefault();
+      exitBlogArticle();
+    });
+  }
 }
 
 // ━━━ Section visibility wrapper (controls blog network and other section-specific features) ━━━
@@ -1181,12 +1179,12 @@ window.addEventListener('DOMContentLoaded', async () => {
     });
   }
   
-  // ━━━ Blog: Motion toggle + Hub menu wiring ━━━
+  // ━━━ Blog: Hub menu wiring ━━━
   initBlogControls();
   
-  // Blog back buttons
-  document.getElementById('blog-back-btn')?.addEventListener('click', exitBlogCategory);
-  document.getElementById('article-back-btn')?.addEventListener('click', exitBlogArticle);
+  // Blog Map buttons (in category and article views)
+  document.getElementById('btn-map-category')?.addEventListener('click', exitToMap);
+  document.getElementById('btn-map-article')?.addEventListener('click', exitToMap);
 });
 
 // ━━━ Post-load layout (fonts & image settling) ━━━

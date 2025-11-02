@@ -11,8 +11,15 @@
   justify-content: center;
   padding: 4rem 2rem;
   position: relative;
-  background: #0B0B0C;
-  z-index: 10; /* Above navigation nodes (z:10) to prevent click-through */
+  background: rgba(8,9,10,0.85); /* Semi-transparent dark overlay like altar screens */
+  z-index: 9; /* Same as altar-screen to allow base background through */
+}
+
+/* Suppress network nav labels when contact is active (but keep sigil visible) */
+body:has(#contact.stage.active-section) .network-node-label {
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 400ms ease;
 }
 
 /* ━━━ Close Button (matching altar pages) ━━━ */

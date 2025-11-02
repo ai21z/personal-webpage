@@ -337,31 +337,23 @@
       
       <!-- Rim labels (clickable, z:40) -->
       <div id="dish-labels" class="dish-labels" aria-label="Blog categories"></div>
-      
-      <!-- HUD cluster (top-left, z:50) -->
-      <div class="hud cluster-tl">
-        <button id="btn-motion" class="pill" aria-pressed="false" aria-label="Toggle animation effects">
-          <span aria-hidden="true">⚡</span> Motion
-        </button>
-        <button id="btn-map" class="pill" aria-label="Return to map" hidden>
-          <span aria-hidden="true">←</span> Map
-        </button>
-      </div>
     </div>
     
     <!-- Category View (hidden by default) -->
     <div id="blog-category-view" class="blog-category-view category-panel" hidden>
-      <button id="blog-back-btn" class="blog-back-btn" aria-label="Back to blog map">
-        ← Back to Map
-      </button>
+      <div class="blog-category-header">
+        <h2 id="blog-category-title" class="blog-category-title"></h2>
+        <button id="btn-map-category" class="blog-map-btn" aria-label="Go back">Back</button>
+      </div>
       <div id="blog-category-content" class="blog-category-content"></div>
     </div>
     
     <!-- Article View (hidden by default) -->
     <div id="blog-article-view" class="blog-article-view category-panel" hidden>
-      <button id="article-back-btn" class="blog-back-btn" aria-label="Back to category">
-        ← Back
-      </button>
+      <div class="blog-article-header">
+        <h2 id="blog-article-title" class="blog-article-title"></h2>
+        <button id="btn-map-article" class="blog-map-btn" aria-label="Go back">Back</button>
+      </div>
       <article id="blog-article-content" class="blog-article-content"></article>
     </div>
     

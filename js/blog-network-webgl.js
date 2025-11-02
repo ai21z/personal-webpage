@@ -744,13 +744,6 @@ async function initBlogNetwork(){
     gl.uniform1i(gl.getUniformLocation(p,'uHubCount'), hubPos.length);
   }
 
-  // Motion control (default OFF per spec)
-  let motionEnabled = false;
-  window.addEventListener('blog:motion', (e) => {
-    motionEnabled = e.detail.enabled;
-    console.log('[Blog WebGL] Motion:', motionEnabled ? 'ON' : 'OFF');
-  });
-
   // Build Petri dish SVG overlay (realistic top-down view)
   function buildDish({wCss, hCss}) {
     const svg = document.getElementById('dish');
@@ -775,7 +768,7 @@ async function initBlogNetwork(){
       <stop offset="100%" stop-color="rgba(180,160,130,0.3)" />
     `;
     
-    // Agar medium gradient (subtle depth)
+    // Agar medium gradient (subtle depth - keep transparent for network visibility)
     const agarGrad = document.createElementNS('http://www.w3.org/2000/svg','radialGradient');
     agarGrad.setAttribute('id','agarGrad');
     agarGrad.innerHTML = `
