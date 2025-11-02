@@ -4,6 +4,11 @@ if (!window.__BLOG_NETWORK_VERSION) {
   window.__BLOG_NETWORK_VERSION = BLOG_NETWORK_VERSION;
 }
 
+// ━━━ CONFIG ━━━
+export const PETRI_K = 0.42;  // Petri dish radius = PETRI_K * min(cssW, cssH)
+export const AUTO_CENTER = true;  // Auto-compute shift from data bounds (set false to use FIXED_SHIFT)
+export const FIXED_SHIFT = [0, 0];  // Debugging override when AUTO_CENTER=false
+
 const PAL = {
   ABYSS: [0.05, 0.06, 0.07],        // soft charcoal background
   // Branch color variations (more diverse palette)
@@ -30,6 +35,23 @@ const PAL = {
 
 const DPR = Math.max(1, window.devicePixelRatio || 1);
 const VIEW = { W: 1920, H: 1080 };
+
+// ━━━ CENTERING HELPER ━━━
+export function computeNetworkCentroid(paths) {
+  const B = {minX: +Infinity, minY: +Infinity, maxX: -Infinity, maxY: -Infinity};
+  for (const path of (paths || [])) {
+    for (const [x, y] of path) {
+      if (x < B.minX) B.minX = x; 
+      if (x > B.maxX) B.maxX = x;
+      if (y < B.minY) B.minY = y; 
+      if (y > B.maxY) B.maxY = y;
+    }
+  }
+  if (!isFinite(B.minX)) return [VIEW.W * 0.5, VIEW.H * 0.5]; // fallback if no paths
+  const netCx = (B.minX + B.maxX) * 0.5;
+  const netCy = (B.minY + B.maxY) * 0.5;
+  return [netCx, netCy];
+}
 
 // ---------- GLSL (WebGL2) ----------
 const VS_FSQ = `#version 300 es
@@ -119,8 +141,19 @@ uniform vec2 uHubPos[8];
 uniform int uHubCount;
 uniform float uEmberR;
 uniform float uHighlight; // 1.0 = normal, up to 1.25 for hover lift
+uniform vec2 uDishCenterPx;   // Petri dish center in CSS pixels (CSS top-left origin)
+uniform float uDishRadiusPx;  // Petri dish radius in CSS pixels
+uniform float uDpr;           // devicePixelRatio for buffer→CSS conversion
 flat in vec2 vP0; flat in vec2 vP1; flat in float vR;
 flat in float vKind; flat in float vThick;
+
+// Petri dish clipping (DPR-correct, CSS pixel space)
+void petriClip() {
+  vec2 pCss = gl_FragCoord.xy / uDpr;  // Convert buffer pixels → CSS pixels
+  pCss.y = uRes.y - pCss.y;            // Flip Y: GL bottom-left → CSS top-left
+  float d = distance(pCss, uDishCenterPx);
+  if (d > uDishRadiusPx) discard;
+}
 
 float sdCapsule(vec2 p, vec2 a, vec2 b, float r){
   vec2 pa=p-a, ba=b-a;
@@ -137,6 +170,9 @@ float noise(vec2 p){
 }
 
 void main(){
+  // Early discard for Petri dish clipping
+  petriClip();
+  
   vec2 pix = gl_FragCoord.xy;
   pix.y = uRes.y - pix.y; // Flip Y back: gl_FragCoord has Y-up, but we need Y-down to match network space
   vec2 worldShifted = (pix - uOffset)/uScale;      // world coords with artistic shift applied
@@ -252,8 +288,23 @@ in float vPulsePhase;
 out vec4 o;
 uniform vec3 uGlow1, uGlow2, uGlow3;
 uniform vec3 uBranch1;
+uniform vec2 uRes;
+uniform vec2 uDishCenterPx;   // CSS pixels, CSS top-left origin
+uniform float uDishRadiusPx;  // CSS pixels
+uniform float uDpr;           // devicePixelRatio
 float hash(float p){ return fract(sin(p*127.1)*43758.5453); }
+
+// Petri dish clipping (DPR-correct, CSS pixel space)
+void petriClip() {
+  vec2 pCss = gl_FragCoord.xy / uDpr;  // Convert buffer pixels → CSS pixels
+  pCss.y = uRes.y - pCss.y;            // Flip Y: GL bottom-left → CSS top-left
+  float d = distance(pCss, uDishCenterPx);
+  if (d > uDishRadiusPx) discard;
+}
+
 void main(){
+  petriClip();
+  
   float d = length(vUv-0.5);
   float a = smoothstep(0.6, 0.0, d);
   
@@ -305,6 +356,10 @@ uniform vec3 uDotFusion;
 uniform vec3 uMossDark;
 uniform vec3 uMossLight;
 uniform float uTime;
+uniform vec2 uRes;
+uniform vec2 uDishCenterPx;   // CSS pixels, CSS top-left origin
+uniform float uDishRadiusPx;  // CSS pixels
+uniform float uDpr;           // devicePixelRatio
 
 float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
 float noise(vec2 p){
@@ -317,7 +372,17 @@ float noise(vec2 p){
   return mix(mix(a,b,u.x), mix(c,d,u.x), u.y);
 }
 
+// Petri dish clipping (DPR-correct, CSS pixel space)
+void petriClip() {
+  vec2 pCss = gl_FragCoord.xy / uDpr;  // Convert buffer pixels → CSS pixels
+  pCss.y = uRes.y - pCss.y;            // Flip Y: GL bottom-left → CSS top-left
+  float d = distance(pCss, uDishCenterPx);
+  if (d > uDishRadiusPx) discard;
+}
+
 void main(){
+  petriClip();  // Early discard for Petri dish clipping
+  
   vec2 c = vUv*2.0 - 1.0;
   float r = length(c);
   float edge = fwidth(r);
@@ -679,9 +744,176 @@ async function initBlogNetwork(){
     gl.uniform1i(gl.getUniformLocation(p,'uHubCount'), hubPos.length);
   }
 
-  // transforms (fit 1920x1080)
-  const shift = [-40, 18];
+  // Motion control (default OFF per spec)
+  let motionEnabled = false;
+  window.addEventListener('blog:motion', (e) => {
+    motionEnabled = e.detail.enabled;
+    console.log('[Blog WebGL] Motion:', motionEnabled ? 'ON' : 'OFF');
+  });
+
+  // Build Petri dish SVG overlay
+  function buildDish({wCss, hCss}) {
+    const svg = document.getElementById('dish');
+    if (!svg) return null;
+    
+    svg.setAttribute('viewBox', `0 0 ${wCss} ${hCss}`);
+    svg.innerHTML = '';
+
+    const cx = wCss/2, cy = hCss/2;
+    const r  = Math.floor(Math.min(wCss,hCss) * PETRI_K); // inner radius for crop (uses PETRI_K constant)
+
+    // Meniscus (inner circle)
+    const meniscus = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    meniscus.setAttribute('cx', cx); 
+    meniscus.setAttribute('cy', cy);
+    meniscus.setAttribute('r', r);
+    meniscus.setAttribute('fill','rgba(255,255,255,0.015)');
+    meniscus.setAttribute('stroke','rgba(228,189,140,0.12)'); // warm brass
+    meniscus.setAttribute('stroke-width','1');
+
+    // Rim (outer glass edge)
+    const rim = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    rim.setAttribute('cx', cx); 
+    rim.setAttribute('cy', cy);
+    rim.setAttribute('r', r+12); // outer glass rim
+    rim.setAttribute('fill','none');
+    rim.setAttribute('stroke','rgba(228,189,140,0.25)');
+    rim.setAttribute('stroke-width','2');
+
+    // Specular highlight (glass reflection)
+    const spec = document.createElementNS('http://www.w3.org/2000/svg','path');
+    const a0 = -20*Math.PI/180, a1 = 35*Math.PI/180, rs = r+10;
+    const x0 = cx + rs*Math.cos(a0), y0 = cy + rs*Math.sin(a0);
+    const x1 = cx + rs*Math.cos(a1), y1 = cy + rs*Math.sin(a1);
+    spec.setAttribute('d', `M ${x0} ${y0} A ${rs} ${rs} 0 0 1 ${x1} ${y1}`);
+    spec.setAttribute('stroke','rgba(255,255,255,0.06)');
+    spec.setAttribute('stroke-width','4');
+    spec.setAttribute('fill','none');
+    spec.setAttribute('stroke-linecap','round');
+
+    svg.append(meniscus, rim, spec);
+    
+    console.log('[Blog WebGL] Built Petri dish:', {cx, cy, r});
+    return {cx, cy, r};
+  }
+
+  // Update dish clipping uniforms (CSS pixel space, not buffer pixels)
+  function updateDishUniforms(dish) {
+    if (!dish) return;
+    
+    const dpr = window.devicePixelRatio || 1;
+
+    // Dish center/radius are already in CSS pixels (from buildDish)
+    // Pass directly to shaders - they handle DPR conversion internally
+    const cxCss = dish.cx;  // CSS pixels, CSS top-left origin
+    const cyCss = dish.cy;  // CSS pixels, CSS top-left origin
+    const rCss  = dish.r;   // CSS pixels
+
+    // Set uniforms for segment, cyst, AND node shaders
+    for (const prog of [progSeg, progCyst, progNode]) {
+      gl.useProgram(prog);
+      gl.uniform2f(gl.getUniformLocation(prog,'uDishCenterPx'), cxCss, cyCss);
+      gl.uniform1f(gl.getUniformLocation(prog,'uDishRadiusPx'), rCss);
+      gl.uniform1f(gl.getUniformLocation(prog,'uDpr'), dpr);
+    }
+    gl.useProgram(null);
+    
+    console.log('[Blog WebGL] Dish uniforms (CSS px):', {cxCss, cyCss, rCss, dpr});
+  }
+
+  // Build curved labels around dish rim
+  function buildLabels(dish) {
+    if (!dish) return;
+    
+    const root = document.getElementById('dish-labels');
+    if (!root) return;
+    
+    root.innerHTML = ''; 
+    root.style.pointerEvents = 'none';
+
+    const cfg = [
+      {id:'craft',        midDeg: 270, text:'CRAFT'},        // North (top)
+      {id:'cosmos',       midDeg:   0, text:'COSMOS'},       // East (right)
+      {id:'convergence',  midDeg: 180, text:'CONVERGENCE'},  // South (bottom)
+      {id:'codex',        midDeg:  90, text:'CODEX'},        // West (left)
+    ];
+
+    const w = root.clientWidth, h = root.clientHeight;
+    const cx = dish.cx, cy = dish.cy, r = dish.r - 16; // 16px inside rim
+
+    const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+    svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+    svg.style.width='100%'; 
+    svg.style.height='100%';
+    root.appendChild(svg);
+
+    for (const c of cfg) {
+      const arcId = `arc-${c.id}`;
+      const span = 60 * Math.PI/180;  // ~60° arc
+      const a0 = (c.midDeg*Math.PI/180) - span/2;
+      const a1 = (c.midDeg*Math.PI/180) + span/2;
+      const x0 = cx + r*Math.cos(a0), y0 = cy + r*Math.sin(a0);
+      const x1 = cx + r*Math.cos(a1), y1 = cy + r*Math.sin(a1);
+
+      // Hit zone path (thick stroke for easy clicking)
+      const path = document.createElementNS(svg.namespaceURI,'path');
+      path.setAttribute('id', arcId);
+      path.setAttribute('d', `M ${x0} ${y0} A ${r} ${r} 0 0 1 ${x1} ${y1}`);
+      path.setAttribute('fill','none');
+      path.setAttribute('stroke','transparent');
+      path.setAttribute('stroke-width','36'); // big hit zone
+      path.style.pointerEvents='stroke'; // only the stroke catches
+      svg.appendChild(path);
+
+      // Clickable group with text
+      const grp = document.createElementNS(svg.namespaceURI,'g');
+      grp.classList.add('arc-btn');
+      grp.dataset.hub = c.id;
+      grp.setAttribute('tabindex','0');
+      grp.setAttribute('role','button');
+      grp.setAttribute('aria-label', `${c.text} — open category`);
+      grp.style.pointerEvents='auto';
+
+      const text = document.createElementNS(svg.namespaceURI,'text');
+      text.setAttribute('class','arc-label');
+      text.setAttribute('text-anchor','middle');
+      text.setAttribute('font-size','18');
+      text.setAttribute('letter-spacing','0.3em');
+
+      const textPath = document.createElementNS(svg.namespaceURI,'textPath');
+      textPath.setAttributeNS('http://www.w3.org/1999/xlink','xlink:href', `#${arcId}`);
+      textPath.setAttribute('startOffset','50%');
+      textPath.textContent = c.text;
+
+      text.appendChild(textPath);
+      grp.appendChild(text);
+      svg.appendChild(grp);
+    }
+    
+    console.log('[Blog WebGL] Built curved labels:', cfg.map(c => c.id));
+  }
+
+  // ━━━ AUTO-CENTERING ━━━
+  // Compute network centroid from data and center in design space
+  const [netCx, netCy] = computeNetworkCentroid(data.paths);
+  const shift = AUTO_CENTER 
+    ? [VIEW.W * 0.5 - netCx, VIEW.H * 0.5 - netCy]
+    : FIXED_SHIFT;
+  
+  console.log('[Blog WebGL] Auto-centering:', {
+    enabled: AUTO_CENTER,
+    networkCentroid: [netCx, netCy],
+    shift,
+    targetCenter: [VIEW.W * 0.5, VIEW.H * 0.5],
+    offsetPercent: [
+      Math.abs(shift[0]) / VIEW.W * 100,
+      Math.abs(shift[1]) / VIEW.H * 100
+    ].map(v => v.toFixed(2) + '%')
+  });
+  
   let resizeTimeout = null;
+  let currentDish = null;
+  
   function resize(){
     const dpr = DPR;
     
@@ -709,6 +941,25 @@ async function initBlogNetwork(){
     const scale = Math.min(cssW/VIEW.W, cssH/VIEW.H);
     const offX = (cssW - VIEW.W*scale)/2;
     const offY = (cssH - VIEW.H*scale)/2;
+    
+    // Build Petri dish and curved labels
+    currentDish = buildDish({wCss: cssW, hCss: cssH});
+    updateDishUniforms(currentDish);
+    buildLabels(currentDish);
+    
+    // Emit transform event for overlay (legacy, may not be needed with dish-first layout)
+    console.log('[Blog WebGL] Emitting transform:', { scale, offsetX: offX, offsetY: offY, cssW, cssH });
+    window.dispatchEvent(new CustomEvent('blog:transform', {
+      detail: {
+        scale,
+        offsetX: offX,
+        offsetY: offY,
+        baseW: VIEW.W,
+        baseH: VIEW.H,
+        cssW,
+        cssH
+      }
+    }));
     
     return { scale, offX, offY, cssW, cssH };
   }
@@ -769,27 +1020,46 @@ async function initBlogNetwork(){
     hoveredHubId = idx>=0 ? (data.hubs[idx].id) : null;
     canvas.style.cursor = hoveredHubId ? 'pointer' : 'default';
     
-    // Dispatch hover event when hub changes
+    // Emit hover events when hub changes
     if (hoveredHubId !== prevHovered) {
-      document.dispatchEvent(new CustomEvent('blog:hoverHub', { 
-        detail: { id: hoveredHubId } 
-      }));
+      if (hoveredHubId) {
+        console.log('[Blog WebGL] Hover:', hoveredHubId);
+        window.dispatchEvent(new CustomEvent('blog:hover', { 
+          detail: { hubId: hoveredHubId } 
+        }));
+      } else {
+        console.log('[Blog WebGL] Hover off');
+        window.dispatchEvent(new CustomEvent('blog:hover-off', { 
+          detail: {} 
+        }));
+      }
     }
   });
   
-  // Click to enter/exit deep view
+  // Click to navigate to category (debounced)
+  let lastClickTime = 0;
+  const CLICK_DEBOUNCE = 300; // ms
+  
   canvas.addEventListener('click', ()=>{
     if (!hoveredHubId) return;
-    activeHub = (activeHub === hoveredHubId) ? null : hoveredHubId;
-    document.dispatchEvent(new CustomEvent('blog:activeHub', { 
-      detail: { id: activeHub } 
-    }));
-    // Deep link support
-    if (activeHub) {
-      history.replaceState(null, '', `#blog/${activeHub}`);
-    } else {
-      history.replaceState(null, '', '#blog');
+    
+    const now = performance.now();
+    if (now - lastClickTime < CLICK_DEBOUNCE) {
+      console.log('[Blog WebGL] Click debounced (too fast)');
+      return;
     }
+    lastClickTime = now;
+    
+    console.log('[Blog WebGL] Click: navigating to', hoveredHubId);
+    
+    // Brief spotlight effect (150ms) - non-blocking
+    activeHub = hoveredHubId;
+    setTimeout(() => { activeHub = null; }, 150);
+    
+    // Navigate immediately (app.js will handle the transition)
+    window.dispatchEvent(new CustomEvent('blog:navigate', {
+      detail: { hubId: hoveredHubId }
+    }));
   });
   
   // ESC to exit deep view
@@ -884,6 +1154,8 @@ async function initBlogNetwork(){
     set2(progSeg,'uShift', shift[0], shift[1]);
     set2(progSeg,'uRes', fit.cssW, fit.cssH);
     gl.uniform1f(gl.getUniformLocation(progSeg,'uTime'), now*0.001);
+    gl.uniform1f(gl.getUniformLocation(progSeg,'uDpr'), DPR);
+    // Petri dish clipping handled by updateDishUniforms() (already set)
     // Set all branch colors
     set3(progSeg,'uBranch1', PAL.BRANCH1);
     set3(progSeg,'uBranch2', PAL.BRANCH2);
@@ -957,6 +1229,7 @@ async function initBlogNetwork(){
       set2(progNode,'uShift', shift[0], shift[1]);
       set2(progNode,'uRes', fit.cssW, fit.cssH);
       gl.uniform1f(gl.getUniformLocation(progNode,'uTime'), now*0.001);
+      gl.uniform1f(gl.getUniformLocation(progNode,'uDpr'), DPR);
       set3(progNode,'uMossDark', PAL.MOSS_DARK);
       set3(progNode,'uMossLight', PAL.MOSS_LIGHT);
       set3(progNode,'uDotBranch', PAL.NECROTIC);
@@ -973,10 +1246,12 @@ async function initBlogNetwork(){
     set2(progCyst,'uShift', shift[0], shift[1]);
     set2(progCyst,'uRes', fit.cssW, fit.cssH);
     gl.uniform1f(gl.getUniformLocation(progCyst,'uTime'), now*0.001);
+    gl.uniform1f(gl.getUniformLocation(progCyst,'uDpr'), DPR);
     set3(progCyst,'uGlow1', PAL.GLOW1);
     set3(progCyst,'uGlow2', PAL.GLOW2);
     set3(progCyst,'uGlow3', PAL.GLOW3);
     set3(progCyst,'uBranch1', PAL.BRANCH1);
+    // Petri dish clipping handled by updateDishUniforms() (already set)
     gl.bindVertexArray(vaoCyst.vao);
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, vaoCyst.count);
     gl.bindVertexArray(null);
@@ -990,6 +1265,8 @@ async function initBlogNetwork(){
         set2(progCyst,'uOffset', fit.offX, fit.offY);
         set2(progCyst,'uShift', shift[0], shift[1]);
         gl.uniform1f(gl.getUniformLocation(progCyst,'uTime'), now*0.001);
+        gl.uniform1f(gl.getUniformLocation(progCyst,'uDpr'), DPR);
+        // Petri dish clipping handled by updateDishUniforms() (already set)
         set3(progCyst,'uGlow1', PAL.EMBER1);
         set3(progCyst,'uGlow2', PAL.EMBER2);
         set3(progCyst,'uGlow3', PAL.EMBER3);

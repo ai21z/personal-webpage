@@ -315,79 +315,62 @@
     <!-- Parchment Detail Panel (populated by JS) -->
   </section>
 
-  <!-- SECTION: BLOG (Mycelium Network) -->
-  <section id="blog" class="stage blog-screen panel-screen" data-section="blog" aria-label="Blog" tabindex="-1">
+  <!-- SECTION: BLOG (Mycelium Network - Petri Dish) -->
+  <section id="blog" class="stage blog-screen blog-stage panel-screen" data-section="blog" data-mode="map" aria-label="Blog" tabindex="-1">
     <button class="blog-close" data-action="go-intro" aria-label="Close and return to intro">×</button>
     
-    <div class="blog-container">
+    <!-- Intro Caption -->
+    <div class="blog-intro-caption" aria-hidden="true">
+      <strong>Petri Dish</strong> — A living network. Hover rim labels or hubs to preview, click to enter.
+    </div>
+    
+    <!-- SR-only status for hover announcements -->
+    <div id="hub-status" class="sr-only" aria-live="polite"></div>
+    
+    <!-- Dish-first map container -->
+    <div id="blog-map" class="blog-map">
+      <!-- WebGL Canvas (base layer, z:20) -->
       <canvas id="blog-network-canvas" class="blog-network-canvas"></canvas>
-      <script>
-        console.log('[HTML] Blog network canvas found:', document.getElementById('blog-network-canvas'));
-        console.log('[HTML] Canvas display:', getComputedStyle(document.getElementById('blog-network-canvas')).display);
-        console.log('[HTML] Canvas visibility:', getComputedStyle(document.getElementById('blog-network-canvas')).visibility);
-      </script>
-      <script type="module" src="./js/blog-network-webgl.js"></script>
       
-      <!-- Hover Info Panel -->
-      <div id="blog-hub-info" class="blog-hub-info" aria-live="polite"></div>
+      <!-- Petri dish overlay (visual only, z:30) -->
+      <svg id="dish" class="dish" aria-hidden="true"></svg>
       
-      <!-- Article List Overlay -->
-      <div id="blog-articles" class="blog-articles" hidden></div>
+      <!-- Rim labels (clickable, z:40) -->
+      <div id="dish-labels" class="dish-labels" aria-label="Blog categories"></div>
       
-      <!-- Helper text -->
-      <div class="blog-helper-text" aria-hidden="true">
-        Explore the network • Hover hubs for details
+      <!-- HUD cluster (top-left, z:50) -->
+      <div class="hud cluster-tl">
+        <button id="btn-motion" class="pill" aria-pressed="false" aria-label="Toggle animation effects">
+          <span aria-hidden="true">⚡</span> Motion
+        </button>
+        <button id="btn-map" class="pill" aria-label="Return to map" hidden>
+          <span aria-hidden="true">←</span> Map
+        </button>
       </div>
     </div>
     
-    <!-- Hub Info & Article Controller -->
-    <script type="module">
-      const HUB_COPY = {
-        craft:{ title:'CRAFT', blurb:'Making things by hand: code, design, tools, pipelines.' },
-        cosmos:{ title:'COSMOS', blurb:'Systems, networks, emergence, simulations, world.' },
-        codex:{ title:'CODEX', blurb:'Engineering notes, debugging journals, patterns.' },
-        convergence:{ title:'CONVERGENCE', blurb:'Where disciplines meet — synthesis & essays.' }
-      };
-
-      const ARTICLES = {
-        craft:[{id:'c1', title:'Coming soon', summary:'Draft notes'}],
-        cosmos:[{id:'o1', title:'Coming soon', summary:'Draft notes'}],
-        codex:[{id:'x1', title:'Coming soon', summary:'Draft notes'}],
-        convergence:[{id:'v1', title:'Coming soon', summary:'Draft notes'}],
-      };
-
-      const infoBox = document.getElementById('blog-hub-info');
-      const listBox = document.getElementById('blog-articles');
-      
-      document.addEventListener('blog:hoverHub', (e)=>{
-        const id = e.detail?.id || null;
-        const copy = id && HUB_COPY[id];
-        if (!copy) { infoBox.classList.remove('is-visible'); infoBox.innerHTML=''; return; }
-        infoBox.innerHTML = `<div class="t">${copy.title}</div><div class="b">${copy.blurb}</div>`;
-        infoBox.classList.add('is-visible');
-      });
-      
-      document.addEventListener('blog:activeHub', (e)=>{
-        const id = e.detail?.id || null;
-        
-        // Keep info box visible when active
-        if (!id) infoBox.classList.remove('is-visible');
-        
-        // Show/hide article list
-        if (!id){ listBox.hidden = true; listBox.innerHTML=''; return; }
-        const items = ARTICLES[id] || [];
-        listBox.innerHTML = `<h3>${id.toUpperCase()} — Articles</h3>` +
-          items.map(a=>`<div class="it" data-id="${a.id}"><div class="t">${a.title}</div><div class="s">${a.summary||''}</div></div>`).join('');
-        listBox.hidden = false;
-      });
-      
-      listBox?.addEventListener('click', (e)=>{
-        const it = e.target.closest('.it'); if (!it) return;
-        // placeholder reader
-        alert('Open article: '+ it.dataset.id);
-      });
-    </script>
-  </section>
+    <!-- Category View (hidden by default) -->
+    <div id="blog-category-view" class="blog-category-view category-panel" hidden>
+      <button id="blog-back-btn" class="blog-back-btn" aria-label="Back to blog map">
+        ← Back to Map
+      </button>
+      <div id="blog-category-content" class="blog-category-content"></div>
+    </div>
+    
+    <!-- Article View (hidden by default) -->
+    <div id="blog-article-view" class="blog-article-view category-panel" hidden>
+      <button id="article-back-btn" class="blog-back-btn" aria-label="Back to category">
+        ← Back
+      </button>
+      <article id="blog-article-content" class="blog-article-content"></article>
+    </div>
+    
+    <!-- Helper text -->
+    <div class="blog-helper-text" aria-hidden="true">
+      Explore the Petri dish • Hover rim labels or hubs • ESC to return
+    </div>
+    
+    <script type="module" src="./js/blog-network-webgl.js"></script>
   </section>
 
   <!-- SECTION: RESUME (Space-Time Spiral Timeline) - DISABLED FOR NOW -->
