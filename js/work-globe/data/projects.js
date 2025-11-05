@@ -22,6 +22,25 @@ export const PROJECTS = [
     moonRadius: 0.08,           // Visual size of moon sphere (much smaller - ~8% of globe)
     glowIntensity: 0.3,         // Emissive glow strength
     pulseSpeed: 0.5             // Pulse animation frequency (Hz)
+  },
+  {
+    id: 'loqj-cli',
+    name: 'LOQJ CLI',
+    description: 'Command-line tool for structured logging and journaling. A practical utility for developers to maintain organized development logs with tagging and search capabilities.',
+    tech: ['Python', 'CLI', 'SQLite', 'Click'],
+    github: 'https://github.com/ai21z/loqj-cli',
+    
+    // Orbital configuration
+    initialAngle: 180,      // Opposite side of globe
+    orbitRadius: 1.15,      // Same distance as first project
+    orbitTilt: 0,           // Horizontal orbit
+    rotationSpeed: 4.0,     // Same speed - synchronized orbits
+    
+    // Visual styling
+    color: [0.48, 0.68, 0.54],  // Teal/green to match site theme (#7aae8a)
+    moonRadius: 0.08,           // Same size
+    glowIntensity: 0.3,         // Same glow
+    pulseSpeed: 0.5             // Same pulse
   }
   
   // Future projects (2-4 total):

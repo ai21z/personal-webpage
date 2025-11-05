@@ -12,6 +12,7 @@ import { sizeCanvas, cumulativeLengths, pointAt, approach } from './utils.js';
 import { buildGraphFromPaths, aStarPath } from './graph.js';
 import { initProjectsWheel } from './projects-wheel.js';
 import { initWorkGlobe, cleanupWorkGlobe } from './work-globe-webgl.js';
+import socialIconsAnimation from './social-icons-animation.js';
 // Blog network now uses WebGL version loaded directly in HTML
 // import blogNetwork from './blog-network.js';
 // Resume spirals - DISABLED FOR NOW
@@ -830,11 +831,28 @@ function initBlogControls() {
     convergence: { title: 'CONVERGENCE', desc: 'Where disciplines meet' }
   };
   
+  // Create tooltip element
+  const tooltip = document.createElement('div');
+  tooltip.className = 'blog-hub-tooltip';
+  tooltip.innerHTML = `
+    <span class="blog-hub-tooltip-title"></span>
+    <span class="blog-hub-tooltip-description"></span>
+  `;
+  document.querySelector('#blog').appendChild(tooltip);
+  
+  const tooltipTitle = tooltip.querySelector('.blog-hub-tooltip-title');
+  const tooltipDesc = tooltip.querySelector('.blog-hub-tooltip-description');
+  
   window.addEventListener('blog:hover', (e) => {
     const { hubId } = e.detail;
     if (hubStatus && hubId && HUB_INFO[hubId]) {
       const info = HUB_INFO[hubId];
       hubStatus.textContent = `Preview: ${info.title}. ${info.desc}.`;
+      
+      // Show tooltip
+      tooltipTitle.textContent = info.title;
+      tooltipDesc.textContent = info.desc;
+      tooltip.classList.add('visible');
     }
   });
   
@@ -842,6 +860,8 @@ function initBlogControls() {
     if (hubStatus) {
       hubStatus.textContent = '';
     }
+    // Hide tooltip
+    tooltip.classList.remove('visible');
   });
   
   console.log('[Blog Nav] Blog controls initialized');
@@ -1322,6 +1342,28 @@ initWorkGlobe();
 // initResumeSpirals();
 initPaperHoverRing();
 
+// [AA-FIX] Watch for DPR changes (zoom/display scaling)
+let lastDPR = window.devicePixelRatio || 1;
+setInterval(() => {
+  const currentDPR = window.devicePixelRatio || 1;
+  if (currentDPR !== lastDPR) {
+    console.log(`[AA-FIX] DPR changed from ${lastDPR} to ${currentDPR}`);
+    lastDPR = currentDPR;
+    // If a card is open, recompute its position
+    const openCard = document.querySelector('.paper-open');
+    if (openCard) {
+      const r = openCard.getBoundingClientRect();
+      const vw = window.innerWidth, vh = window.innerHeight;
+      const cx = r.left + r.width/2, cy = r.top + r.height/2;
+      const ipx = (n) => Math.round(Number(n) || 0);
+      const tx = ipx((vw/2) - cx);
+      const ty = ipx((vh/2) - cy);
+      openCard.style.setProperty('--open-tx', `${tx}px`);
+      openCard.style.setProperty('--open-ty', `${ty}px`);
+    }
+  }
+}, 500);
+
 /**
  * initAboutPaperFocus
  * 
@@ -1392,6 +1434,9 @@ function initPaperFocusForSection(sectionId){
     const r = el.getBoundingClientRect();
     const computed = getComputedStyle(el);
     
+    // Utility: integer pixel snapping for crispness
+    const ipx = (n) => Math.round(Number(n) || 0);
+    
     // Create an invisible placeholder that holds the exact same space and positioning
     const placeholder = document.createElement('div');
     // Copy all the classes so it gets the same CSS positioning rules
@@ -1419,11 +1464,17 @@ function initPaperFocusForSection(sectionId){
     // Compute center translation and scale to fit
     const vw = window.innerWidth, vh = window.innerHeight;
     const cx = r.left + r.width/2, cy = r.top + r.height/2;
-    const tx = (vw/2) - cx;
-    const ty = (vh/2) - cy;
+    const tx = ipx((vw/2) - cx);
+    const ty = ipx((vh/2) - cy);
     const fitW = (vw * 0.86) / r.width;
     const fitH = (vh * 0.80) / r.height;
     const scale = Math.min(fitW, fitH, 2.4);
+    
+    // Expose final layout size (rounded) for settled state
+    const targetW = ipx(r.width * scale);
+    const targetH = ipx(r.height * scale);
+    el.style.setProperty('--open-w', `${targetW}px`);
+    el.style.setProperty('--open-h', `${targetH}px`);
     
     // Animate to magnified state in next frame
     requestAnimationFrame(() => {
@@ -1431,6 +1482,35 @@ function initPaperFocusForSection(sectionId){
       el.style.setProperty('--open-ty', `${ty}px`);
       el.style.setProperty('--open-scale', `${scale}`);
     });
+    
+    // [AA-FIX] When transform transition finishes, demote from compositor for better AA
+    // We keep the scale() but remove will-change to allow subpixel rendering
+    let settled = false;
+    const applySettle = () => {
+      if (settled) return;
+      settled = true;
+      
+      el.classList.add('paper-open--settled');
+      
+      // Force compositor demotion - inline styles + CSS !important rules
+      el.style.willChange = 'auto';
+      el.style.backfaceVisibility = 'visible';
+      
+      // Force browser to re-evaluate layer promotion
+      void el.offsetHeight;
+      
+      console.log('[AA-FIX] Settled:', el.className, 'willChange:', getComputedStyle(el).willChange);
+    };
+    
+    const onEnd = (e) => {
+      if (e.propertyName !== 'transform') return;
+      el.removeEventListener('transitionend', onEnd);
+      applySettle();
+    };
+    el.addEventListener('transitionend', onEnd, { once: true });
+    
+    // Fallback: ensure settle happens even if transitionend doesn't fire
+    setTimeout(applySettle, 350); // 300ms transition + 50ms buffer
     
     // Accessibility + backdrop
     el.setAttribute('role','dialog');
@@ -1445,6 +1525,10 @@ function initPaperFocusForSection(sectionId){
   function closePaper(){
     const openEl = document.querySelector('.paper-open');
     if (openEl){
+      // [AA-FIX] Remove settled state and re-enable will-change for closing animation
+      openEl.classList.remove('paper-open--settled');
+      openEl.style.willChange = 'transform';
+      
       // animate back to wall
       openEl.style.setProperty('--open-tx','0px');
       openEl.style.setProperty('--open-ty','0px');
@@ -1458,6 +1542,7 @@ function initPaperFocusForSection(sectionId){
         openEl.style.top = '';
         openEl.style.width = '';
         openEl.style.height = '';
+        openEl.style.willChange = '';
         openEl.style.removeProperty('--open-tx');
         openEl.style.removeProperty('--open-ty');
         openEl.style.removeProperty('--open-scale');

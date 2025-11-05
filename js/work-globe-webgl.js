@@ -363,6 +363,17 @@ export function initWorkGlobe() {
   }, { passive: true });
   
   window.addEventListener('resize', resizeCanvas);
+  
+  // Poll for DPR changes (e.g., moving window between displays with different zoom)
+  let lastDPR = currentDPR();
+  setInterval(() => {
+    const dpr = currentDPR();
+    if (dpr !== lastDPR) {
+      lastDPR = dpr;
+      console.log('[Work Globe] DPR changed to', dpr);
+      resizeCanvas();
+    }
+  }, 500);
 
   // Start animation
   animate();
@@ -1263,14 +1274,19 @@ function onPointerUp(e) {
   }, 3000);
 }
 
+// Dynamic DPR helper (updates on zoom/display change)
+function currentDPR() {
+  return Math.min(Math.max(1, window.devicePixelRatio || 1), 2); // cap at 2x for performance
+}
+
 function resizeCanvas() {
   const container = canvas.parentElement;
   const width = container.clientWidth;
   const height = container.clientHeight;
-  const dpr = Math.min(window.devicePixelRatio, 2);
+  const dpr = currentDPR(); // Dynamic DPR
 
-  canvas.width = width * dpr;
-  canvas.height = height * dpr;
+  canvas.width = Math.floor(width * dpr);
+  canvas.height = Math.floor(height * dpr);
   canvas.style.width = width + 'px';
   canvas.style.height = height + 'px';
 

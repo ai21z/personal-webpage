@@ -55,6 +55,19 @@
   mix-blend-mode: screen;
 }
 
+/* ━━━ Lower compositing pressure while reading; restores sharper text ━━━ */
+/* While content is open, reduce effects that kill subpixel AA (Chrome).
+   See: web.dev/antialiasing-101 and CSSWG note on will-change */
+body.has-paper-open-global #bg-front-img {
+  mix-blend-mode: normal !important;
+  opacity: 0.25 !important;
+}
+
+body.has-paper-open-global .signals-canvas {
+  mix-blend-mode: normal !important;
+  opacity: 0.35 !important;
+}
+
 /* ━━━ Global Backdrop for Paper Focus ━━━ */
 .paper-backdrop{
   position: fixed;

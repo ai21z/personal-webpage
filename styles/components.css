@@ -1,10 +1,10 @@
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   COMPONENT STYLES
-   - Name, Portrait, Text column
-   - Tape line, Sigil, Social links
-   - Footer
-   - Reduced motion preferences
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  COMPONENT STYLES
+  - Name, Portrait, Text column
+  - Tape line, Sigil, Social links
+  - Footer
+  - Reduced motion preferences
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
 /* ━━━ Name (Swiss: Precise, Left-Aligned) ━━━ */
 .name{
@@ -235,8 +235,8 @@
   justify-content: space-between;
   align-items: center;
   align-self: end;
-  color: rgba(230, 227, 216, 0.38);
-  font-size: 11px;
+  color: rgba(230, 227, 216, 0.596);
+  font-size: 15px;
   line-height: var(--leading-normal);
   letter-spacing: 0.02em;
   padding: calc(var(--gap) * 2) 0 0 0;
@@ -244,10 +244,20 @@
   z-index: 3;
 }
 
+.footer-sigil {
+  display: inline-block;
+  height: 4em;
+  width: auto;
+  vertical-align: middle;
+  margin: 0 2px;
+  opacity: 0.5;
+  filter: brightness(1.1);
+}
+
 .foot-coords {
   opacity: 0.75;
   font-feature-settings: 'tnum' 1;
-  font-size: var(--text-caption);
+  font-size: 13px;
   letter-spacing: 0.03em;
   color: rgba(230, 227, 216, 0.5);
 }
@@ -265,5 +275,322 @@
   }
   .sigil-wrap:hover, .sigil-wrap:hover img, .ico:hover{
     transform: none;
+  }
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   LIVING SIGILS - Vertical Vial Icon Column
+   - Glass vials with swirling dark matter
+   - Green lightning crackling on hover
+   - Dripping decay effect
+   - Connected by organic vine
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+.living-sigils {
+  position: absolute;
+  left: -90px;
+  top: 20%;
+  transform: translateY(0);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(20px, 2vw, 24px);
+  z-index: 4;
+  pointer-events: all;
+}
+
+/* Connecting Vine (Organic Thread) */
+.sigil-vine {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 4px;
+  height: 100%;
+  transform: translateX(-50%);
+  opacity: 0.3;
+  pointer-events: none;
+  z-index: 1;
+  transition: opacity 0.4s ease;
+}
+
+.living-sigils:hover .sigil-vine {
+  opacity: 0.6;
+}
+
+/* Individual Vial Link */
+.sigil-vial {
+  position: relative;
+  display: block;
+  width: 56px;
+  height: 56px;
+  text-decoration: none;
+  z-index: 2;
+  transition: filter 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
+}
+
+.sigil-vial:hover {
+  filter: brightness(1.1);
+}
+
+/* Vial Container */
+.vial-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+/* Glass Sphere Body - 3D Bubble with directional lighting from sigil */
+.vial-glass {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 52px;
+  height: 52px;
+  background: 
+    /* PRIMARY HIGHLIGHT - Bright specular reflection from sigil (right side, upper) */
+    radial-gradient(ellipse 20px 25px at 70% 30%, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0.3) 30%, transparent 65%),
+    /* SECONDARY HIGHLIGHT - Softer glow around main highlight */
+    radial-gradient(ellipse 30px 35px at 65% 35%, rgba(143, 180, 255, 0.3) 0%, rgba(122, 174, 138, 0.2) 40%, transparent 70%),
+    /* RIM LIGHT - Right edge catch light */
+    radial-gradient(ellipse 8px 40px at 95% 50%, rgba(143, 180, 255, 0.4) 0%, transparent 60%),
+    /* TOP RIM - Upper edge subtle shine */
+    radial-gradient(ellipse 35px 10px at 50% 8%, rgba(255, 255, 255, 0.15) 0%, transparent 70%),
+    /* SHADOW TRANSITION - Left side darkening (away from light) */
+    radial-gradient(ellipse 35px 45px at 20% 50%, rgba(0, 0, 0, 0.3) 0%, transparent 60%),
+    /* BOTTOM SHADOW - Underside darkness */
+    radial-gradient(ellipse 38px 15px at 50% 90%, rgba(0, 0, 0, 0.5) 0%, rgba(0, 0, 0, 0.2) 50%, transparent 80%),
+    /* CORE GLOW - Teal inner luminescence */
+    radial-gradient(circle at 50% 50%, rgba(122, 174, 138, 0.12) 0%, rgba(122, 174, 138, 0.06) 40%, transparent 70%),
+    /* BASE - Dark translucent sphere */
+    radial-gradient(circle at 40% 40%, rgba(19,20,23,0.85) 0%, rgba(11,11,12,0.95) 100%);
+  border: 2px solid rgba(143, 180, 255, 0.35);
+  border-radius: 50%;
+  overflow: visible;
+  backdrop-filter: blur(8px);
+  box-shadow: 
+    /* INNER DEPTH - 3D concave surface */
+    inset -6px 6px 12px rgba(255, 255, 255, 0.08),
+    inset 8px -8px 16px rgba(0, 0, 0, 0.6),
+    /* OUTER GLOW - Illuminated by sigil */
+    0 0 16px rgba(143, 180, 255, 0.3),
+    0 0 24px rgba(122, 174, 138, 0.2),
+    0 4px 16px rgba(0, 0, 0, 0.5);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sigil-vial:hover .vial-glass {
+  border-color: rgba(143, 180, 255, 0.6);
+  background: 
+    /* INTENSIFIED PRIMARY HIGHLIGHT */
+    radial-gradient(ellipse 20px 25px at 70% 30%, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0.5) 30%, transparent 65%),
+    /* STRONGER SECONDARY HIGHLIGHT */
+    radial-gradient(ellipse 30px 35px at 65% 35%, rgba(143, 180, 255, 0.5) 0%, rgba(122, 174, 138, 0.35) 40%, transparent 70%),
+    /* BRIGHTER RIM LIGHT */
+    radial-gradient(ellipse 8px 40px at 95% 50%, rgba(143, 180, 255, 0.6) 0%, transparent 60%),
+    /* TOP RIM ENHANCED */
+    radial-gradient(ellipse 35px 10px at 50% 8%, rgba(255, 255, 255, 0.25) 0%, transparent 70%),
+    /* SHADOW TRANSITION */
+    radial-gradient(ellipse 35px 45px at 20% 50%, rgba(0, 0, 0, 0.3) 0%, transparent 60%),
+    /* BOTTOM SHADOW */
+    radial-gradient(ellipse 38px 15px at 50% 90%, rgba(0, 0, 0, 0.5) 0%, rgba(0, 0, 0, 0.2) 50%, transparent 80%),
+    /* BRIGHTER CORE GLOW */
+    radial-gradient(circle at 50% 50%, rgba(122, 174, 138, 0.2) 0%, rgba(122, 174, 138, 0.1) 40%, transparent 70%),
+    /* BASE */
+    radial-gradient(circle at 40% 40%, rgba(19,20,23,0.85) 0%, rgba(11,11,12,0.95) 100%);
+  box-shadow: 
+    /* ENHANCED INNER DEPTH */
+    inset -8px 8px 16px rgba(255, 255, 255, 0.12),
+    inset 10px -10px 20px rgba(0, 0, 0, 0.7),
+    /* INTENSIFIED OUTER GLOW */
+    0 0 24px rgba(143, 180, 255, 0.5),
+    0 0 36px rgba(122, 174, 138, 0.35),
+    0 6px 24px rgba(0, 0, 0, 0.6);
+}
+
+/* Swirling Dark Matter (Animated Background) - Subtle teal core */
+.vial-matter {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: 
+    radial-gradient(circle at 50% 50%, rgba(122, 174, 138, 0.08) 0%, rgba(122, 174, 138, 0.04) 25%, transparent 50%),
+    radial-gradient(circle at 35% 35%, rgba(122, 174, 138, 0.05) 0%, transparent 40%),
+    radial-gradient(circle at 65% 65%, rgba(143, 180, 255, 0.03) 0%, transparent 40%),
+    radial-gradient(circle at 50% 50%, rgba(19,20,23,0.85) 0%, rgba(11,11,12,0.95) 100%);
+  animation: matterSwirl 8s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  opacity: 0.9;
+}
+
+@keyframes matterSwirl {
+  0%, 100% { 
+    transform: scale(1) rotate(0deg);
+    opacity: 0.9;
+  }
+  50% { 
+    transform: scale(1.05) rotate(180deg);
+    opacity: 0.75;
+  }
+}
+
+.sigil-vial:hover .vial-matter {
+  animation-duration: 4s;
+  opacity: 1;
+}
+
+/* Lightning - Teal inside, light blue glow */
+.vial-lightning {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: 
+    radial-gradient(circle at 50% 50%, rgba(122, 174, 138, 0.2) 0%, transparent 35%),
+    radial-gradient(ellipse at 30% 50%, rgba(143, 180, 255, 0.15) 0%, transparent 50%),
+    radial-gradient(ellipse at 70% 50%, rgba(122, 174, 138, 0.12) 0%, transparent 50%),
+    linear-gradient(90deg, rgba(143, 180, 255, 0.08) 0%, transparent 50%, rgba(122, 174, 138, 0.08) 100%);
+  opacity: 0;
+  animation: lightningCrackle 1.5s ease-in-out infinite;
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+@keyframes lightningCrackle {
+  0%, 100% { opacity: 0; }
+  10% { opacity: 0.7; }
+  15% { opacity: 0; }
+  25% { opacity: 0.9; }
+  30% { opacity: 0; }
+}
+
+.sigil-vial:hover .vial-lightning {
+  animation-play-state: running;
+}
+
+.sigil-vial:not(:hover) .vial-lightning {
+  animation-play-state: paused;
+  opacity: 0;
+}
+
+/* Icon Glyph (Center of vial) - Teal glow */
+.vial-icon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 28px;
+  height: 28px;
+  color: rgba(230, 227, 216, 0.9);
+  opacity: 0.85;
+  filter: drop-shadow(0 0 4px rgba(122, 174, 138, 0.4));
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 2;
+}
+
+.sigil-vial:hover .vial-icon {
+  color: rgba(180, 210, 230, 1);
+  opacity: 1;
+  filter: 
+    drop-shadow(0 0 8px rgba(143, 180, 255, 0.6))
+    drop-shadow(0 0 6px rgba(122, 174, 138, 0.5));
+  transform: translate(-50%, -50%) scale(1.1);
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   SPLIT BUBBLE EFFECT - Resume Download (PDF/DOCX)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+
+
+.sigil-vial-split {
+  position: relative;
+  display: block;
+  width: 56px;
+  height: 56px;
+  z-index: 2;
+  overflow: visible;
+}
+
+.sigil-vial-split::before {
+  content: '';
+  position: absolute;
+  top: -36px;
+  bottom: -36px;
+  left: -120px;
+  right: -120px;
+  pointer-events: none;
+}
+
+/* Split bubbles start stacked and are repositioned when container has .is-split */
+.vial-split-bubble {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 56px;
+  height: 56px;
+  text-decoration: none;
+  transform-origin: center center;
+  transform: translateX(-50%) scale(1);
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              filter 0.25s ease;
+  z-index: 2;
+  pointer-events: none; /* Enable once split to avoid premature hover flicker */
+}
+
+.sigil-vial-split.is-split .vial-split-bubble {
+  pointer-events: auto;
+}
+
+.sigil-vial-split.is-split .vial-bubble-pdf {
+  transform: translateX(calc(-50% - 92px)) scale(0.92);
+}
+
+.sigil-vial-split.is-split .vial-bubble-docx {
+  transform: translateX(calc(-50% + 92px)) scale(0.92);
+}
+
+/* Format labels (PDF/DOC) */
+.vial-label {
+  position: absolute;
+  bottom: -18px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: rgba(143, 180, 255, 0.7);
+  text-transform: uppercase;
+  opacity: 0;
+  transition: opacity 0.3s ease 0.2s; /* Delay appearance */
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.sigil-vial-split.is-split .vial-label {
+  opacity: 1;
+}
+
+/* Enhanced hover states for individual bubbles */
+.sigil-vial-split.is-split .vial-split-bubble:hover {
+  filter: brightness(1.2);
+}
+
+.sigil-vial-split.is-split .vial-bubble-pdf:hover {
+  transform: translateX(calc(-50% - 92px)) scale(0.98) !important; /* PDF grows when hovered */
+}
+
+.sigil-vial-split.is-split .vial-bubble-docx:hover {
+  transform: translateX(calc(-50% + 92px)) scale(0.98) !important; /* DOCX grows when hovered */
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vial-split-bubble {
+    transition: none;
+  }
+}
+
+/* Responsive: Hide on smaller screens */
+@media (max-width: 900px) {
+  .living-sigils {
+    display: none;
   }
 }

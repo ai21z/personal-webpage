@@ -33,7 +33,11 @@ const PAL = {
   BONE:   [0.788, 0.761, 0.702],    // #C9C2B3
 };
 
-const DPR = Math.max(1, window.devicePixelRatio || 1);
+// Dynamic DPR helper (updates on zoom/display change)
+function currentDPR() {
+  return Math.min(Math.max(1, window.devicePixelRatio || 1), 2); // cap at 2x for performance
+}
+
 const VIEW = { W: 1920, H: 1080 };
 
 // ━━━ CENTERING HELPER ━━━
@@ -1007,15 +1011,16 @@ async function initBlogNetwork(){
   let currentDish = null;
   
   function resize(){
-    const dpr = DPR;
+    // Dynamic DPR: compute at resize time to handle display changes
+    const dpr = currentDPR();
     
     // Get actual canvas client dimensions
     const rect = canvas.getBoundingClientRect();
     const cssW = Math.max(300, rect.width); // minimum size to prevent tiny scales
     const cssH = Math.max(300, rect.height);
     
-    const w = Math.max(1, (cssW * dpr) | 0);
-    const h = Math.max(1, (cssH * dpr) | 0);
+    const w = Math.max(1, Math.floor(cssW * dpr));
+    const h = Math.max(1, Math.floor(cssH * dpr));
     
     // Only resize if dimensions changed significantly (>5px)
     if (Math.abs(canvas.width - w) > 5 || Math.abs(canvas.height - h) > 5) {
@@ -1068,6 +1073,17 @@ async function initBlogNetwork(){
       });
     }, 100); // Wait 100ms after last resize event
   });
+  
+  // Poll for DPR changes (e.g., moving window between displays with different zoom)
+  let lastDPR = currentDPR();
+  setInterval(() => {
+    const dpr = currentDPR();
+    if (dpr !== lastDPR) {
+      lastDPR = dpr;
+      console.log('[Blog Network WebGL] DPR changed to', dpr);
+      fit = resize();
+    }
+  }, 500);
   console.log('[Blog Network WebGL] Canvas setup:', {
     canvasSize: `${canvas.width}x${canvas.height}`,
     cssSize: `${fit.cssW}x${fit.cssH}`,
