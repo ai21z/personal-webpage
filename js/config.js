@@ -13,23 +13,23 @@ export const NAV_COORDS = {
   intro:   { x: 1640, y: 160 },
   about:   { x: 1466, y: 179 },
   work:    { x: 1463, y: 275 },
-  projects:{ x: 1170, y: 404 },
+  now:     { x: 1170, y: 404 },  // Renamed from 'projects'
   contact: { x: 1524, y: 411 },
   blog:    { x: 1624, y: 429 },
   resume:  { x:  1432, y: 637 },
   skills:  { x:  1119, y: 240 }
 };
 
-export const NAV_ORDER = ['intro','about','work','projects','contact','blog','resume','skills'];
+export const NAV_ORDER = ['intro','about','work','now','contact','blog','resume','skills'];
 
 export const LABEL_OFFSET_PX = {
-  intro: 34, about: 26, work: 24, projects: 22,
+  intro: 34, about: 26, work: 24, now: 22,
   contact: 24, blog: 26, resume: 20, skills: 24
 };
 
 // ━━━ Label Animation Speeds ━━━
 export const LABEL_SPEEDS = { 
-  about: 65, work: 70, projects: 75, contact: 68, 
+  about: 65, work: 70, now: 75, contact: 68, 
   blog: 72, resume: 66, skills: 74
 };
 export const DEFAULT_SPEED = 68; // fallback if label not in LABEL_SPEEDS

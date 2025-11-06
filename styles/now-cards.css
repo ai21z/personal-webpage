@@ -1,0 +1,428 @@
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   NOW — CULTIVATING CARDS
+   Four flippable project cards with FLIP animation and a11y
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+/* ━━━ Design Tokens ━━━ */
+:root {
+  --now-slab-bg: #0B0D0E;
+  --now-slab-glow: #19CBB3;
+  --now-slab-radius: 18px;
+  --now-slab-shadow: 0 8px 28px rgba(0, 0, 0, 0.85);
+  --status-fire: #FF6B35;
+  --status-brew: #19CBB3;
+  --status-sprout: #4A5D4A;
+  --logo-max: 96px;
+}
+
+@media (max-width: 768px) {
+  :root {
+    --logo-max: 72px;
+  }
+}
+
+/* ━━━ Filter Chips ━━━ */
+.now-filters {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 40px;
+  max-width: 600px;
+  padding: 0 20px;
+  z-index: 20;
+  position: relative;
+}
+
+.now-filter-chip {
+  padding: 8px 20px;
+  background: rgba(25, 203, 179, 0.08);
+  border: 1px solid rgba(25, 203, 179, 0.2);
+  border-radius: 24px;
+  color: rgba(230, 227, 216, 0.7);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: all 180ms ease;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.now-filter-chip:hover,
+.now-filter-chip:focus {
+  background: rgba(25, 203, 179, 0.15);
+  border-color: rgba(25, 203, 179, 0.4);
+  color: rgba(230, 227, 216, 0.9);
+}
+
+.now-filter-chip:focus-visible {
+  outline: 2px solid var(--now-slab-glow);
+  outline-offset: 2px;
+}
+
+.now-filter-chip[aria-selected="true"] {
+  background: rgba(25, 203, 179, 0.2);
+  border-color: var(--now-slab-glow);
+  color: #E6E3D8;
+}
+
+/* ━━━ Card Grid ━━━ */
+.now-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 32px;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px 60px;
+  z-index: 10;
+  position: relative;
+}
+
+@media (min-width: 769px) {
+  .now-card-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .now-card-grid {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+}
+
+/* ━━━ Card Container (3D perspective) ━━━ */
+.now-card {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1.4 / 1;
+  perspective: 1000px;
+  transition: opacity 300ms ease, filter 300ms ease;
+}
+
+.now-card[data-hidden="true"] {
+  display: none;
+}
+
+.now-card.dimmed {
+  opacity: 0.3;
+  filter: blur(2px);
+  pointer-events: none;
+}
+
+/* Card inner (flips) - JS controls transform */
+.now-card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transform-origin: center;
+}
+
+/* ━━━ Card Face Shared Styles ━━━ */
+.now-card-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  border-radius: var(--now-slab-radius);
+  background: #0B0D0E;
+  box-shadow: var(--now-slab-shadow),
+              0 0 0 1px rgba(25, 203, 179, 0.1);
+}
+
+/* ━━━ Front Face (interactive button) - LOGO ONLY ━━━ */
+.now-card-front {
+  display: grid;
+  place-items: center;
+  padding: clamp(24px, 4vw, 56px);
+  cursor: pointer;
+  border: 2px solid rgba(25, 203, 179, 0.15);
+  transition: all 250ms ease;
+}
+
+.now-card-front:hover,
+.now-card-front:focus {
+  border-color: rgba(25, 203, 179, 0.4);
+  box-shadow: 
+    var(--now-slab-shadow),
+    0 0 32px rgba(25, 203, 179, 0.15);
+}
+
+.now-card-front:focus-visible {
+  outline: 3px solid var(--now-slab-glow);
+  outline-offset: 4px;
+}
+
+.now-card-front:active {
+  transform: scale(0.98);
+}
+
+/* Logo - Default sizing */
+.now-card-logo {
+  width: clamp(220px, 42%, 420px);
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.45));
+}
+
+/* True Rolls - Bigger for visual balance */
+.now-card[data-id="truerolls"] .now-card-front {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.now-card[data-id="truerolls"] .now-card-logo {
+  width: clamp(300px, 65%, 600px);
+  margin: 0 auto;
+}
+
+/* TMT - Full bleed background (logo set via JS) */
+.now-card[data-id="tmt"] .now-card-front {
+  padding: clamp(24px, 5vw, 48px);
+  background-size: 85%;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* Status Pill */
+.now-card-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+.now-card-status.high {
+  background: rgba(255, 107, 53, 0.15);
+  color: var(--status-fire);
+  border: 1px solid rgba(255, 107, 53, 0.3);
+}
+
+.now-card-status.brewing {
+  background: rgba(25, 203, 179, 0.15);
+  color: var(--status-brew);
+  border: 1px solid rgba(25, 203, 179, 0.3);
+}
+
+.now-card-status.growing {
+  background: rgba(74, 93, 74, 0.25);
+  color: #8FB88F;
+  border: 1px solid rgba(74, 93, 74, 0.5);
+}
+
+/* Tags */
+.now-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.now-card-tag {
+  font-size: 11px;
+  padding: 3px 8px;
+  background: rgba(230, 227, 216, 0.08);
+  border-radius: 6px;
+  color: rgba(230, 227, 216, 0.6);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.02em;
+}
+
+/* ━━━ Back Face (dialog content) ━━━ */
+.now-card-back {
+  transform: rotateY(180deg);
+  display: flex;
+  flex-direction: column;
+  padding: 40px 36px;
+  border: 2px solid rgba(25, 203, 179, 0.4);
+  overflow-y: auto;
+  position: relative;
+  box-shadow: 
+    var(--now-slab-shadow),
+    0 0 0 1px rgba(25, 203, 179, 0.15),
+    0 0 60px rgba(25, 203, 179, 0.2);
+}
+
+/* Meta row (status + line) */
+.now-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+/* One-liner on back */
+.now-card-line {
+  font-size: 14px;
+  font-weight: 400;
+  color: rgba(230, 227, 216, 0.75);
+  margin: 0;
+  letter-spacing: 0.01em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-style: italic;
+}
+
+/* Title */
+.now-card-title {
+  font-size: clamp(18px, 3vw, 22px);
+  font-weight: 600;
+  color: #E6E3D8;
+  margin: 0 0 16px 0;
+  letter-spacing: -0.01em;
+}
+
+/* Bullets */
+.now-card-bullets {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 20px 0;
+}
+
+.now-card-bullets li {
+  position: relative;
+  padding-left: 20px;
+  margin-bottom: 12px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: rgba(230, 227, 216, 0.85);
+}
+
+.now-card-bullets li::before {
+  content: '→';
+  position: absolute;
+  left: 0;
+  color: var(--now-slab-glow);
+}
+
+/* Links (CTAs) */
+.now-card-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: auto;
+}
+
+.now-card-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 16px;
+  background: rgba(25, 203, 179, 0.12);
+  border: 1px solid rgba(25, 203, 179, 0.3);
+  border-radius: 8px;
+  color: var(--now-slab-glow);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: all 180ms ease;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.now-card-link:hover,
+.now-card-link:focus {
+  background: rgba(25, 203, 179, 0.2);
+  border-color: var(--now-slab-glow);
+  color: #7AF2E4;
+}
+
+.now-card-link:focus-visible {
+  outline: 2px solid var(--now-slab-glow);
+  outline-offset: 2px;
+}
+
+/* ━━━ Active Card (centered & magnified) ━━━ */
+.now-card.active {
+  /* Position, transform, and scale set dynamically via FLIP */
+  z-index: 50 !important;
+}
+
+/* Disable front face interaction when flipped */
+.now-card.flipped .now-card-front {
+  pointer-events: none;
+}
+
+/* ━━━ Reduced Motion ━━━ */
+@media (prefers-reduced-motion: reduce) {
+  .now-card,
+  .now-card-inner {
+    transition: opacity 300ms ease !important;
+  }
+  
+  /* Fade swap instead of flip/scale */
+  .now-card.flipped .now-card-front {
+    opacity: 0;
+    pointer-events: none;
+  }
+  
+  .now-card.flipped .now-card-back {
+    transform: none;
+    opacity: 1;
+  }
+  
+  .now-card-back {
+    opacity: 0;
+    transform: none;
+  }
+  
+  .now-card-front:active {
+    transform: none;
+  }
+}
+
+/* ━━━ Mobile Adjustments ━━━ */
+@media (max-width: 768px) {
+  .now-filters {
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 30px;
+  }
+  
+  .now-filter-chip {
+    padding: 6px 14px;
+    font-size: 13px;
+  }
+  
+  .now-card-front {
+    padding: 24px 20px;
+  }
+  
+  .now-card-logo {
+    max-height: 72px;
+  }
+  
+  .now-card-back {
+    padding: 28px 24px;
+  }
+  
+  .now-card-title {
+    font-size: 18px;
+  }
+  
+  .now-card-bullets li {
+    font-size: 13px;
+  }
+  
+  .now-card-line {
+    font-size: 13px;
+  }
+  
+  /* Ensure dialog fits on small screens */
+  .now-card.active {
+    max-height: 90vh !important;
+  }
+}
+
+/* ━━━ Focus Trap Helper ━━━ */
+.now-card-back[aria-hidden="true"] {
+  visibility: hidden;
+}
+
+.now-card-back[aria-hidden="false"] {
+  visibility: visible;
+}

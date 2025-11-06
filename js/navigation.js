@@ -109,8 +109,8 @@ export function showSection(sectionName, startRitualBackground, stopRitualBackgr
   document.documentElement.style.overflow = isPanel ? 'hidden' : '';
   document.body.style.overflow = isPanel ? 'hidden' : '';
   
-  // Toggle nav suppression for panel screens OR projects page
-  const shouldSuppressNav = isPanel || sectionName === 'projects';
+  // Toggle nav suppression for panel screens only (Now section should show nav like About/Skills/Work)
+  const shouldSuppressNav = isPanel;
   document.body.classList.toggle('nav-suppressed', shouldSuppressNav);
   if (isPanel) {
     startRitualBackground();
@@ -138,8 +138,21 @@ export function createNavLabel(id) {
   label.className = 'network-node-label';
   const anchorId = id === 'intro' ? 'main' : id;
   label.href = `#${anchorId}`;
-  label.innerHTML = `<span class="node-label">${id}</span>`;
-  label.setAttribute('aria-label', `Navigate to ${id}`);
+  
+  // Display name mapping
+  const displayNames = {
+    'now': 'Cultivating',
+    'about': 'about',
+    'work': 'work',
+    'contact': 'contact',
+    'blog': 'blog',
+    'resume': 'resume',
+    'skills': 'skills'
+  };
+  const displayText = displayNames[id] || id;
+  
+  label.innerHTML = `<span class="node-label">${displayText}</span>`;
+  label.setAttribute('aria-label', `Navigate to ${displayText}`);
   return label;
 }
 

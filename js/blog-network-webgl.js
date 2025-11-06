@@ -1292,7 +1292,7 @@ async function initBlogNetwork(){
     set2(progSeg,'uShift', shift[0], shift[1]);
     set2(progSeg,'uRes', fit.cssW, fit.cssH);
     gl.uniform1f(gl.getUniformLocation(progSeg,'uTime'), now*0.001);
-    gl.uniform1f(gl.getUniformLocation(progSeg,'uDpr'), DPR);
+    gl.uniform1f(gl.getUniformLocation(progSeg,'uDpr'), currentDPR());
     // Petri dish clipping handled by updateDishUniforms() (already set)
     // Set all branch colors
     set3(progSeg,'uBranch1', PAL.BRANCH1);
@@ -1367,7 +1367,7 @@ async function initBlogNetwork(){
       set2(progNode,'uShift', shift[0], shift[1]);
       set2(progNode,'uRes', fit.cssW, fit.cssH);
       gl.uniform1f(gl.getUniformLocation(progNode,'uTime'), now*0.001);
-      gl.uniform1f(gl.getUniformLocation(progNode,'uDpr'), DPR);
+      gl.uniform1f(gl.getUniformLocation(progNode,'uDpr'), currentDPR());
       set3(progNode,'uMossDark', PAL.MOSS_DARK);
       set3(progNode,'uMossLight', PAL.MOSS_LIGHT);
       set3(progNode,'uDotBranch', PAL.NECROTIC);
@@ -1384,7 +1384,7 @@ async function initBlogNetwork(){
     set2(progCyst,'uShift', shift[0], shift[1]);
     set2(progCyst,'uRes', fit.cssW, fit.cssH);
     gl.uniform1f(gl.getUniformLocation(progCyst,'uTime'), now*0.001);
-    gl.uniform1f(gl.getUniformLocation(progCyst,'uDpr'), DPR);
+    gl.uniform1f(gl.getUniformLocation(progCyst,'uDpr'), currentDPR());
     set3(progCyst,'uGlow1', PAL.GLOW1);
     set3(progCyst,'uGlow2', PAL.GLOW2);
     set3(progCyst,'uGlow3', PAL.GLOW3);
@@ -1403,7 +1403,7 @@ async function initBlogNetwork(){
         set2(progCyst,'uOffset', fit.offX, fit.offY);
         set2(progCyst,'uShift', shift[0], shift[1]);
         gl.uniform1f(gl.getUniformLocation(progCyst,'uTime'), now*0.001);
-        gl.uniform1f(gl.getUniformLocation(progCyst,'uDpr'), DPR);
+        gl.uniform1f(gl.getUniformLocation(progCyst,'uDpr'), currentDPR());
         // Petri dish clipping handled by updateDishUniforms() (already set)
         set3(progCyst,'uGlow1', PAL.EMBER1);
         set3(progCyst,'uGlow2', PAL.EMBER2);

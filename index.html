@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Vissarion Zounarakis</title>
-  <meta name="description" content="Vissarion Zounarakis — Barcelona-based software engineer from Greece" />
+  <meta name="description" content="Vissarion Zounarakis - Barcelona-based software engineer from Greece" />
   <meta name="theme-color" content="#0B0B0C" />
   
   <!-- Open Graph -->
@@ -373,24 +373,31 @@
     </div>
   </section>
 
-  <!-- SECTION: PROJECTS (Ritual Wheel) -->
-  <section id="projects" class="stage rw-projects-stage" data-section="projects" aria-label="Projects" tabindex="-1">
-    <button class="rw-close" data-action="go-intro" aria-label="Close and return to intro">×</button>
+  <!-- SECTION: NOW — CULTIVATING -->
+  <section id="now" class="stage now-stage panel-screen" data-section="now" aria-label="Now — Cultivating" tabindex="-1">
+    <button class="now-close" data-action="go-intro" aria-label="Close and return to intro">×</button>
     
-    <div class="rw-wheel-chamber">
-      <!-- Card Constellation -->
-      <div class="rw-card-constellation">
-        <!-- MTG-style cards populated by JS -->
-      </div>
-      
-      <!-- Atmospheric Fog Layers -->
-      <div class="rw-fog-layers">
-        <div class="rw-fog-lower"></div>
-        <div class="rw-fog-upper"></div>
-      </div>
+    <!-- Hero Header -->
+    <div class="now-header" aria-hidden="true">
+      <h2 class="now-title">I'm a Software Engineer.</h2>
+      <p class="now-subtitle">Here's what I'm cultivating right now.</p>
     </div>
     
-    <!-- Parchment Detail Panel (populated by JS) -->
+    <!-- Filter Chips -->
+    <div class="now-filters" role="tablist" aria-label="Filter projects">
+      <button class="now-filter-chip" role="tab" data-filter="all" aria-selected="false" aria-controls="now-card-grid">All</button>
+      <button class="now-filter-chip" role="tab" data-filter="engineering" aria-selected="true" aria-controls="now-card-grid">Engineering-only</button>
+      <button class="now-filter-chip" role="tab" data-filter="art" aria-selected="false" aria-controls="now-card-grid">Art & Music</button>
+    </div>
+    
+    <!-- Card Grid (populated by JS) -->
+    <div id="now-card-grid" class="now-card-grid" role="tabpanel"></div>
+    
+    <!-- Atmospheric Layers (reuse fog aesthetic) -->
+    <div class="now-fog-layers" aria-hidden="true">
+      <div class="now-fog-lower"></div>
+      <div class="now-fog-upper"></div>
+    </div>
   </section>
 
   <!-- SECTION: BLOG (Mycelium Network - Petri Dish) -->

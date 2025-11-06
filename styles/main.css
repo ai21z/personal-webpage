@@ -27,8 +27,9 @@
 /* 8. Ritual Altar System */
 @import 'altar.css';
 
-/* 9. Projects Ritual Wheel */
-@import 'projects-wheel.css';
+/* 9. Now - Cultivating */
+@import 'now-cultivating.css';
+@import 'now-cards.css';
 
 /* 10. Mycelial Globe Work Section */
 @import 'work.css';

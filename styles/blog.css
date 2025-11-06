@@ -293,6 +293,11 @@
 
 /* Zoom Indicator (read-only display) */
 .zoom-indicator {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -307,6 +312,7 @@
   pointer-events: none;
   user-select: none;
   transition: opacity 200ms ease;
+  backdrop-filter: blur(8px);
 }
 
 #zoom-percent {

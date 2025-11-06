@@ -1,0 +1,233 @@
+/**
+ * Now — Cultivating
+ * Styling for the living "Now" page
+ * 
+ * Step 1: Header + minimal structure
+ * Step 2: Flippable cards (deferred)
+ */
+
+/* ━━━ Stage Container ━━━ */
+
+.now-stage {
+  position: fixed;
+  inset: 0;
+  z-index: 9; /* Same as altar-screen - below canvases (z:3,4) so spores/lightning visible */
+  background:
+    radial-gradient(ellipse 120% 120% at 85% 10%, rgba(45,212,175,0.04) 0%, transparent 50%),
+    radial-gradient(ellipse 120% 120% at 10% 90%, rgba(255,122,51,0.03) 0%, transparent 50%),
+    rgba(8,9,10,0.95); /* Increased opacity to prevent bleed-through */
+  overflow-y: auto;
+  overflow-x: hidden;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 40px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 280ms ease;
+}
+
+.now-stage.active-section {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ━━━ Close Button ━━━ */
+
+.now-close {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 100;
+  width: 48px;
+  height: 48px;
+  background: rgba(11, 11, 12, 0.7);
+  border: 1px solid rgba(45, 212, 175, 0.3);
+  border-radius: 50%;
+  color: rgba(45, 212, 175, 0.9);
+  font-size: 28px;
+  line-height: 1;
+  cursor: var(--cursor-spore, pointer);
+  transition: all 180ms ease;
+  backdrop-filter: blur(8px);
+}
+
+.now-close:hover {
+  background: rgba(11, 11, 12, 0.9);
+  border-color: rgba(45, 212, 175, 0.7);
+  transform: scale(1.08);
+  box-shadow: 0 0 20px rgba(45, 212, 175, 0.4);
+}
+
+.now-close:focus-visible {
+  outline: 2px dashed rgba(45, 212, 175, 0.8);
+  outline-offset: 4px;
+}
+
+/* ━━━ Hero Header ━━━ */
+
+.now-header {
+  text-align: center;
+  margin-bottom: 20px;
+  z-index: 20;
+  animation: fade-in-up 600ms ease-out 200ms both;
+  width: 100%;
+  max-width: 1200px;
+  padding: 0 20px;
+}
+
+.now-title {
+  font-size: clamp(32px, 5vw, 48px);
+  font-weight: 300;
+  color: #E6E3D8;
+  margin: 0 0 12px 0;
+  letter-spacing: -0.01em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.now-subtitle {
+  font-size: clamp(16px, 2.5vw, 22px);
+  font-weight: 400;
+  color: #2FE0C9;
+  margin: 0 0 16px 0;
+  letter-spacing: 0.01em;
+  opacity: 0.85;
+}
+
+.now-subtitle a {
+  color: #2FE0C9;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 180ms ease;
+}
+
+.now-subtitle a:hover {
+  color: #7AF2E4;
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ━━━ Card Chamber ━━━ */
+
+.now-chamber {
+  position: relative;
+  width: 90vw;
+  max-width: 1200px;
+  height: 60vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 15;
+}
+
+.now-card-constellation {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Placeholder for future cards */
+.now-card-constellation::after {
+  content: 'Cards coming in Step 2...';
+  font-size: 14px;
+  color: rgba(230, 227, 216, 0.3);
+  font-style: italic;
+}
+
+/* ━━━ Atmospheric Fog (reuse from projects-wheel) ━━━ */
+
+.now-fog-layers {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+  opacity: 0.6;
+}
+
+.now-fog-lower,
+.now-fog-upper {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse 80% 60% at 50% 50%,
+    rgba(11, 11, 12, 0) 0%,
+    rgba(11, 11, 12, 0.3) 60%,
+    rgba(11, 11, 12, 0.7) 100%
+  );
+}
+
+.now-fog-upper {
+  background: radial-gradient(
+    ellipse 60% 50% at 50% 30%,
+    rgba(45, 212, 175, 0.03) 0%,
+    transparent 70%
+  );
+  animation: fog-drift 20s ease-in-out infinite;
+}
+
+@keyframes fog-drift {
+  0%, 100% { transform: translateX(-2%) translateY(0); }
+  50% { transform: translateX(2%) translateY(-3%); }
+}
+
+/* ━━━ Reduced Motion ━━━ */
+
+@media (prefers-reduced-motion: reduce) {
+  .now-header {
+    animation: none;
+    opacity: 1;
+  }
+  
+  .now-fog-upper {
+    animation: none;
+  }
+  
+  .now-close:hover {
+    transform: none;
+  }
+}
+
+/* ━━━ Responsive ━━━ */
+
+@media (max-width: 768px) {
+  .now-stage {
+    padding-top: 60px;
+  }
+  
+  .now-header {
+    margin-bottom: 30px;
+  }
+  
+  .now-title {
+    font-size: clamp(28px, 6vw, 36px);
+  }
+  
+  .now-subtitle {
+    font-size: clamp(14px, 3vw, 18px);
+  }
+  
+  .now-chamber {
+    height: 50vh;
+  }
+  
+  .now-close {
+    top: 16px;
+    right: 16px;
+    width: 42px;
+    height: 42px;
+    font-size: 24px;
+  }
+}

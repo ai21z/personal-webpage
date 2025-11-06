@@ -10,7 +10,7 @@
 // ━━━ Module Imports ━━━
 import { sizeCanvas, cumulativeLengths, pointAt, approach } from './utils.js';
 import { buildGraphFromPaths, aStarPath } from './graph.js';
-import { initProjectsWheel } from './projects-wheel.js';
+import { initNow, destroyNow } from './now-cultivating.js';
 import { initWorkGlobe, cleanupWorkGlobe } from './work-globe-webgl.js';
 import socialIconsAnimation from './social-icons-animation.js';
 // Blog network now uses WebGL version loaded directly in HTML
@@ -1335,7 +1335,7 @@ document.addEventListener('click', (e) => {
 // ━━━ About: Paper focus (zoom to center + backdrop dim) ━━━
 initAboutPaperFocus();
 initSkillsPaperFocus();
-initProjectsWheel();
+initNow();
 initWorkGlobe();
 // Resume spirals disabled for now
 // TODO: Re-enable later by uncommenting: initResumeSpirals();
