@@ -42,44 +42,43 @@ const NOW_STREAMS = [
   {
     id: 'adp',
     logo: LOGO('ADP-noBG.png'),
-    title: 'ADP — Building at Scale',
-    line: 'Backend engineer on HCM SaaS platform',
+    title: 'ADP — Senior Software Engineer',
+    line: 'Backend architecture for HCM SaaS at scale',
     status: 'high',
-    tags: [],
+    tags: [], // No tech stack pills for ADP
     bullets: [
-      'Shipping reliable APIs for critical HR systems',
-      'Meeting SLAs on a large-scale platform',
-      'Steady releases, calm engineering'
+      'Large-scale platform, steady SLAs',
+      'Technical leadership & mentoring'
     ],
-    links: [{ label: 'Work page', href: '#work' }],
+    links: [{ label: 'Work history', href: '#work' }],
     category: 'engineering'
   },
   {
     id: 'loqj',
     logo: LOGO('LOQJ-noBG.png'),
     title: 'LOQ-J — Local-First RAG',
-    line: 'Java + Lucene + local models',
+    line: 'Semantic search, zero cloud, pure Java',
     status: 'brewing',
-    tags: ['Java', 'Lucene', 'CLI'],
+    tags: ['Java', 'Lucene', 'Ollama'],
     bullets: [
-      'Lucene 10 + embeddings',
-      'Reproducible local workflows'
+      'Lucene 10 vectors + BM25 hybrid',
+      'Local LLM, reproducible workflows'
     ],
-    links: [{ label: 'Docs', href: '#' }],
+    links: [{ label: 'Documentation', href: '#' }],
     category: 'engineering'
   },
   {
     id: 'truerolls',
     logo: LOGO('TRUE-ROLLS-noBG.png'),
     title: 'True Rolls — Verifiable Dice',
-    line: 'Cryptographic receipts for fairness',
+    line: 'Cryptographic fairness for tabletop',
     status: 'brewing',
-    tags: ['HKDF', 'ChaCha20', 'Receipts'],
+    tags: ['HKDF', 'ChaCha20', 'Cryptography'],
     bullets: [
-      'Verifiable RNG receipts (check any roll)',
-      'Instant dispute resolution'
+      'Signed receipts, instant verification',
+      'ChaCha20 RNG with replay proofs'
     ],
-    links: [{ label: 'Demo', href: '#' }],
+    links: [{ label: 'Try demo', href: '#' }],
     category: 'engineering'
   },
   {
@@ -88,13 +87,14 @@ const NOW_STREAMS = [
     title: "The Murderer's Thumb",
     line: 'Dark cinematic metal in production',
     status: 'growing',
-    tags: ['Guitar', 'Piano', 'DAW'],
+    tags: ['Guitar', 'Piano', 'Production'],
     bullets: [
-      'Two tracks in recording/mix',
-      'Cinematic horror/synthmetal aesthetic'
+      'Two songs: horror/synthmetal',
+      'Composing, performing, producing'
     ],
-    links: [{ label: 'Listen (soon)', href: '#' }],
-    category: 'art'
+    links: [{ label: 'Listen soon', href: '#' }],
+    category: 'art',
+    hidden: true // Hidden until songs are ready
   }
 ];
 
@@ -186,10 +186,24 @@ function renderCards() {
   cards = [];
   
   NOW_STREAMS.forEach((stream, index) => {
+    // Skip hidden cards
+    if (stream.hidden) return;
+    
     const card = createCard(stream, index);
     grid.appendChild(card);
     cards.push(card);
   });
+  
+  // Add "Coming soon..." message if Art & Music filter is empty
+  const artCards = NOW_STREAMS.filter(s => s.category === 'art' && !s.hidden);
+  if (artCards.length === 0) {
+    const comingSoon = document.createElement('div');
+    comingSoon.className = 'now-coming-soon';
+    comingSoon.id = 'art-coming-soon';
+    comingSoon.setAttribute('data-category', 'art');
+    comingSoon.innerHTML = '<p>Coming soon...</p>';
+    grid.appendChild(comingSoon);
+  }
 }
 
 // ━━━ Create Card Element ━━━
@@ -315,6 +329,19 @@ function createCard(stream, index) {
       links.appendChild(a);
     });
     back.appendChild(links);
+  }
+  
+  // Seal (for personal projects: LOQ-J and True Rolls)
+  if (stream.id === 'loqj' || stream.id === 'truerolls') {
+    const seal = document.createElement('div');
+    seal.className = 'now-card-seal';
+    seal.setAttribute('aria-hidden', 'true');
+    const sealImg = document.createElement('img');
+    sealImg.src = '/artifacts/sigil/no-bg-seal-sigil.png';
+    sealImg.alt = '';
+    sealImg.className = 'now-card-seal-img';
+    seal.appendChild(sealImg);
+    back.appendChild(seal);
   }
   
   // Assemble
@@ -567,6 +594,16 @@ function applyFilter(filter) {
       card.dataset.hidden = 'true';
     }
   });
+  
+  // Show/hide "Coming soon..." message
+  const comingSoon = document.getElementById('art-coming-soon');
+  if (comingSoon) {
+    if (filter === 'art' || filter === 'all') {
+      comingSoon.dataset.hidden = 'false';
+    } else {
+      comingSoon.dataset.hidden = 'true';
+    }
+  }
   
   // Update roving tabindex for visible cards
   updateTabIndex();

@@ -1,368 +1,354 @@
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   NOTEBOOK CONTACT FORM — NECROGRAPHIC AESTHETIC
-   Aged notebook page with living mycelium network animation
+   Secure Contact Flow Controller
+   Handles validation, Turnstile gating, UX messaging, submission
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const SUBJECT_LIMIT = { min: 5, max: 60 };
+const MESSAGE_LIMIT = { min: 10, max: 350 };
+const NAME_LIMIT = { min: 2, max: 80 };
 
 class NotebookContact {
   constructor() {
-    this.canvas = null;
-    this.ctx = null;
-    this.animationFrame = null;
-    this.moldSpots = [];
-    this.isVisible = false;
-    this.lastFrame = 0;
-    this.FPS = 20; // Subtle, slow animation
-    this.frameInterval = 1000 / this.FPS;
+    this.form = null;
+    this.inputs = {};
+    this.statusEl = null;
+    this.charCountEl = null;
+    this.submitBtn = null;
+    this.submitLabel = null;
+    this.turnstileContainer = null;
+    this.turnstileWidgetId = null;
+    this.turnstileToken = '';
+    this.turnstileRequired = true;
+    this.turnstileAvailable = true;
+    this.isSubmitting = false;
+    this.submitListener = (event) => this.handleSubmit(event);
   }
 
   init() {
-    this.canvas = document.getElementById('notebook-mycelium');
-    if (!this.canvas) return;
+    this.form = document.getElementById('contact-form');
+    if (!this.form) return;
 
-    // Canvas disabled - using only static CSS coffee stains
-    // this.ctx = this.canvas.getContext('2d');
-    // this.setupCanvas();
-    // this.generateMoldNetwork();
-    this.setupValidation();
-    // this.setupAnimations();
-    // this.startAnimation();
+    this.inputs.name = this.form.querySelector('#name');
+    this.inputs.email = this.form.querySelector('#email');
+    this.inputs.subject = this.form.querySelector('#subject');
+    this.inputs.message = this.form.querySelector('#message');
+    this.inputs.honeypot = this.form.querySelector('#nickname');
+    this.statusEl = this.form.querySelector('[data-status]');
+    this.charCountEl = this.form.querySelector('.char-count');
+    this.submitBtn = this.form.querySelector('[data-submit]');
+    this.submitLabel = this.form.querySelector('[data-submit-label]');
+    this.turnstileContainer = this.form.querySelector('[data-turnstile]');
+    this.turnstileRequired = Boolean(this.turnstileContainer && this.turnstileContainer.dataset.sitekey);
 
-    // Resize handler removed since canvas is disabled
-  }
+    this.wireFieldValidation();
+    this.updateCharCount();
 
-  setupCanvas() {
-    const rect = this.canvas.parentElement.getBoundingClientRect();
-    this.canvas.width = rect.width;
-    this.canvas.height = rect.height;
-  }
+    this.form.addEventListener('submit', this.submitListener);
 
-  generateMoldNetwork() {
-    const w = this.canvas.width;
-    const h = this.canvas.height;
-    const spotCount = 12 + Math.floor(Math.random() * 7); // 12-18 spots
-    const minDistance = 180; // Minimum distance between spots
+    this.updateSubmitState();
 
-    this.moldSpots = [];
-
-    for (let i = 0; i < spotCount; i++) {
-      let attempts = 0;
-      let spot = null;
-
-      // Try to find a valid position
-      while (attempts < 30) {
-        const x = Math.random() * w;
-        const y = Math.random() * h;
-        const radius = 8 + Math.random() * 16; // 8-24px radius
-        const pulseSpeed = 0.5 + Math.random() * 1.5;
-        const pulsePhase = Math.random() * Math.PI * 2;
-        
-        // Irregular shape parameters for coffee stain effect
-        const radiusX = radius * (0.7 + Math.random() * 0.6); // Elliptical
-        const radiusY = radius * (0.7 + Math.random() * 0.6);
-        const rotation = Math.random() * Math.PI;
-        const irregularity = 0.2 + Math.random() * 0.3; // How "blobby" it is
-
-        // Check distance from other spots
-        let valid = true;
-        for (const existing of this.moldSpots) {
-          const dist = Math.hypot(x - existing.x, y - existing.y);
-          if (dist < minDistance) {
-            valid = false;
-            break;
-          }
-        }
-
-        if (valid) {
-          spot = { x, y, radius, radiusX, radiusY, rotation, irregularity, pulseSpeed, pulsePhase };
-          break;
-        }
-        attempts++;
-      }
-
-      if (spot) {
-        this.moldSpots.push(spot);
-      }
-    }
-
-    // Generate connections between nearby spots
-    for (const spot of this.moldSpots) {
-      spot.connections = [];
-      for (const other of this.moldSpots) {
-        if (spot === other) continue;
-        const dist = Math.hypot(spot.x - other.x, spot.y - other.y);
-        if (dist < minDistance) {
-          spot.connections.push(other);
-        }
-      }
-    }
-  }
-
-  drawMoldNetwork(timestamp) {
-    const ctx = this.ctx;
-    ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-
-    const time = timestamp * 0.001; // Convert to seconds
-
-    // Draw mycelium connections first (behind spots)
-    ctx.strokeStyle = 'rgba(139, 125, 107, 0.3)';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([2, 3]);
-
-    for (const spot of this.moldSpots) {
-      for (const other of spot.connections) {
-        // Subtle growth animation
-        const growthPhase = (time * 0.2 + spot.pulsePhase) % 1;
-        ctx.globalAlpha = 0.2 + growthPhase * 0.3;
-
-        ctx.beginPath();
-        ctx.moveTo(spot.x, spot.y);
-
-        // Slightly curved path
-        const midX = (spot.x + other.x) / 2 + (Math.sin(time * 0.5 + spot.pulsePhase) * 5);
-        const midY = (spot.y + other.y) / 2 + (Math.cos(time * 0.5 + spot.pulsePhase) * 5);
-        ctx.quadraticCurveTo(midX, midY, other.x, other.y);
-
-        ctx.stroke();
-      }
-    }
-
-    ctx.setLineDash([]);
-    ctx.globalAlpha = 1;
-
-    // Draw mold spots with pulsing effect - irregular coffee stain shapes
-    for (const spot of this.moldSpots) {
-      const pulse = Math.sin(time * spot.pulseSpeed + spot.pulsePhase) * 0.5 + 0.5;
-      const currentRadiusX = spot.radiusX * (0.85 + pulse * 0.15);
-      const currentRadiusY = spot.radiusY * (0.85 + pulse * 0.15);
-      const opacity = 0.15 + pulse * 0.1;
-
-      ctx.save();
-      ctx.translate(spot.x, spot.y);
-      ctx.rotate(spot.rotation);
-
-      // Draw irregular coffee stain using multiple overlapping ellipses
-      const blobCount = 3 + Math.floor(spot.irregularity * 5); // 3-5 blobs
-      for (let i = 0; i < blobCount; i++) {
-        const angle = (Math.PI * 2 * i) / blobCount + time * 0.1;
-        const offsetX = Math.cos(angle) * currentRadiusX * spot.irregularity;
-        const offsetY = Math.sin(angle) * currentRadiusY * spot.irregularity;
-        const blobRadiusX = currentRadiusX * (0.6 + Math.random() * 0.4);
-        const blobRadiusY = currentRadiusY * (0.6 + Math.random() * 0.4);
-
-        // Outer glow for coffee stain effect
-        const gradient = ctx.createRadialGradient(
-          offsetX, offsetY, 0,
-          offsetX, offsetY, Math.max(blobRadiusX, blobRadiusY) * 1.5
-        );
-        gradient.addColorStop(0, `rgba(101, 67, 33, ${opacity * 0.9})`);
-        gradient.addColorStop(0.4, `rgba(101, 67, 33, ${opacity * 0.5})`);
-        gradient.addColorStop(0.7, `rgba(139, 125, 107, ${opacity * 0.3})`);
-        gradient.addColorStop(1, 'rgba(139, 125, 107, 0)');
-
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.ellipse(offsetX, offsetY, blobRadiusX * 1.5, blobRadiusY * 1.5, 0, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      // Core stain with irregular edges
-      ctx.fillStyle = `rgba(101, 67, 33, ${opacity + 0.15})`;
-      ctx.beginPath();
-      
-      // Create irregular blob shape
-      const points = 8 + Math.floor(spot.irregularity * 8);
-      for (let i = 0; i <= points; i++) {
-        const angle = (Math.PI * 2 * i) / points;
-        const randomness = 0.7 + Math.random() * 0.6; // Irregular edge
-        const rx = currentRadiusX * randomness;
-        const ry = currentRadiusY * randomness;
-        const x = Math.cos(angle) * rx;
-        const y = Math.sin(angle) * ry;
-        
-        if (i === 0) {
-          ctx.moveTo(x, y);
-        } else {
-          ctx.lineTo(x, y);
-        }
-      }
-      ctx.closePath();
-      ctx.fill();
-
-      // Add some darker speckles within the stain for realism
-      if (Math.random() < 0.3) {
-        ctx.fillStyle = `rgba(80, 50, 25, ${opacity * 0.6})`;
-        const speckleX = (Math.random() - 0.5) * currentRadiusX * 0.5;
-        const speckleY = (Math.random() - 0.5) * currentRadiusY * 0.5;
-        ctx.beginPath();
-        ctx.arc(speckleX, speckleY, 2 + Math.random() * 3, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      ctx.restore();
-    }
-  }
-
-  startAnimation() {
-    const animate = (timestamp) => {
-      if (!this.isVisible) {
-        this.animationFrame = requestAnimationFrame(animate);
-        return;
-      }
-
-      // Throttle to target FPS
-      const elapsed = timestamp - this.lastFrame;
-      if (elapsed > this.frameInterval) {
-        this.lastFrame = timestamp - (elapsed % this.frameInterval);
-        this.drawMoldNetwork(timestamp);
-      }
-
-      this.animationFrame = requestAnimationFrame(animate);
-    };
-
-    this.animationFrame = requestAnimationFrame(animate);
-  }
-
-  setupValidation() {
-    const form = document.getElementById('contact-form');
-    const emailInput = document.getElementById('email');
-    const subjectInput = document.getElementById('subject');
-    const messageInput = document.getElementById('message');
-    const submitBtn = document.querySelector('.notebook-submit');
-
-    // Email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-    const validateField = (input, validator, errorMsg) => {
-      const error = input.nextElementSibling;
-      if (validator(input.value)) {
-        input.classList.remove('error');
-        error.textContent = '';
-        return true;
-      } else {
-        input.classList.add('error');
-        error.textContent = errorMsg;
-        return false;
-      }
-    };
-
-    // Character counter for message
-    const charCount = document.querySelector('.char-count');
-    messageInput.addEventListener('input', () => {
-      const len = messageInput.value.length;
-      charCount.textContent = `${len}/350`;
-      if (len > 350) {
-        charCount.style.color = '#8B0000';
-      } else if (len < 10) {
-        charCount.style.color = '#8B7D6B';
-      } else {
-        charCount.style.color = '#5A5040';
-      }
-    });
-
-    // Real-time validation
-    emailInput.addEventListener('blur', () => {
-      if (emailInput.value) {
-        validateField(
-          emailInput,
-          val => emailRegex.test(val),
-          'Please enter a valid email address'
-        );
-      }
-    });
-
-    subjectInput.addEventListener('blur', () => {
-      if (subjectInput.value) {
-        validateField(
-          subjectInput,
-          val => val.length >= 5 && val.length <= 60,
-          'Subject must be 5-60 characters'
-        );
-      }
-    });
-
-    messageInput.addEventListener('blur', () => {
-      if (messageInput.value) {
-        validateField(
-          messageInput,
-          val => val.length >= 10 && val.length <= 350,
-          'Message must be 10-350 characters'
-        );
-      }
-    });
-
-    // Form submission
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-
-      // Validate all fields
-      const isEmailValid = validateField(
-        emailInput,
-        val => emailRegex.test(val),
-        'Please enter a valid email address'
-      );
-
-      const isSubjectValid = validateField(
-        subjectInput,
-        val => val.length >= 5 && val.length <= 60,
-        'Subject must be 5-60 characters'
-      );
-
-      const isMessageValid = validateField(
-        messageInput,
-        val => val.length >= 10 && val.length <= 350,
-        'Message must be 10-350 characters'
-      );
-
-      if (!isEmailValid || !isSubjectValid || !isMessageValid) {
-        return;
-      }
-
-      // Disable submit button
-      submitBtn.disabled = true;
-      submitBtn.textContent = 'Sending...';
-
-      try {
-        // Here you would normally send to your backend
-        // For now, just simulate a delay
-        await new Promise(resolve => setTimeout(resolve, 1500));
-
-        // Success feedback
-        form.innerHTML = `
-          <div class="notebook-success">
-            <p class="notebook-lines">Message sent successfully!</p>
-            <p class="notebook-lines" style="margin-top: 1rem;">I'll get back to you soon.</p>
-          </div>
-        `;
-      } catch (error) {
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Send Message';
-        alert('Failed to send message. Please try again.');
-      }
-    });
-  }
-
-  setupAnimations() {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach(entry => {
-          this.isVisible = entry.isIntersecting;
+    if (this.turnstileRequired) {
+      this.waitForTurnstile()
+        .then(() => this.mountTurnstile())
+        .catch(() => {
+          this.turnstileAvailable = false;
+          this.showStatus('Verification widget failed to load. Please refresh and try again.', 'error');
+          this.updateSubmitState();
         });
-      },
-      { threshold: 0.1 }
-    );
-
-    const contactSection = document.getElementById('contact');
-    if (contactSection) {
-      observer.observe(contactSection);
+    } else {
+      this.turnstileAvailable = false;
+      this.showStatus('Verification widget is not configured. Contact form is disabled.', 'error');
+      this.updateSubmitState();
+      if (this.submitBtn) {
+        this.submitBtn.disabled = true;
+      }
     }
+  }
+
+  wireFieldValidation() {
+    if (!this.form) return;
+
+    const validators = {
+      name: {
+        test: (value) => {
+          const trimmed = value.trim();
+          return trimmed.length >= NAME_LIMIT.min && trimmed.length <= NAME_LIMIT.max;
+        },
+        message: `Name must be ${NAME_LIMIT.min}-${NAME_LIMIT.max} characters`
+      },
+      email: {
+        test: (value) => EMAIL_REGEX.test(value.trim()),
+        message: 'Please enter a valid email address'
+      },
+      subject: {
+        test: (value) => {
+          const trimmed = value.trim();
+          return trimmed.length >= SUBJECT_LIMIT.min && trimmed.length <= SUBJECT_LIMIT.max;
+        },
+        message: `Subject must be ${SUBJECT_LIMIT.min}-${SUBJECT_LIMIT.max} characters`
+      },
+      message: {
+        test: (value) => {
+          const trimmed = value.trim();
+          return trimmed.length >= MESSAGE_LIMIT.min && trimmed.length <= MESSAGE_LIMIT.max;
+        },
+        message: `Message must be ${MESSAGE_LIMIT.min}-${MESSAGE_LIMIT.max} characters`
+      }
+    };
+
+    this.validators = validators;
+
+    const fields = ['name', 'email', 'subject', 'message'];
+    fields.forEach((key) => {
+      const input = this.inputs[key];
+      if (!input) return;
+
+      input.addEventListener('blur', () => this.validateField(key));
+      input.addEventListener('input', () => {
+        if (key === 'message') {
+          this.updateCharCount();
+        }
+        this.validateField(key, { silent: true });
+      });
+    });
+  }
+
+  getErrorNode(input) {
+    const field = input?.closest('.notebook-field');
+    if (!field) return null;
+    return field.querySelector('.validation-msg');
+  }
+
+  validateField(key, options = {}) {
+    const input = this.inputs[key];
+    const rules = this.validators?.[key];
+    if (!input || !rules) return true;
+
+    const value = input.value ?? '';
+    const isValid = rules.test(value);
+    const errorNode = this.getErrorNode(input);
+
+    if (isValid) {
+      input.classList.remove('error');
+      if (errorNode) errorNode.textContent = '';
+    } else if (!options.silent) {
+      input.classList.add('error');
+      if (errorNode) errorNode.textContent = rules.message;
+    }
+
+    return isValid;
+  }
+
+  validateAll() {
+    const fields = ['name', 'email', 'subject', 'message'];
+    const results = fields.map((field) => this.validateField(field));
+    return results.every(Boolean);
+  }
+
+  updateCharCount() {
+    if (!this.charCountEl || !this.inputs.message) return;
+    const length = this.inputs.message.value.length;
+    this.charCountEl.textContent = `${length}/${MESSAGE_LIMIT.max}`;
+    const color = length > MESSAGE_LIMIT.max ? '#8B0000' : length < MESSAGE_LIMIT.min ? '#8B7D6B' : '#5A5040';
+    this.charCountEl.style.color = color;
+  }
+
+  async handleSubmit(event) {
+    event.preventDefault();
+    if (this.isSubmitting) return;
+
+    const valid = this.validateAll();
+    if (!valid) {
+      this.showStatus('Please fix the highlighted fields before sending.', 'error');
+      return;
+    }
+
+    // For execute mode, widget auto-executes but we need to wait for token
+    if (this.turnstileRequired && !this.turnstileToken) {
+      if (window.turnstile && this.turnstileWidgetId) {
+        this.showStatus('Verifying you are human…', 'info');
+        // Wait up to 5 seconds for Turnstile to complete
+        const maxWait = 5000;
+        const startTime = Date.now();
+        while (!this.turnstileToken && (Date.now() - startTime) < maxWait) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        if (!this.turnstileToken) {
+          this.showStatus('Verification timed out. Please refresh and try again.', 'error');
+          return;
+        }
+      } else {
+        this.showStatus('Verification widget unavailable. Please refresh the page.', 'error');
+        return;
+      }
+    }
+
+    const payload = this.buildPayload();
+
+    this.isSubmitting = true;
+    this.setSubmittingState(true);
+    this.showStatus('Sending your message…', 'info');
+
+    try {
+      const response = await fetch('/api/contact', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const result = await this.parseJson(response);
+
+      if (!response.ok || !result?.success) {
+        const message = result?.error || 'Unable to send message right now. Please try again later.';
+        throw new Error(message);
+      }
+
+      this.showStatus('Message sent. I will reply soon.', 'success');
+      this.form.reset();
+      this.updateCharCount();
+      this.resetTurnstile();
+    } catch (error) {
+      this.showStatus(error?.message || 'Something went wrong. Please try again.', 'error');
+      this.resetTurnstile();
+    } finally {
+      this.isSubmitting = false;
+      this.setSubmittingState(false);
+      this.updateSubmitState();
+    }
+  }
+
+  buildPayload() {
+    const scrubLine = (value) => value.replace(/[\r\n]+/g, ' ').replace(/[\u0000-\u001F\u007F]+/g, '').trim();
+    const scrubMessage = (value) => value.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]+/g, '').trim();
+
+    return {
+      name: scrubLine(this.inputs.name?.value || ''),
+      email: this.inputs.email?.value.trim() || '',
+      subject: scrubLine(this.inputs.subject?.value || ''),
+      message: scrubMessage(this.inputs.message?.value || ''),
+      turnstileToken: this.turnstileToken,
+      honeypot: this.inputs.honeypot?.value || ''
+    };
+  }
+
+  setSubmittingState(state) {
+    if (!this.submitBtn) return;
+
+    if (state) {
+      this.submitBtn.classList.add('is-loading');
+      this.submitBtn.disabled = true;
+      if (this.submitLabel) this.submitLabel.textContent = 'Sending…';
+    } else {
+      this.submitBtn.classList.remove('is-loading');
+      if (this.submitLabel) this.submitLabel.textContent = 'Send Message';
+    }
+  }
+
+  showStatus(message, level = 'info') {
+    if (!this.statusEl) return;
+
+    this.statusEl.textContent = message || '';
+    this.statusEl.classList.remove('success', 'error');
+    if (level === 'success') {
+      this.statusEl.classList.add('success');
+    } else if (level === 'error') {
+      this.statusEl.classList.add('error');
+    }
+  }
+
+  updateSubmitState() {
+    if (!this.submitBtn) return;
+    const disabled = this.isSubmitting || (this.turnstileRequired && (!this.turnstileToken || !this.turnstileAvailable));
+    this.submitBtn.disabled = disabled;
+  }
+
+  async parseJson(response) {
+    try {
+      return await response.json();
+    } catch (error) {
+      return null;
+    }
+  }
+
+  async waitForTurnstile() {
+    if (window.turnstile && typeof window.turnstile.render === 'function') {
+      return Promise.resolve();
+    }
+
+    return new Promise((resolve, reject) => {
+      const timeout = window.setTimeout(() => {
+        document.removeEventListener('turnstile-loaded', onLoad);
+        reject(new Error('Turnstile timed out'));
+      }, 8000);
+
+      const onLoad = () => {
+        window.clearTimeout(timeout);
+        if (window.turnstile && typeof window.turnstile.render === 'function') {
+          resolve();
+        } else {
+          reject(new Error('Turnstile unavailable'));
+        }
+      };
+
+      document.addEventListener('turnstile-loaded', onLoad, { once: true });
+    });
+  }
+
+  mountTurnstile() {
+    if (!this.turnstileContainer || !window.turnstile) return;
+
+    this.turnstileContainer.innerHTML = '';
+    this.turnstileAvailable = true;
+    this.updateSubmitState();
+
+    try {
+      this.turnstileWidgetId = window.turnstile.render(this.turnstileContainer, {
+        sitekey: this.turnstileContainer.dataset.sitekey || '',
+        action: 'contact_form',
+        theme: 'light',
+        appearance: 'execute',
+        callback: (token) => {
+          this.turnstileToken = token;
+          this.updateSubmitState();
+        },
+        'error-callback': () => {
+          this.turnstileToken = '';
+          this.updateSubmitState();
+          this.showStatus('Verification failed. Please retry the challenge.', 'error');
+        },
+        'expired-callback': () => {
+          this.turnstileToken = '';
+          this.updateSubmitState();
+          this.showStatus('Verification expired. Complete the challenge again.', 'error');
+        }
+      });
+    } catch (error) {
+      console.error('Turnstile render failed', error);
+      this.turnstileAvailable = false;
+      this.showStatus('Verification widget is unavailable. Contact form is disabled.', 'error');
+      this.updateSubmitState();
+    }
+  }
+
+  resetTurnstile() {
+    if (this.turnstileWidgetId && window.turnstile && typeof window.turnstile.reset === 'function') {
+      window.turnstile.reset(this.turnstileWidgetId);
+    }
+    this.turnstileToken = '';
+    this.updateSubmitState();
   }
 
   destroy() {
-    if (this.animationFrame) {
-      cancelAnimationFrame(this.animationFrame);
+    if (!this.form) return;
+    this.form.removeEventListener('submit', this.submitListener);
+    if (this.turnstileWidgetId && window.turnstile && typeof window.turnstile.remove === 'function') {
+      window.turnstile.remove(this.turnstileWidgetId);
     }
   }
 }
 
-// Export singleton instance
 export const notebookContact = new NotebookContact();

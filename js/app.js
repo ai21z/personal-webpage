@@ -1185,6 +1185,9 @@ window.addEventListener('DOMContentLoaded', async () => {
   // Initialize contact form
   notebookContact.init();
 
+  // Initialize social icons animation (vials)
+  socialIconsAnimation.init();
+
   // NOTE: Blog network now uses WebGL version loaded directly in HTML
   // blogNetwork.init();
 

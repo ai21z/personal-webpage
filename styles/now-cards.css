@@ -77,6 +77,28 @@
   position: relative;
 }
 
+/* Coming Soon placeholder */
+.now-coming-soon {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  opacity: 0.5;
+}
+
+.now-coming-soon[data-hidden="true"] {
+  display: none;
+}
+
+.now-coming-soon p {
+  font-size: 18px;
+  color: rgba(230, 227, 216, 0.6);
+  font-style: italic;
+  letter-spacing: 0.05em;
+  text-align: center;
+}
+
 @media (min-width: 769px) {
   .now-card-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -136,6 +158,11 @@
   padding: clamp(24px, 4vw, 56px);
   cursor: pointer;
   border: 2px solid rgba(25, 203, 179, 0.15);
+  box-shadow: 
+    var(--now-slab-shadow),
+    0 0 0 1px rgba(25, 203, 179, 0.2),
+    0 0 8px rgba(25, 203, 179, 0.3),
+    0 0 16px rgba(25, 203, 179, 0.15);
   transition: all 250ms ease;
 }
 
@@ -144,7 +171,10 @@
   border-color: rgba(25, 203, 179, 0.4);
   box-shadow: 
     var(--now-slab-shadow),
-    0 0 32px rgba(25, 203, 179, 0.15);
+    0 0 0 1px rgba(25, 203, 179, 0.3),
+    0 0 12px rgba(25, 203, 179, 0.4),
+    0 0 24px rgba(25, 203, 179, 0.2),
+    0 0 40px rgba(25, 203, 179, 0.1);
 }
 
 .now-card-front:focus-visible {
@@ -176,7 +206,7 @@
   margin: 0 auto;
 }
 
-/* TMT - Full bleed background (logo set via JS) */
+/* TMT - Full bleed background */
 .now-card[data-id="tmt"] .now-card-front {
   padding: clamp(24px, 5vw, 48px);
   background-size: 85%;
@@ -196,6 +226,8 @@
   letter-spacing: 0.03em;
   text-transform: uppercase;
   margin-bottom: 12px;
+  width: fit-content;
+  align-self: flex-start;
 }
 
 .now-card-status.high {
@@ -211,9 +243,9 @@
 }
 
 .now-card-status.growing {
-  background: rgba(74, 93, 74, 0.25);
-  color: #8FB88F;
-  border: 1px solid rgba(74, 93, 74, 0.5);
+  background: rgba(25, 203, 179, 0.15);
+  color: var(--status-brew);
+  border: 1px solid rgba(25, 203, 179, 0.3);
 }
 
 /* Tags */
@@ -221,8 +253,10 @@
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
+  align-items: center;
   gap: 6px;
-  margin-top: 8px;
+  margin-top: 16px;
+  margin-bottom: 16px;
 }
 
 .now-card-tag {
@@ -235,6 +269,11 @@
   letter-spacing: 0.02em;
 }
 
+/* Hide tags for ADP card */
+.now-card[data-id="adp"] .now-card-tags {
+  display: none;
+}
+
 /* ━━━ Back Face (dialog content) ━━━ */
 .now-card-back {
   transform: rotateY(180deg);
@@ -245,9 +284,9 @@
   overflow-y: auto;
   position: relative;
   box-shadow: 
-    var(--now-slab-shadow),
-    0 0 0 1px rgba(25, 203, 179, 0.15),
-    0 0 60px rgba(25, 203, 179, 0.2);
+    0 0 0 1px rgba(25, 203, 179, 0.3),
+    0 0 60px rgba(25, 203, 179, 0.3),
+    0 4px 16px rgba(0, 0, 0, 0.6);
 }
 
 /* Meta row (status + line) */
@@ -334,6 +373,29 @@
 .now-card-link:focus-visible {
   outline: 2px solid var(--now-slab-glow);
   outline-offset: 2px;
+}
+
+/* Seal (authenticity mark for personal projects) */
+.now-card-seal {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  width: 40px;
+  height: 40px;
+  opacity: 0.4;
+  transition: opacity 250ms ease;
+  pointer-events: none;
+}
+
+.now-card-back:hover .now-card-seal {
+  opacity: 0.7;
+}
+
+.now-card-seal-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.4));
 }
 
 /* ━━━ Active Card (centered & magnified) ━━━ */

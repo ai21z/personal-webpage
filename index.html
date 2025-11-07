@@ -373,14 +373,14 @@
     </div>
   </section>
 
-  <!-- SECTION: NOW — CULTIVATING -->
-  <section id="now" class="stage now-stage panel-screen" data-section="now" aria-label="Now — Cultivating" tabindex="-1">
+  <!-- SECTION: NOW -->
+  <section id="now" class="stage now-stage panel-screen" data-section="now" aria-label="Now" tabindex="-1">
     <button class="now-close" data-action="go-intro" aria-label="Close and return to intro">×</button>
     
     <!-- Hero Header -->
     <div class="now-header" aria-hidden="true">
-      <h2 class="now-title">I'm a Software Engineer.</h2>
-      <p class="now-subtitle">Here's what I'm cultivating right now.</p>
+      <h2 class="now-title">What I'm Working On</h2>
+      <p class="now-subtitle">Active work and creative outlets.</p>
     </div>
     
     <!-- Filter Chips -->
@@ -524,9 +524,27 @@
       <canvas id="notebook-mycelium" class="notebook-mycelium" aria-hidden="true"></canvas>
 
       <!-- Contact Form -->
-      <form id="contact-form" class="notebook-form">
+      <form id="contact-form" class="notebook-form" novalidate>
         <h2 class="notebook-header">Get in Touch</h2>
         <p class="notebook-subheader">Let's connect and build something together</p>
+
+        <div class="form-status" data-status aria-live="polite"></div>
+
+        <div class="notebook-field">
+          <label for="name" class="notebook-label">Your Name</label>
+          <input
+            type="text"
+            id="name"
+            name="name"
+            class="notebook-input"
+            required
+            placeholder="How should I address you?"
+            minlength="2"
+            maxlength="80"
+            autocomplete="name"
+          />
+          <div class="validation-msg"></div>
+        </div>
 
         <!-- Email Field -->
         <div class="notebook-field">
@@ -576,10 +594,22 @@
           <div class="validation-msg"></div>
         </div>
 
-        <!-- Submit Button -->
-        <button type="submit" class="notebook-submit">
-          <span>Send Message</span>
-        </button>
+        <!-- Honeypot (hidden spam trap) -->
+        <div class="honeypot-trap" aria-hidden="true">
+          <label for="nickname">Leave this empty</label>
+          <input type="text" id="nickname" name="nickname" tabindex="-1" autocomplete="off" />
+        </div>
+
+        <!-- Form Controls: Turnstile + Submit -->
+        <div class="form-controls">
+          <div class="turnstile-field" data-turnstile data-sitekey="1x00000000000000000000AA">
+            <div class="turnstile-placeholder" aria-hidden="true">Loading verification…</div>
+          </div>
+          <button type="submit" class="notebook-submit" data-submit>
+            <span class="submit-label" data-submit-label>Send Message</span>
+            <span class="notebook-spinner" data-spinner aria-hidden="true"></span>
+          </button>
+        </div>
       </form>
     </div>
   </section>
@@ -593,6 +623,12 @@
   <div id="cursor-ring" class="cursor-ring" aria-hidden="true"></div>
 
   <!-- Main JavaScript -->
+  <script>
+    window.__turnstileOnLoad = function () {
+      document.dispatchEvent(new CustomEvent('turnstile-loaded'));
+    };
+  </script>
+  <script defer src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&amp;onload=__turnstileOnLoad"></script>
   <script type="module" src="./js/app.js"></script>
 </body>
 </html>

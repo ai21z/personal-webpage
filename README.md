@@ -232,6 +232,37 @@ Then visit `http://localhost:8000`
 
 ---
 
+## ✉️ Secure Contact Workflow
+
+The contact notebook now posts to a Vercel-friendly serverless function with rate limiting, Turnstile verification, and Resend email delivery.
+
+**Environment configuration**
+- `TURNSTILE_SECRET_KEY` — Cloudflare Turnstile secret for backend verification.
+- `UPSTASH_REDIS_REST_URL` & `UPSTASH_REDIS_REST_TOKEN` — required for Upstash sliding-window rate limiting (5 messages / 10 minutes per identity).
+- `RESEND_API_KEY` — Resend API token.
+- `CONTACT_FROM_EMAIL` — Resend-verified sender (e.g. `portfolio@your-domain.com`).
+- `CONTACT_TARGET_EMAIL` — comma-separated list of inboxes that should receive messages.
+
+The frontend widget ships with Cloudflare's public test site key (`1x000…AA`) so local development works out of the box. Replace the value of `data-sitekey` in `index.html` with your production key before deploying.
+
+**Security controls**
+- Cloudflare Turnstile challenge is required before the submit button activates.
+- Hidden honeypot traps naive bots while still returning a 200 response to avoid detection.
+- Upstash rate limiting protects against bursts by email and IP.
+- Inputs are validated and sanitized server-side via Zod + `validator` before Resend receives them.
+
+**Local testing**
+```bash
+npm install
+npx playwright install   # once per machine to download browsers
+npm run preview          # serves the static site on http://127.0.0.1:4173
+npm run test:e2e         # executes Playwright smoke tests with stubbed backend
+```
+
+Deploying on Vercel requires adding the above secrets in the project settings. The API route lives at `/api/contact` and returns JSON responses (`{ success: true }` on success).
+
+---
+
 ## 🔧 Regenerating Assets
 
 If you modify the source sigil (`artifacts/sigil/AZ-VZ-01.png`):

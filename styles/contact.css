@@ -22,6 +22,19 @@ body:has(#contact.stage.active-section) .network-node-label {
   transition: opacity 400ms ease;
 }
 
+/* Hide debug HUD overlay when contact is active */
+body:has(#contact.stage.active-section) #hud-canvas {
+  display: none;
+}
+
+/* Hide blog network UI elements when contact is active */
+body:has(#contact.stage.active-section) .dish-labels,
+body:has(#contact.stage.active-section) .blog-hud-cluster {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 400ms ease;
+}
+
 /* ━━━ Close Button (matching altar pages) ━━━ */
 .contact-close {
   position: fixed;
@@ -258,6 +271,51 @@ body:has(#contact.stage.active-section) .network-node-label {
   z-index: 2;
 }
 
+.form-status {
+  font-family: 'Special Elite', monospace;
+  font-size: 0.85rem;
+  color: #5A5040;
+  min-height: 1.2rem;
+  margin-bottom: 1.1rem;
+  letter-spacing: 0.3px;
+  transition: color 0.3s ease;
+}
+
+.form-status.success {
+  color: #14532d;
+}
+
+.form-status.error {
+  color: #8B0000;
+}
+
+.form-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.turnstile-field {
+  display: none;
+}
+
+.turnstile-placeholder {
+  font-family: 'Special Elite', monospace;
+  font-size: 0.8rem;
+  color: rgba(58, 53, 48, 0.7);
+}
+
+.honeypot-trap {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
 /* ━━━ Header ━━━ */
 .notebook-header {
   font-family: 'Special Elite', monospace;
@@ -386,11 +444,10 @@ body:has(#contact.stage.active-section) .network-node-label {
   letter-spacing: 1.5px;
   position: relative;
   overflow: visible;
-  margin-top: 0.75rem;
   width: auto;
-  display: block;
-  margin-left: auto;
-  margin-right: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* Rough rectangle border - like the wrinkled paper edges */
@@ -497,6 +554,25 @@ body:has(#contact.stage.active-section) .network-node-label {
   z-index: 1;
 }
 
+.notebook-spinner {
+  display: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid rgba(58, 53, 48, 0.35);
+  border-top-color: rgba(58, 53, 48, 0.85);
+  margin-left: 0.75rem;
+  animation: notebookSpin 0.8s linear infinite;
+}
+
+.notebook-submit.is-loading .notebook-spinner {
+  display: inline-block;
+}
+
+.notebook-submit.is-loading .submit-label {
+  opacity: 0.6;
+}
+
 /* ━━━ Success Message ━━━ */
 .notebook-success {
   text-align: center;
@@ -538,6 +614,15 @@ body:has(#contact.stage.active-section) .network-node-label {
   100% {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes notebookSpin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
   }
 }
 
@@ -591,5 +676,14 @@ body:has(#contact.stage.active-section) .network-node-label {
     padding: 0.55rem 1.5rem;
     font-size: 0.8rem;
     letter-spacing: 1.2px;
+  }
+
+  .form-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .turnstile-field {
+    width: 100%;
   }
 }

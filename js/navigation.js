@@ -141,12 +141,11 @@ export function createNavLabel(id) {
   
   // Display name mapping
   const displayNames = {
-    'now': 'Cultivating',
+    'now': 'now',
     'about': 'about',
     'work': 'work',
-    'contact': 'contact',
     'blog': 'blog',
-    'resume': 'resume',
+    'contact': 'contact',
     'skills': 'skills'
   };
   const displayText = displayNames[id] || id;
@@ -180,7 +179,10 @@ export function createSigilNode() {
  */
 export function layoutNavNodes(wireSigilToggle, renderHUD, showSectionCallback) {
   const nav = document.getElementById('network-nav');
-  if (!nav) return;
+  if (!nav) {
+    console.error('❌ layoutNavNodes: #network-nav element not found!');
+    return;
+  }
   
   // Don't layout if cover isn't ready yet
   if (!COVER.ready) {
@@ -188,14 +190,19 @@ export function layoutNavNodes(wireSigilToggle, renderHUD, showSectionCallback) 
     return;
   }
 
+  console.log(`✅ layoutNavNodes: Starting layout, children=${nav.children.length}`);
+
   if (nav.children.length === 0) {
+    console.log(`📝 layoutNavNodes: Creating navigation elements...`);
     const frag = document.createDocumentFragment();
     for (const id of NAV_ORDER) {
       if (id === 'intro') {
         const sigil = createSigilNode();
+        console.log(`  ✓ Created sigil node for intro`);
         frag.appendChild(sigil);
       } else {
         const label = createNavLabel(id);
+        console.log(`  ✓ Created label for "${id}"`);
         label.addEventListener('click', (event) => {
           const targetStage = document.querySelector(`.stage[data-section="${id}"]`);
           if (targetStage) {
@@ -208,6 +215,7 @@ export function layoutNavNodes(wireSigilToggle, renderHUD, showSectionCallback) 
       }
     }
     nav.appendChild(frag);
+    console.log(`✅ layoutNavNodes: Appended ${frag.childNodes.length} elements to nav`);
     wireSigilToggle(); // Wire up the ritual toggle
   }
 
