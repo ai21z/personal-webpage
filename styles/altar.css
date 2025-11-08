@@ -689,34 +689,59 @@ button.ghost:hover {
 
 /* Removed slow entrance animations for instant display */
 
-/* Responsive scaling (altar scales down instead of reflowing) */
-@media (max-width: 1100px) {
+/* Tablet & below: flow layout (≤900px) */
+@media (max-width: 900px) {
+  .altar {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--gap);
+    padding: var(--gap);
+    align-content: start;
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  .core {
+    order: 0;
+    display: grid;
+    place-items: center;
+    margin-bottom: var(--gap);
+    position: static;
+    transform: none;
+  }
+  
+  .slab {
+    position: static;
+    width: 100%;
+    max-height: none;
+    transform: none !important;
+    --k: 0.9; /* scale inner ornaments slightly */
+  }
+  
+  .slab-systems,
+  .slab-interface,
+  .slab-scientific,
+  .slab-restoflife,
+  .slab-about,
+  .slab-expertise,
+  .slab-vitals,
+  .slab-paramour {
+    left: auto;
+    right: auto;
+    top: auto;
+    bottom: auto;
+  }
+}
+
+/* Responsive scaling (desktop only - above 900px uses flow layout) */
+@media (min-width: 901px) and (max-width: 1100px) {
   .altar {
     transform: scale(0.92);
     transform-origin: center;
   }
 }
 
-@media (max-width: 860px) {
-  .altar {
-    transform: scale(0.82);
-  }
-  .slab {
-    font-size: 12px;
-  }
-}
-
-@media (max-width: 680px) {
-  .altar {
-    transform: scale(0.74);
-  }
-}
-
-@media (max-width: 520px) {
-  .altar {
-    transform: scale(0.66);
-  }
-}
+/* Below 900px, the flow layout from above takes over - no scaling needed */
 
 /* Prefers reduced motion */
 @media (prefers-reduced-motion: reduce) {
