@@ -23,3 +23,7 @@ yarn-error.log*
 
 # Private documentation (contains sensitive setup info)
 docs/local/
+
+# Export scripts and generated packages (local use only)
+export-responsive-package.ps1
+responsive-refactor-package-*.zip
