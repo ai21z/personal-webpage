@@ -8,7 +8,7 @@
  */
 
 // ━━━ Module Imports ━━━
-import { sizeCanvas, cumulativeLengths, pointAt, approach } from './utils.js';
+import { sizeCanvas, cumulativeLengths, pointAt, approach, throttle } from './utils.js';
 import { buildGraphFromPaths, aStarPath } from './graph.js';
 import { initNow, destroyNow } from './now-cultivating.js';
 import { initWorkGlobe, cleanupWorkGlobe } from './work-globe-webgl.js';
@@ -338,12 +338,10 @@ if (bgImg) {
   console.error('❌ #bg-front-img element not found in DOM');
 }
 
-// Keep updated on resize
-let resizeTimer = 0;
-window.addEventListener('resize', () => {
-  clearTimeout(resizeTimer);
-  resizeTimer = window.setTimeout(resizeAll, 80);
-}, { passive: true });
+// Keep updated on resize - throttled for performance
+const resizeAllThrottled = throttle(resizeAll, 150);
+window.addEventListener('resize', resizeAllThrottled, { passive: true });
+window.addEventListener('orientationchange', resizeAllThrottled, { passive: true });
 
 /* ━━━ Ritual Toggle (Sigil) — P0 FIX #3, #4 ━━━ */
 function toggleRitualFromSigil(el){

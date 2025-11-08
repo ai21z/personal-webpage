@@ -1,6 +1,8 @@
 // blog-sparks-overlay.js — 2D canvas overlay for pulses, spores, and bloom effects
 // Architecture: WebGL owns geometry, this owns FX via transparent canvas (pointer-events:none)
 
+import { viewportSize } from './utils.js';
+
 const DEBUG_OVERLAY = false; // Set true to see debug dots and logs
 console.log('[Blog Overlay] Module loaded');
 
@@ -28,8 +30,9 @@ class BlogSparksOverlay {
     this.lastIdlePulse = 0;
     
     // Caps
-    this.MAX_PULSES = window.innerWidth < 768 ? 3 : 6;
-    this.MAX_SPORES = window.innerWidth < 768 ? 8 : 15;
+    const { w } = viewportSize();
+    this.MAX_PULSES = w < 768 ? 3 : 6;
+    this.MAX_SPORES = w < 768 ? 8 : 15;
     
     // Throttle hover fans
     this.lastFanTime = 0;

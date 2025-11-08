@@ -70,3 +70,39 @@ export function approach(current, target, ratePerSec, dt){
   const step = Math.sign(d) * Math.min(Math.abs(d), ratePerSec * dt);
   return current + step;
 }
+
+/**
+ * Throttle function with requestAnimationFrame fallback
+ * @param {Function} fn - Function to throttle
+ * @param {number} ms - Minimum time between calls in milliseconds (default: 125)
+ * @returns {Function} Throttled function
+ */
+export const throttle = (fn, ms = 125) => {
+  let t = 0, raf = 0;
+  return (...args) => {
+    const now = performance.now();
+    if (now - t > ms) {
+      t = now;
+      fn(...args);
+    } else {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        t = performance.now();
+        fn(...args);
+      });
+    }
+  };
+};
+
+/**
+ * Get viewport size using visualViewport API when available
+ * Provides more accurate viewport dimensions on mobile devices
+ * @returns {{w: number, h: number}} Viewport width and height
+ */
+export const viewportSize = () => {
+  const vv = window.visualViewport;
+  return {
+    w: window.innerWidth,
+    h: vv ? Math.round(vv.height) : window.innerHeight
+  };
+};
