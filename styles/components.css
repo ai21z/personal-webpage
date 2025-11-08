@@ -588,9 +588,19 @@
   }
 }
 
-/* Responsive: Hide on smaller screens */
+/* Responsive: Horizontal row on smaller screens */
 @media (max-width: 900px) {
   .living-sigils {
-    display: none;
+    position: static;
+    left: auto;
+    top: auto;
+    flex-direction: row;
+    justify-content: center;
+    gap: clamp(12px, 3vw, 20px);
+    margin-bottom: var(--gap);
+  }
+  
+  .sigil-vine {
+    display: none; /* Hide vertical vine in horizontal layout */
   }
 }

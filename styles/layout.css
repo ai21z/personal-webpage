@@ -9,7 +9,7 @@
 /* ━━━ Stage Container (Section pages) ━━━ */
 .stage{
   position:fixed;
-  top:0; left:0;
+  inset:0;
   width:100%; 
   min-height:100dvh; 
   overflow-y:auto;
