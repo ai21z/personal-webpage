@@ -28,7 +28,7 @@
 .work-globe-container {
   position: relative;
   width: 100vw;   /* Full viewport width */
-  height: 100vh;  /* Full viewport height */
+  min-height: 100dvh;  /* Full viewport height */
   aspect-ratio: auto; /* Let it use full screen, don't force square */
 }
 

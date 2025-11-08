@@ -65,7 +65,7 @@
 
 .rw-wheel-chamber {
   position: relative;
-  width: min(90vw, 90vh, 700px);
+  width: min(90vw, 90dvh, 700px);
   aspect-ratio: 1;
   display: grid;
   place-items: center;
@@ -496,7 +496,7 @@
 
 @media (max-width: 768px) {
   .rw-wheel-chamber {
-    width: min(85vw, 85vh, 500px);
+    width: min(85vw, 85dvh, 500px);
   }
   
   .rw-card {
