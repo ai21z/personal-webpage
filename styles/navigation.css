@@ -136,9 +136,19 @@ body.has-paper-open-global #network-nav {
 @media (max-width: 900px){
   .network-node-label{
     font-size: 11px;
-    opacity:.22;
+    opacity: 0.65; /* More visible on mobile */
+    background: rgba(11, 11, 12, 0.7); /* Add backdrop for readability */
+    border-radius: 6px;
+    padding: 8px 10px;
+    backdrop-filter: blur(4px);
   }
   .network-node-label .node-label{ top: -22px; }
+  
+  /* Larger tap targets for mobile */
+  .network-node-label::before{
+    width: 72px;
+    height: 48px;
+  }
   
   .network-sigil-node img {
     width: 48px;
