@@ -42,7 +42,7 @@
 /* Spiral field - contains all 4 career spirals */
 .resume-spiral-field {
   position: relative;
-  width: min(95vw, 95vh);
+  width: min(95vw, 95dvh);
   aspect-ratio: 1;
   max-width: 1400px;
   max-height: 1400px;

@@ -476,7 +476,7 @@
   
   /* Ensure dialog fits on small screens */
   .now-card.active {
-    max-height: 90vh !important;
+    max-height: 90dvh !important;
   }
 }
 

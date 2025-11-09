@@ -120,9 +120,9 @@ body.has-paper-open-global .signals-canvas {
 .fungi-ambient{
   position:absolute; inset:0;
   background:
-    radial-gradient(ellipse 100vw 100vh at 75% 25%, rgba(63,255,159,.025), transparent 55%),
-    radial-gradient(ellipse 120vw 100vh at 25% 75%, rgba(122,174,138,.02), transparent 60%),
-    radial-gradient(ellipse 80vw 80vh at 50% 50%, rgba(74, 92, 82,.015), transparent 65%);
+    radial-gradient(ellipse 100vw 100dvh at 75% 25%, rgba(63,255,159,.025), transparent 55%),
+    radial-gradient(ellipse 120vw 100dvh at 25% 75%, rgba(122,174,138,.02), transparent 60%),
+    radial-gradient(ellipse 80vw 80dvh at 50% 50%, rgba(74, 92, 82,.015), transparent 65%);
   opacity:.95;
   pointer-events:none;
   z-index:0;

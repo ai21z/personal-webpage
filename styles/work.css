@@ -28,7 +28,7 @@
 .work-globe-container {
   position: relative;
   width: 100vw;   /* Full viewport width */
-  height: 100vh;  /* Full viewport height */
+  min-height: 100dvh;  /* Full viewport height */
   aspect-ratio: auto; /* Let it use full screen, don't force square */
 }
 
@@ -442,6 +442,24 @@
   .work-helper-text {
     font-size: 10px;
     bottom: 1rem;
+  }
+}
+
+/* Mobile escape hatch for phones ≤640px */
+@media (max-width: 640px) {
+  .work-globe-screen {
+    overflow: auto; /* Allow scrolling if content exceeds viewport */
+  }
+  
+  .work-globe-container {
+    min-height: 100dvh;
+    padding-bottom: 80px;
+  }
+  
+  .work-helper-text {
+    position: static;
+    margin-top: 12px;
+    text-align: center;
   }
 }
 

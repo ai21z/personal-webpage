@@ -17,8 +17,9 @@
   padding-bottom: 0;
   text-align: left;
   line-height: var(--leading-tight);
-  white-space: nowrap;
-  overflow: visible;
+  white-space: nowrap; /* Desktop: single line */
+  overflow: hidden;
+  text-overflow: ellipsis; /* Fallback if override fails */
   /* Character: Subtle gradient for depth */
   background: linear-gradient(115deg, 
     var(--bone) 0%, 
@@ -254,12 +255,18 @@
   filter: brightness(1.1);
 }
 
+.foot a {
+  display: inline; /* Ensure link stays inline */
+  text-decoration: none;
+}
+
 .foot-coords {
   opacity: 0.75;
   font-feature-settings: 'tnum' 1;
   font-size: 13px;
   letter-spacing: 0.03em;
   color: rgba(230, 227, 216, 0.5);
+  display: block; /* Make it block level for easier centering */
 }
 
 /* ━━━ Prefers Reduced Motion (PRM) ━━━ */
@@ -275,6 +282,36 @@
   }
   .sigil-wrap:hover, .sigil-wrap:hover img, .ico:hover{
     transform: none;
+  }
+}
+
+/* ━━━ Tablet Refinements (between desktop + mobile) ━━━ */
+@media (max-width: 1200px) {
+  .portrait {
+    width: clamp(320px, 30vw, 360px);
+  }
+
+  .living-sigils {
+    left: -72px;
+    gap: clamp(18px, 2vw, 24px);
+  }
+}
+
+@media (min-width: 901px) and (max-width: 1024px) {
+  .portrait {
+    width: clamp(300px, 34vw, 340px);
+  }
+
+  /* Hide living sigils on narrow desktops where they'd be off-screen */
+  .living-sigils {
+    display: none;
+  }
+}
+
+@media (min-width: 1025px) and (max-width: 1200px) {
+  .living-sigils {
+    left: -48px;
+    top: 18%;
   }
 }
 
@@ -588,9 +625,55 @@
   }
 }
 
-/* Responsive: Hide on smaller screens */
+/* Responsive: centered grid of bubbles on smaller screens (3 on top, 2 below) */
 @media (max-width: 900px) {
   .living-sigils {
-    display: none;
+    position: relative; /* Changed from static to relative for proper grid item behavior */
+    left: 0;
+    top: 0;
+    transform: none;
+    display: grid;
+    grid-template-columns: repeat(3, max-content);
+    justify-content: center; /* center the whole grid */
+    justify-items: center; /* center each cell */
+    gap: clamp(12px, 3vw, 20px);
+    width: 100%; /* Ensure full width for centering */
+    padding: calc(var(--gap-small) * 0.5) var(--gap-small) calc(var(--gap) * 0.6);
+    align-content: center;
+    z-index: 5;
+  }
+
+  .sigil-vine {
+    display: none; /* Hide vertical vine in horizontal layout */
+  }
+
+  /* Ensure vials scale appropriately on very small screens */
+  .sigil-vial,
+  .sigil-vial-split {
+    width: clamp(40px, 11vw, 52px);
+    height: clamp(40px, 11vw, 52px);
+  }
+
+  .vial-glass {
+    width: clamp(36px, 10vw, 48px);
+    height: clamp(36px, 10vw, 48px);
+  }
+
+  /* add breathing room between bubbles and the name */
+  .name { margin-top: calc(var(--gap) * 0.6); }
+}
+
+/* Very small phones - additional constraints */
+@media (max-width: 480px) {
+  .living-sigils {
+    gap: clamp(8px, 2.5vw, 12px);
+    grid-template-columns: repeat(3, max-content);
+    padding: calc(var(--gap-small) * 0.25) var(--gap-small) calc(var(--gap) * 0.4);
+  }
+
+  .sigil-vial,
+  .sigil-vial-split {
+    width: clamp(36px, 10vw, 44px);
+    height: clamp(36px, 10vw, 44px);
   }
 }

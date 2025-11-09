@@ -9,7 +9,9 @@ import { COVER, bgImg } from './state.js';
  * @returns {boolean} - true if successful, false if image not ready
  */
 export function computeCoverFromImage() {
-  const vw = window.innerWidth, vh = window.innerHeight;
+  const vv = window.visualViewport;
+  const vw = window.innerWidth;
+  const vh = vv ? Math.round(vv.height) : window.innerHeight;
   // MUST use naturalWidth/naturalHeight from loaded image
   const W = bgImg ? bgImg.naturalWidth : 0;
   const H = bgImg ? bgImg.naturalHeight : 0;

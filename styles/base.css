@@ -93,3 +93,57 @@ a, button, .sigil-wrap, .ico {
  * 10: #network-nav (navigation node labels)
  * 9999: skip link focus
  */
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   RESPONSIVE BREAKPOINTS & TOUCH ERGONOMICS
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+/* Consolidated breakpoints */
+@media (max-width: 1280px) {
+  :root {
+    /* Laptops - fine-tune if needed */
+    --breakpoint: 1280px;
+  }
+}
+
+@media (max-width: 900px) {
+  :root {
+    /* Tablets - fine-tune if needed */
+    --breakpoint: 900px;
+  }
+}
+
+@media (max-width: 640px) {
+  :root {
+    /* Phablets - fine-tune if needed */
+    --breakpoint: 640px;
+  }
+}
+
+@media (max-width: 480px) {
+  :root {
+    /* Small phones - fine-tune if needed */
+    --breakpoint: 480px;
+  }
+}
+
+/* Touch targets - ensure minimum 44px tap area on touch devices */
+@media (hover: none) {
+  .btn,
+  .sigil-wrap a,
+  .sigil-vial,
+  .nav a,
+  .network-node-label,
+  button,
+  input[type="submit"],
+  .contact-close,
+  .work-close {
+    min-height: 44px;
+    padding-block: 10px;
+  }
+  
+  /* Ensure interactive elements have adequate spacing */
+  .living-sigils {
+    gap: 16px;
+  }
+}

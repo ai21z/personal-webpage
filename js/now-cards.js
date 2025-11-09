@@ -34,6 +34,9 @@
    
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
+// ━━━ Imports ━━━
+import { viewportSize } from './utils.js';
+
 // ━━━ Logo Path Helper ━━━
 const LOGO = (name) => `/artifacts/projects/logos/${name}`;
 
@@ -396,9 +399,10 @@ function openCard(card, stream) {
   const first = card.getBoundingClientRect();
   
   // Calculate target dimensions (proper dialog size, not scaled)
-  const isMobile = window.innerWidth <= 768;
-  const maxWidth = isMobile ? window.innerWidth * 0.95 : Math.min(600, window.innerWidth * 0.9);
-  const maxHeight = isMobile ? window.innerHeight * 0.8 : Math.min(700, window.innerHeight * 0.85);
+  const { w: viewportWidth, h: viewportHeight } = viewportSize();
+  const isMobile = viewportWidth <= 768;
+  const maxWidth = isMobile ? viewportWidth * 0.95 : Math.min(600, viewportWidth * 0.9);
+  const maxHeight = isMobile ? viewportHeight * 0.8 : Math.min(700, viewportHeight * 0.85);
   
   // Calculate actual position of filters (they're in document flow now)
   const navFilters = document.querySelector('.now-filters');
@@ -407,8 +411,6 @@ function openCard(card, stream) {
   const navBottom = navRect ? navRect.bottom + navMargin : 150; // Fallback if not found
   
   // Center position horizontally, but ensure top is below nav
-  const viewportWidth = window.innerWidth;
-  const viewportHeight = window.innerHeight;
   const targetLeft = (viewportWidth - maxWidth) / 2;
   const centeredTop = (viewportHeight - maxHeight) / 2;
   
@@ -516,7 +518,8 @@ function closeCard(card, restoreFocus = true) {
   
   // Calculate original position (approximate)
   // Note: This is a simplified calculation; actual position depends on grid layout
-  const cardsPerRow = window.innerWidth > 768 ? 2 : 1;
+  const { w } = viewportSize();
+  const cardsPerRow = w > 768 ? 2 : 1;
   const row = Math.floor(index / cardsPerRow);
   const col = index % cardsPerRow;
   
